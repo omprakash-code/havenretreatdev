@@ -348,7 +348,7 @@ export async function lockBookingService({
     } else {
       booking = await tx.booking.create({
         data: {
-          bookingRef: "TEMP",
+          bookingRef: `TEMP-${crypto.randomUUID()}`,
           bookingStatus: "INCOMPLETE",
           paymentStatus: null,
 

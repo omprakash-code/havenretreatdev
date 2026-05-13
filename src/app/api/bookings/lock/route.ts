@@ -122,6 +122,7 @@ export async function POST(req: Request) {
         );
 
       default:
+        console.error("BOOKING_LOCK_FAILED", error);
         return errorResponse(
           500,
           "LOCK_FAILED",
