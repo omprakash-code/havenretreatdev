@@ -1,0 +1,848 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// =======================================================
+// GENERATOR & DATASOURCE
+// =======================================================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =======================================================
+// CORE MASTER ENTITIES
+// =======================================================
+
+// Location remains part of the reusable core and is still used by the legacy
+// theatre module, coupons, and other existing systems. For Haven Retreat phase 1,
+// Venue is introduced alongside Location instead of replacing it destructively.
+model Location {
+  id        String  @id @default(cuid())
+  name      String  @unique // Miami, Florida
+  city      String
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  // Relations
+  theatres Theatre[]
+  coupons  Coupon[]
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =======================================================
+// VENUE EVENT MODULE (PHASE 1 ADDITIVE)
+// =======================================================
+
+enum VenueBusinessType {
+  PRIVATE_THEATRE
+  EVENT_VENUE
+  OTHER
+}
+
+model Venue {
+  id                 String            @id @default(cuid())
+  name               String
+  slug               String            @unique
+  businessType       VenueBusinessType @default(EVENT_VENUE)
+  description        String?
+  address            String?
+  city               String?
+  state              String?
+  zipCode            String?
+  country            String?
+  phone              String?
+  email              String?
+  images             String[]
+  maxGuests          Int?
+  cleaningFee        Int?
+  setupBufferMinutes Int               @default(0)
+  isActive           Boolean           @default(true)
+
+  // Relations
+  packages EventPackage[]
+  addons   EventAddon[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessType, isActive])
+  @@index([city, state, country])
+}
+
+model EventPackage {
+  id                      String @id @default(cuid())
+  venueId                 String
+  name                    String
+  slug                    String @unique
+  shortDescription        String?
+  guestLimit              Int
+  eventDurationHours      Int
+  complimentarySetupHours Int    @default(0)
+  rentalAmount            Int
+  decorationAmount        Int    @default(0)
+  cleaningAmount          Int    @default(0)
+  subtotalAmount          Int
+  savingsAmount           Int    @default(0)
+  finalAmount             Int
+  isPopular               Boolean @default(false)
+  sortOrder               Int     @default(0)
+  isActive                Boolean @default(true)
+
+  // Relations
+  venue         Venue            @relation(fields: [venueId], references: [id])
+  features      PackageFeature[]
+  bookings      Booking[]
+  addons        EventAddon[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([venueId, name])
+  @@index([venueId, isActive, sortOrder])
+}
+
+enum PackageFeatureGroup {
+  INCLUDED
+  DECORATION
+  CLEANING
+  PRICE_BREAKDOWN
+}
+
+model PackageFeature {
+  id        String              @id @default(cuid())
+  packageId String
+  group     PackageFeatureGroup
+  label     String
+  value     String?
+  icon      String?
+  sortOrder Int                 @default(0)
+
+  // Relations
+  eventPackage EventPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([packageId, group, sortOrder])
+}
+
+enum EventAddonCategory {
+  DECORATION
+  FURNITURE
+  FOOD_BEVERAGE
+  ENTERTAINMENT
+  SERVICE
+  OTHER
+}
+
+model EventAddon {
+  id          String             @id @default(cuid())
+  venueId     String?
+  packageId   String?
+  name        String
+  slug        String             @unique
+  description String?
+  price       Int
+  category    EventAddonCategory @default(OTHER)
+  image       String?
+  isActive    Boolean            @default(true)
+  sortOrder   Int                @default(0)
+
+  // Relations
+  venue          Venue?          @relation(fields: [venueId], references: [id])
+  eventPackage   EventPackage?   @relation(fields: [packageId], references: [id])
+  bookingAddons  BookingAddon[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([venueId, isActive, sortOrder])
+  @@index([packageId, isActive, sortOrder])
+}
+
+model AgreementTemplate {
+  id        String  @id @default(cuid())
+  title     String
+  content   String
+  version   String
+  isActive  Boolean @default(true)
+
+  signedAgreements SignedAgreement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([title, version])
+  @@index([isActive, createdAt])
+}
+
+// =======================================================
+// LEGACY THEATRE MODULE (KEEP DURING MIGRATION)
+// TODO(Haven Phase 2): Gradually replace these with Venue/EventPackage/EventBooking
+// equivalents once business logic and UI have been migrated safely.
+// =======================================================
+
+// Model: Theatre
+// Represents a screen / private room (not the building)
+model Theatre {
+  id         String   @id @default(cuid())
+  name       String // Theatre 1, Theatre 2
+  images     String[]
+  locationId String
+
+  hasFood Boolean @default(false)
+
+  capacity         Int // Max people allowed
+  baseGuests       Int @default(2) // Default included people
+  extraPersonPrice Int @default(300) // Default extra price
+
+  decorationPrice Int @default(750)
+
+  footerMessage String? // card helper text
+  mapUrl        String? // google maps link
+  menuFile      String? // pdf/image url
+  cardContent   Json? // dynamic theatre card labels/toggles
+
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  location      Location       @relation(fields: [locationId], references: [id])
+  slotTemplates SlotTemplate[]
+  slots         Slot[]
+  bookings      Booking[]
+
+  //Prevent duplicate theatre names per location
+  @@unique([name, locationId])
+}
+
+// =======================================================
+// LEGACY THEATRE SLOT SYSTEM (REUSABLE BOOKING ENGINE CORE)
+// =======================================================
+
+// Slot Template (Reusable Daily Pattern)
+// Admin defines once, slots auto-generate from this
+model SlotTemplate {
+  id        String @id @default(cuid())
+  theatreId String
+
+  startTime   String // "09:00"
+  endTime     String // "12:00"
+  durationMin Int // 180
+  bufferMin   Int // 30 minutes gap
+
+  regularPrice        Int // default crossed price
+  salePrice           Int? // discount price (optional)
+  decorationMandatory Boolean @default(false)
+  isCustomTemplate    Boolean @default(false)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  theatre Theatre @relation(fields: [theatreId], references: [id])
+  slots   Slot[]
+
+  //Prevent duplicate slot templates per theatre
+  @@unique([theatreId, startTime, endTime])
+}
+
+// Slot (Date-Specific Child)
+// This is what actually gets booked
+model Slot {
+  id             String @id @default(cuid())
+  theatreId      String
+  slotTemplateId String
+
+  date        DateTime @db.Timestamptz
+  startTime   String
+  endTime     String
+  durationMin Int
+
+  basePrice  Int
+  baseGuests Int
+
+  regularPrice Int
+  salePrice    Int? // Admin override
+  finalPrice   Int // Cached for performance
+
+  isSpecial           Boolean @default(false)
+  discountText        String? // e.g. "₹749 less"
+  decorationMandatory Boolean @default(false)
+
+  status SlotStatus @default(AVAILABLE)
+
+  // Locking fields
+  lockedAt      DateTime?
+  lockExpiresAt DateTime?
+  lockedBy      String? // sessionId or tempToken
+
+  isOverridden   Boolean @default(false)
+  overrideReason String?
+
+  slotModifiedAt DateTime?
+  slotModifiedBy String?
+
+  isTimingOverridden  Boolean @default(false)
+  isPricingOverridden Boolean @default(false)
+  isStatusOverridden  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  theatre  Theatre      @relation(fields: [theatreId], references: [id])
+  template SlotTemplate @relation(fields: [slotTemplateId], references: [id])
+  bookings Booking[]
+
+  @@unique([theatreId, date, startTime, endTime])
+  @@index([theatreId, date, status])
+  @@index([date, status, startTime])
+  @@index([status, lockExpiresAt])
+  @@index([slotTemplateId])
+}
+
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
+  LOCKED
+  DISABLED
+}
+
+// =======================================================
+// OCCASSIONS & INPUT FIELDS
+// =======================================================
+
+model Occasion {
+  id        String  @id @default(cuid())
+  key       String  @unique // BIRTHDAY, ANNIVERSARY, etc.
+  label     String // Birthday
+  icon      String // icon path or URL
+  subtext   String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  fields OccasionField[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OccasionField {
+  id         String @id @default(cuid())
+  occasionId String
+
+  fieldKey    String // name, partner1, partner2
+  label       String // Input label
+  placeholder String? //e.g. Arpan
+  isRequired  Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  occasion Occasion @relation(fields: [occasionId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =======================================================
+// USER & BOOKING
+// =======================================================
+
+// User (Customer)
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  phone        String   @unique
+  passwordHash String?
+  role         UserRole @default(CUSTOMER)
+  isActive     Boolean  @default(true)
+  isGuest      Boolean  @default(true)
+
+  failedLoginAttempts Int       @default(0)
+  lockUntil           DateTime?
+
+  bookings       Booking[]
+  sessionVersion Int       @default(1)
+
+  couponUsages CouponUsage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  MANAGER
+}
+
+// Booking
+// Core transaction entity.
+// Phase 1 note:
+// - venueId/packageId/eventDate/event time fields are additive for Haven Retreat
+// - theatreId/slotId are retained as LEGACY bridge fields for migration safety
+// - business logic migration is intentionally deferred to a later phase
+model Booking {
+  id         String @id @default(cuid())
+  bookingRef String @unique // DS191120250001 (display ID)
+
+  userId       String? // optional
+  contactName  String?
+  contactPhone String?
+  contactEmail String?
+
+  // LEGACY THEATRE BRIDGE FIELDS
+  // TODO(Haven Phase 2): Remove mandatory dependence on these once venue flow owns booking creation.
+  theatreId String?
+  slotId    String?
+
+  // VENUE EVENT MODULE BRIDGE FIELDS
+  venueId   String?
+  packageId String?
+
+  eventDate         DateTime? @db.Date
+  eventStartTime    String?
+  eventEndTime      String?
+  eventType         String?
+  specialInstructions String?
+
+  occasionKey        String? // BIRTHDAY
+  occasionLabel      String? // Birthday
+  occasionData       Json? //Nstores dynamic occasion form data
+  pricingSnapshot    Json?
+  guestCount         Int // shared across legacy theatre and venue event flows
+  decorationRequired Boolean @default(false)
+
+  baseAmount       Int
+  extrasAmount     Int
+  productsAmount   Int @default(0)
+  discountAmount   Int
+  totalAmount      Int
+  decorationAmount Int @default(0)
+
+  advancePaid      Int // ₹750
+  remainingPayable Int
+
+  paymentStatus PaymentStatus?
+  bookingStatus BookingStatus
+
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+
+  termsAcceptedAt DateTime?
+
+  cancelledAt     DateTime?
+  cancelledReason String?
+
+  confirmationEmailSent  Boolean @default(false)
+  abandonmentCustomerEmailSentAt DateTime?
+  abandonmentAdminEmailSentAt    DateTime?
+  recoveredFromBookingId String?
+  createdByRole          String?
+  createdByAdminId       String?
+
+  couponUsages CouponUsage[]
+  signedAgreements SignedAgreement[]
+  bookingAddons   BookingAddon[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user         User?         @relation(fields: [userId], references: [id])
+  theatre      Theatre?      @relation(fields: [theatreId], references: [id])
+  slot         Slot?         @relation(fields: [slotId], references: [id])
+  venue        Venue?        @relation(fields: [venueId], references: [id])
+  eventPackage EventPackage? @relation(fields: [packageId], references: [id])
+  items        BookingItem[]
+  payment      Payment[]
+
+  @@index([createdAt])
+  @@index([paymentStatus, createdAt])
+  @@index([bookingStatus, createdAt])
+  @@index([cancelledReason])
+  @@index([slotId])
+  @@index([theatreId])
+  @@index([venueId, packageId, eventDate])
+}
+
+enum BookingStatus {
+  INCOMPLETE
+  AWAITING_PAYMENT
+  PAYMENT_PROCESSING
+  CONFIRMED
+  CANCELLED
+  ABANDONED
+  PAID_EXPIRED
+}
+
+enum PaymentStatus {
+  INITIALIZED // Razorpay order created
+  AWAITING_PAYMENT // checkout opened / user redirected
+  PAID
+  FAILED
+  CANCELLED
+  EXPIRED // user abandoned after init
+  OFFLINE
+}
+
+// Booking Items (Extras Added)
+// Snapshot pricing — NEVER recalc from product later
+model BookingItem {
+  id        String @id @default(cuid())
+  bookingId String
+  variantId String
+  productId String
+
+  variantLabel String // snapshot
+  productName  String
+  category     ProductCategory
+  unitPrice    Int
+  quantity     Int
+  totalPrice   Int
+
+  createdAt DateTime @default(now())
+
+  booking Booking  @relation(fields: [bookingId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@unique([bookingId, variantId])
+  @@index([bookingId])
+  @@index([variantId])
+}
+
+model BookingAddon {
+  id            String @id @default(cuid())
+  bookingId     String
+  addonId       String
+  snapshotName  String
+  quantity      Int    @default(1)
+  snapshotPrice Int
+  totalPrice    Int
+
+  booking Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  addon   EventAddon @relation(fields: [addonId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([addonId])
+  @@unique([bookingId, addonId])
+}
+
+model SignedAgreement {
+  id                  String @id @default(cuid())
+  bookingId           String
+  agreementTemplateId String
+  signerName          String
+  signerEmail         String
+  signedAt            DateTime
+  signatureImage      String
+  ipAddress           String?
+
+  booking           Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  agreementTemplate AgreementTemplate @relation(fields: [agreementTemplateId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId, signedAt])
+  @@index([agreementTemplateId])
+}
+
+// =======================================================
+// LEGACY THEATRE PRODUCT / EXTRA MODULE
+// TODO(Haven Phase 2): Gradually flatten Product/ProductVariant into EventAddon where appropriate.
+// =======================================================
+
+// Products (Cakes, Decor, Gifts)
+// Unified product table (future filters by category & occasion)
+model Product {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  image       String
+  description String?
+  locationId  String?
+  category    ProductCategory
+  bookingCategorySlug        String?
+  bookingCategoryLabel       String?
+  bookingCategoryDescription String?
+  bookingCategorySortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  location     Location?        @relation(fields: [locationId], references: [id])
+  variants     ProductVariant[]
+  bookingItems BookingItem[]
+}
+
+enum ProductCategory {
+  CAKE
+  DECORATION
+  GIFT
+}
+
+model ProductVariant {
+  id        String @id @default(cuid())
+  productId String
+
+  label        String // "500g", "1kg", "Premium", "Gold"
+  regularPrice Int
+  salePrice    Int? // optional
+  stock        Int     @default(0)
+  isDefault    Boolean @default(false)
+  isActive     Boolean @default(true)
+  sortOrder    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, label])
+}
+
+// =======================================================
+// PAYMENTS
+// =======================================================
+
+// Payment
+// Razorpay + Offline support
+model Payment {
+  id        String @id @default(cuid())
+  bookingId String
+
+  provider          String // "MOCK" | "RAZORPAY"
+  transactionId     String?
+  method            String? // UPI, Card, Cash
+  recordedByAdminId String?
+
+  amount Int
+  status PaymentStatus
+
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId, createdAt])
+}
+
+// =======================================================
+// WAITLIST
+// =======================================================
+model WaitlistEntry {
+  id        String @id @default(cuid())
+  reference String @unique
+
+  name  String
+  phone String
+  email String?
+
+  city               String?
+  locationPreference String?
+  theatrePreference  String?
+
+  preferredDate DateTime? @db.Date
+  preferredTime String?
+  peopleCount   Int?
+
+  occasion String?
+  notes    String?
+
+  status WaitlistStatus @default(NEW)
+
+  contactedAt      DateTime?
+  closedAt         DateTime?
+  handledByAdminId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([phone])
+  @@index([locationPreference])
+  @@index([createdAt])
+}
+
+enum WaitlistStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+// =======================================================
+// CONTACT INQUIRIES
+// =======================================================
+model ContactInquiry {
+  id String @id @default(cuid())
+
+  name    String
+  mobile  String
+  message String
+
+  status      ContactInquiryStatus @default(NEW)
+  isRead      Boolean              @default(false)
+  respondedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([mobile])
+  @@index([createdAt])
+}
+
+enum ContactInquiryStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+// =======================================================
+// COUPONS
+// =======================================================
+model Coupon {
+  id   String @id @default(cuid())
+  code String @unique
+
+  discountType  CouponDiscountType
+  discountValue Int // flat amount OR percentage
+  maxDiscount   Int? // required when percentage
+
+  isStackable Boolean @default(false)
+  stackableCouponIds String[] @default([])
+
+  validFrom DateTime  // activation time (IST-safe)
+  validTill DateTime?
+
+  scope CouponScope @default(BOOKING_TOTAL)
+
+  usageLimit        Int? // null = unlimited
+  perUserUsageLimit Int?
+  minimumAmount     Int?
+
+  isActive  Boolean @default(true)
+  isDeleted Boolean @default(false)
+
+  locationId String?
+
+  createdBy  String
+  modifiedBy String?
+  modifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  location Location?     @relation(fields: [locationId], references: [id])
+  rules    CouponRule[]
+  usages   CouponUsage[]
+
+  @@index([code])
+  @@index([isActive, isDeleted])
+}
+
+enum CouponDiscountType {
+  FLAT
+  PERCENTAGE
+}
+
+enum CouponScope {
+  BOOKING_TOTAL
+  PRODUCTS_ONLY
+  EXTRAS_ONLY
+}
+
+model CouponRule {
+  id       String @id @default(cuid())
+  couponId String
+
+  type     CouponRuleType
+  operator RuleOperator
+  value    Json
+
+  createdAt DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id])
+
+  @@index([couponId, type])
+}
+
+enum CouponRuleType {
+  SLOT_DATE_RANGE // slot.date between X and Y
+  SLOT_TIME_RANGE // slot start/end time
+  SLOT_DURATION_MIN // slot duration in minutes
+  SLOT_ID // specific slots
+  THEATRE_ID
+  CATEGORY // booking items category
+  PRODUCT_ID
+  USER_ID
+  TARGET_CATEGORY // discount applies only to matching item categories
+  TARGET_PRODUCT_ID // discount applies only to matching products
+  DECORATION_REQUIRED // booking/contact step decoration preference
+}
+
+enum RuleOperator {
+  IN
+  NOT_IN
+  BETWEEN
+  EQUALS
+}
+
+model CouponUsage {
+  id        String  @id @default(cuid())
+  couponId  String
+  bookingId String?
+  userId    String?
+
+  status CouponUsageStatus
+
+  discountAmount Int?
+
+  reservedAt  DateTime  @default(now())
+  confirmedAt DateTime?
+  releasedAt  DateTime?
+
+  coupon  Coupon   @relation(fields: [couponId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@unique([couponId, bookingId])
+  @@index([couponId])
+  @@index([userId])
+  @@index([bookingId])
+  @@index([bookingId, status, reservedAt])
+  @@index([couponId, userId, status])
+}
+
+enum CouponUsageStatus {
+  RESERVED // booking in progress
+  CONFIRMED // payment success
+  RELEASED // abandoned / failed
+}
+
+// =======================================================
+// CONFIG: System Setting
+// =======================================================
+model AppSetting {
+  key   String @id
+  value String
+}

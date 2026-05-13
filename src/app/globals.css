@@ -1,0 +1,687 @@
+@import "tailwindcss";
+
+/* existing stuff stays as-is */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --color--primary-2: #ff4d00;
+  --color--primary-5: #ff6a00;
+  --color--secondary-5: #ff8f1f;
+  --color--secondary-4: #ffd08a;
+  --color--primary-4: #ff8a26;
+  --color--primary-3: #ff5b00;
+  --color--white: #ffffff;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), "Inter", Arial, Helvetica, sans-serif;
+}
+
+.font-cinzel {
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+}
+
+/* Admin dashboard should use system/admin typography, not Playfair headings */
+.admin-surface h1,
+.admin-surface h2,
+.admin-surface h3,
+.admin-surface h4,
+.admin-surface h5,
+.admin-surface h6,
+.admin-surface .font-cinzel {
+  font-family: var(--font-inter), "Inter", Arial, Helvetica, sans-serif;
+}
+
+.hero-big-title {
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+}
+
+/* =============================
+   KEYFRAMES (GLOBAL OK)
+============================= */
+
+@keyframes success-scale {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes success-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes success-glow {
+  0% {
+    box-shadow: 0 0 0 rgba(245, 200, 76, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 40px rgba(245, 200, 76, 0.35);
+  }
+}
+
+/* =============================
+   TAILWIND UTILITIES (REQUIRED)
+============================= */
+
+@layer utilities {
+  .animate-success-scale {
+    animation:
+      success-scale 0.6s cubic-bezier(0.2, 0.8, 0.2, 1),
+      success-glow 1.2s ease-out;
+  }
+
+  .animate-success-fade {
+    animation: success-fade 0.6s ease-out 0.15s both;
+  }
+
+  .animate-success-fade-delayed {
+    animation: success-fade 0.6s ease-out 0.35s both;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.35s ease-out;
+  }
+}
+
+/* keep fade-in keyframe */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.45s ease-out both;
+}
+
+.delay-100 { animation-delay: 0.1s }
+.delay-200 { animation-delay: 0.2s }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* =================================
+   Home Page: Google Review Carousel
+==================================== */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 12s linear infinite;
+}
+
+@keyframes heroBottomStripScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes topAnnouncementMarqueeScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-33.333%);
+  }
+}
+
+@keyframes heroBottomStarSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hero-bottom-strip {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(241, 230, 227, 0.95);
+  backdrop-filter: blur(2px);
+}
+
+.hero-bottom-strip__track {
+  display: flex;
+  width: max-content;
+  animation: heroBottomStripScroll 24s linear infinite;
+  will-change: transform;
+}
+
+.hero-bottom-strip__group {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2rem;
+  padding: 0.95rem 1.75rem;
+}
+
+.hero-bottom-strip__chunk {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.9rem;
+}
+
+.hero-bottom-strip__item {
+  white-space: nowrap;
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+  font-size: clamp(1.1rem, 1.55vw, 1.65rem);
+  font-weight: 600;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.hero-bottom-strip__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1rem, 1.35vw, 1.5rem);
+  line-height: 1;
+  color: #000000;
+  transform-origin: center;
+  animation: heroBottomStarSpin 2.2s linear infinite;
+}
+
+#top-announcement-marquee .top-announcement-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: topAnnouncementMarqueeScroll 28s linear infinite;
+  will-change: transform;
+}
+
+#top-announcement-marquee .top-announcement-marquee__group {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding-inline: 1.2rem;
+}
+
+#top-announcement-marquee .top-announcement-marquee__item {
+  white-space: nowrap;
+  color: #ffffff;
+  font-size: 0.54rem;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 768px) {
+  #top-announcement-marquee .top-announcement-marquee__item {
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-bottom-strip__group {
+    gap: 1.2rem;
+    padding: 0.8rem 1.05rem;
+  }
+
+  .hero-bottom-strip__chunk {
+    gap: 1.15rem;
+  }
+
+  .hero-bottom-strip__item {
+    font-size: clamp(0.95rem, 4.2vw, 1.2rem);
+  }
+
+  .hero-bottom-strip__dot {
+    font-size: clamp(0.82rem, 3.4vw, 1rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-bottom-strip__track {
+    animation: none;
+  }
+
+  #top-announcement-marquee .top-announcement-marquee__track {
+    animation: none;
+  }
+}
+
+
+/* ======================================
+   Home Page: Google Review Carousel CSS
+========================================= */
+/* ===============================
+   MAIN REVIEW CAROUSEL
+================================ */
+.review-main-carousel .splide__arrow {
+  background: white;
+  border: 1px solid #e5e7eb;
+  width: 42px;
+  height: 42px;
+  opacity: 1;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.review-main-carousel .splide__arrow--prev {
+  left: -56px;
+}
+
+.review-main-carousel .splide__arrow--next {
+  right: -56px;
+}
+
+/* Pagination (dots) */
+.review-main-carousel .splide__pagination {
+  bottom: -36px;
+}
+
+.review-main-carousel .splide__pagination__page {
+  background: #d1d5db;
+}
+
+.review-main-carousel .splide__pagination__page.is-active {
+  background: #FFD700;
+  transform: scale(1.2);
+}
+
+/* Mobile safe */
+@media (max-width: 768px) {
+  .review-main-carousel > .splide > .splide__arrows .splide__arrow {
+    display: none;
+  }
+
+  .review-main-carousel .review-inner-carousel .splide__arrow {
+    display: flex;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .review-main-carousel > .splide > .splide__arrows .splide__arrow {
+    display: none;
+  }
+}
+
+
+/* ===============================
+   INNER REVIEW MEDIA CAROUSEL
+================================ */
+.review-inner-carousel .splide,
+.booking-theatre-carousel .splide {
+  position: relative;
+  height: 100%;
+}
+
+.review-inner-carousel .splide__arrows,
+.booking-theatre-carousel .splide__arrows {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.review-inner-carousel .splide__arrow,
+.booking-theatre-carousel .splide__arrow {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid #e5e7eb;
+  width: 30px;
+  height: 30px;
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%) !important;
+  z-index: 4;
+  pointer-events: auto;
+}
+.review-inner-carousel .splide__arrow svg, .booking-theatre-carousel .splide__arrow svg{
+  fill: rgba(203, 203, 203, 0.9);
+}
+
+.review-inner-carousel .splide__arrow--prev {
+  left: 8px !important;
+  right: auto !important;
+}
+
+.review-inner-carousel .splide__arrow--next {
+  right: 8px !important;
+  left: auto !important;
+}
+
+/* No pagination inside */
+.review-inner-carousel .splide__pagination {
+  display: none;
+}
+
+.review-main-carousel .review-media-frame {
+  height: 450px;
+}
+
+@media (max-width: 768px) {
+  .review-main-carousel .review-media-frame {
+    height: 400px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .review-main-carousel .review-media-frame {
+    height: 350px;
+  }
+}
+
+.review-main-carousel .review-media-frame img,
+.review-main-carousel .review-media-frame video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Keep full-height behavior only where a fixed media wrapper exists */
+.review-inner-carousel .splide,
+.review-inner-carousel .splide__track,
+.review-inner-carousel .splide__list,
+.review-inner-carousel .splide__slide,
+.booking-theatre-carousel .splide,
+.booking-theatre-carousel .splide__track,
+.booking-theatre-carousel .splide__list,
+.booking-theatre-carousel .splide__slide {
+  height: 100% !important;
+}
+
+/* Reviews main carousel should size by content, not force full-height slides */
+.review-main-carousel > .splide,
+.review-main-carousel > .splide > .splide__track,
+.review-main-carousel > .splide > .splide__track > .splide__list,
+.review-main-carousel > .splide > .splide__track > .splide__list > .splide__slide {
+  height: auto;
+}
+
+
+
+/* Theare loading animation */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.4s infinite;
+}
+
+/* =================================
+   Home Celebration Carousel (ID-Scoped)
+==================================== */
+#home-celebration-carousel .splide {
+  position: relative;
+}
+
+#home-celebration-carousel .splide__track {
+  overflow: hidden;
+}
+
+#home-celebration-carousel .splide__slide {
+  height: auto;
+}
+
+#home-celebration-carousel .splide__arrow {
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid #e5e7eb;
+  width: 38px;
+  height: 38px;
+  opacity: 1;
+  z-index: 8;
+  backdrop-filter: blur(2px);
+}
+
+#home-celebration-carousel .splide__arrow svg {
+  fill: rgba(203, 203, 203, 0.9);
+}
+
+#home-celebration-carousel .splide__arrow--prev {
+  left: 12px;
+}
+
+#home-celebration-carousel .splide__arrow--next {
+  right: 12px;
+}
+
+#home-celebration-carousel .splide__pagination {
+  position: static;
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+#home-celebration-carousel .splide__pagination__page {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: 0;
+  background: rgba(17, 24, 39, 0.25);
+  opacity: 1;
+}
+
+#home-celebration-carousel .splide__pagination__page.is-active {
+  background: rgba(17, 24, 39, 0.75);
+  transform: scale(1.15);
+}
+
+#home-celebration-carousel .home-celebration-carousel__perforation {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 22px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+#home-celebration-carousel .home-celebration-carousel__perforation--left {
+  left: 0;
+  background-image: radial-gradient(circle at left center, #f8f5ef 0 11px, transparent 11.5px);
+  background-size: 22px 34px;
+  background-repeat: repeat-y;
+}
+
+#home-celebration-carousel .home-celebration-carousel__perforation--right {
+  right: 0;
+  background-image: radial-gradient(circle at right center, #f8f5ef 0 11px, transparent 11.5px);
+  background-size: 22px 34px;
+  background-repeat: repeat-y;
+}
+
+@media (max-width: 768px) {
+  #home-celebration-carousel .splide__arrow {
+    width: 30px;
+    height: 30px;
+  }
+
+  #home-celebration-carousel .splide__arrow--prev {
+    left: 8px;
+  }
+
+  #home-celebration-carousel .splide__arrow--next {
+    right: 8px;
+  }
+
+  #home-celebration-carousel .home-celebration-carousel__perforation {
+    width: 18px;
+  }
+
+  #home-celebration-carousel .home-celebration-carousel__perforation--left {
+    left: -2px;
+    background-size: 18px 30px;
+    background-image: radial-gradient(circle at left center, #f8f5ef 0 9px, transparent 9.5px);
+  }
+
+  #home-celebration-carousel .home-celebration-carousel__perforation--right {
+    right: -2px;
+    background-size: 18px 30px;
+    background-image: radial-gradient(circle at right center, #f8f5ef 0 9px, transparent 9.5px);
+  }
+}
+
+/* =================================
+   Home Shorts Carousel
+==================================== */
+.home-shorts-carousel > .splide {
+  position: relative;
+  padding-bottom: 1.75rem;
+  isolation: isolate;
+}
+
+.home-shorts-carousel .splide__arrows {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.home-shorts-carousel .splide__pagination {
+  display: flex !important;
+  gap: 0.45rem;
+  bottom: -1.1rem;
+}
+
+.home-shorts-carousel .splide__pagination__page {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: 0;
+  background: #cbd5e1;
+  opacity: 1;
+}
+
+.home-shorts-carousel .splide__pagination__page.is-active {
+  background: #111827;
+  transform: scale(1.15);
+}
+
+.home-shorts-carousel .splide__arrow {
+  z-index: 60 !important;
+  pointer-events: auto !important;
+}
+
+.home-shorts-carousel .splide__arrow--prev {
+  left: 20px;
+}
+
+.home-shorts-carousel .splide__arrow--next {
+  right: 20px;
+}
+
+.home-shorts-lite {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  background-color: #000;
+  background-position: center;
+  background-size: cover;
+  cursor: pointer;
+  contain: content;
+}
+
+.home-shorts-lite::before {
+  content: "";
+  display: block;
+  padding-bottom: 177.7778%;
+}
+
+.home-shorts-lite > iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.home-shorts-lite > .lty-playbtn {
+  width: 68px;
+  height: 48px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate3d(-50%, -50%, 0);
+  border: 0;
+  border-radius: 14%;
+  background: rgba(0, 0, 0, 0.78);
+  cursor: pointer;
+  overflow: hidden;
+  text-indent: -9999px;
+  white-space: nowrap;
+}
+
+.home-shorts-lite > .lty-playbtn::before {
+  content: "";
+  border-style: solid;
+  border-width: 11px 0 11px 19px;
+  border-color: transparent transparent transparent #fff;
+  position: absolute;
+  left: 26px;
+  top: 13px;
+}
+
+.home-shorts-lite:hover > .lty-playbtn {
+  background: #cc0000;
+}
+
+.home-shorts-lite .lyt-visually-hidden {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  white-space: nowrap;
+}
+
+.home-shorts-lite.lyt-activated {
+  cursor: unset;
+}
+
+.home-shorts-lite.lyt-activated::before,
+.home-shorts-lite.lyt-activated > .lty-playbtn {
+  opacity: 0;
+  pointer-events: none;
+}

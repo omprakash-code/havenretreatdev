@@ -1,0 +1,63 @@
+type CalculateBookingPricingInput = {
+  slotBasePrice: number;
+  slotFinalPrice?: number | null;
+  guestCount: number;
+  theatreBaseGuests: number;
+  theatreExtraPersonPrice: number;
+  theatreDecorationPrice: number;
+  slotDecorationMandatory: boolean;
+  decorationRequired: boolean;
+  productsAmount?: number;
+  discountAmount?: number;
+  advancePaid?: number;
+};
+
+export type BookingPricingBreakdown = {
+  baseAmount: number;
+  extrasAmount: number;
+  productsAmount: number;
+  decorationAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  advancePaid: number;
+  remainingPayable: number;
+};
+
+function toMoney(value: number | null | undefined) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.trunc(value as number));
+}
+
+export function calculateBookingPricing(
+  input: CalculateBookingPricingInput
+): BookingPricingBreakdown {
+  const baseAmount = toMoney(input.slotFinalPrice ?? input.slotBasePrice);
+  const guestCount = Math.max(0, Math.trunc(input.guestCount));
+  const baseGuests = Math.max(0, Math.trunc(input.theatreBaseGuests));
+  const extraGuestCount = Math.max(guestCount - baseGuests, 0);
+  const extrasAmount = extraGuestCount * toMoney(input.theatreExtraPersonPrice);
+
+  const decorationAmount =
+    input.decorationRequired || input.slotDecorationMandatory
+      ? toMoney(input.theatreDecorationPrice)
+      : 0;
+
+  const productsAmount = toMoney(input.productsAmount ?? 0);
+  const grossAmount =
+    baseAmount + extrasAmount + decorationAmount + productsAmount;
+  const discountAmount = Math.min(toMoney(input.discountAmount ?? 0), grossAmount);
+  const totalAmount = Math.max(grossAmount - discountAmount, 0);
+  const advancePaid = Math.min(toMoney(input.advancePaid ?? 0), totalAmount);
+  const remainingPayable = Math.max(totalAmount - advancePaid, 0);
+
+  return {
+    baseAmount,
+    extrasAmount,
+    productsAmount,
+    decorationAmount,
+    discountAmount,
+    totalAmount,
+    advancePaid,
+    remainingPayable,
+  };
+}

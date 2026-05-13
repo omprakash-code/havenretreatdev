@@ -1,0 +1,195 @@
+.button {
+  --radius: 9999px;
+  --transition: 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  --surface-bg: #2E7D7A;
+  --outer-bg: #fff;
+  --overlay-start: rgba(255, 255, 255, 0.2);
+  --overlay-end: rgba(255, 255, 255, 0.05);
+  --text: #fff;
+  --border: #fff;
+  --ring: #fff;
+  --disabled-surface: #d1d5db;
+  --disabled-text: #9ca3af;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: auto;
+  min-width: 140px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--outer-bg);
+  color: var(--text);
+  isolation: isolate;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 18px -12px rgba(17, 24, 39, 0.4),
+    0 4px 8px -8px rgba(17, 24, 39, 0.3);
+}
+
+.button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.button:focus-visible {
+  outline: 2px dashed var(--ring);
+  outline-offset: 4px;
+}
+
+.dotsBorder {
+  pointer-events: none;
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.dotsBorder::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180%;
+  height: 130%;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    rgba(2, 139, 50, 0.95) 16%,
+    transparent 36%
+  );
+  animation: rotateBorder 2.4s linear infinite;
+  animation-play-state: paused;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.button:not(:disabled):is(:hover, :focus-visible, :active) .dotsBorder::before {
+  animation-play-state: running;
+  opacity: 0.95;
+}
+
+.surface {
+  position: relative;
+  width: 100%;
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--surface-bg);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+
+.surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(rgb(255 255 255 / 80%) 20%, transparent 20%),
+    radial-gradient(rgb(255 255 255 / 100%) 20%, transparent 20%);
+  background-position: 0 0, 4px 4px;
+  background-size: 8px 8px;
+  mix-blend-mode: hard-light;
+  opacity: 0.5;
+  animation: dotsDrift 0.5s linear infinite;
+}
+
+.surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--overlay-start), var(--overlay-end));
+  pointer-events: none;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 -1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.arrow {
+  position: relative;
+  width: 0;
+  height: 0.12rem;
+  background: currentColor;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    width 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.arrow::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-top: 0.12rem solid currentColor;
+  border-right: 0.12rem solid currentColor;
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.button:not(:disabled):hover .arrow {
+  width: 1rem;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  border-color: #d1d5db;
+  background: #d1d5db;
+}
+
+.button:disabled .dotsBorder {
+  display: none;
+}
+
+.button:disabled .surface {
+  border-color: #d1d5db;
+  background: var(--disabled-surface);
+}
+
+.button:disabled .surface::before {
+  animation: none;
+  opacity: 0.18;
+}
+
+.button:disabled .content {
+  color: var(--disabled-text);
+  text-shadow: none;
+}
+
+@keyframes rotateBorder {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes dotsDrift {
+  0% {
+    background-position: 0 0, 4px 4px;
+  }
+  100% {
+    background-position: 8px 0, 12px 4px;
+  }
+}

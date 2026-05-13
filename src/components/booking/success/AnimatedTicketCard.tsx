@@ -1,0 +1,446 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import {
+  MapPin,
+  Calendar,
+  Clock,
+  Users,
+  User,
+  Ticket,
+  WhatsAppIcon,
+  Download,
+  Copy,
+} from "@/components/icons";
+import type { BookingSuccessData } from "@/components/booking/success/types";
+import { downloadBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
+
+type AnimatedTicketCardProps = {
+  data: BookingSuccessData;
+  embedded?: boolean;
+};
+
+const SHOW_DOWNLOAD_TICKET_ACTION = false;
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export default function AnimatedTicketCard({
+  data,
+  embedded = false,
+}: AnimatedTicketCardProps) {
+  const router = useRouter();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isBookingRefCopied, setIsBookingRefCopied] = useState(false);
+  const discountAmount = data.discountAmount ?? 0;
+  const subtotalBeforeDiscount = data.totalAmount + discountAmount;
+  const showDiscountBreakdown = discountAmount > 0;
+  const isFullPayment =
+    data.remainingPayable <= 0 || data.advancePaid >= data.totalAmount;
+  const isCustomerAdvanceFlow =
+    data.createdByRole !== "ADMIN" &&
+    data.paymentStatus === "PAID" &&
+    data.advancePaid > 0 &&
+    data.remainingPayable > 0;
+  const isAdminAdvanceFlow =
+    data.createdByRole === "ADMIN" &&
+    data.bookingStatus === "CONFIRMED" &&
+    data.advancePaid > 0 &&
+    data.remainingPayable > 0;
+  const showRemainingRow =
+    !isFullPayment && (isCustomerAdvanceFlow || isAdminAdvanceFlow);
+  const remainingLabel =
+    data.createdByRole === "ADMIN" && data.bookingStatus === "CONFIRMED"
+      ? "Remaining to Pay"
+      : data.paymentStatus === "PAID"
+        ? "Pay at Venue"
+        : "Remaining to Pay";
+  const showAdminPaymentMeta = data.createdByRole === "ADMIN";
+  const paymentModeLabel =
+    data.payment?.provider === "OFFLINE"
+      ? "Offline"
+      : data.payment?.provider === "RAZORPAY"
+        ? "Online"
+        : null;
+
+  const handleWhatsAppShare = () => {
+    const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "";
+    const shareUrl =
+      typeof window !== "undefined"
+        ? window.location.href
+        : `${APP_URL}/booking/success`;
+    const emoji = {
+      clapper: "\u{1F3AC}",
+      sparkle: "\u2728",
+    } as const;
+    const celebrationLine = data.decorationRequired
+      ? `Personal screen. Custom celebration. No interruptions ${emoji.sparkle}`
+      : `Personal screen. Full vibe. No interruptions ${emoji.sparkle}`;
+
+    const message = `${emoji.clapper} Just booked a Private Venue at Haven Retreat!
+
+${celebrationLine}
+
+Booking ID: ${data.bookingRef}
+Location: ${data.locationName}
+Slot Date: ${data.date}
+Slot Time: ${data.timeSlot}
+
+Have you tried this yet?
+${shareUrl}`;
+
+    const whatsappUrl = new URL("https://api.whatsapp.com/send");
+    whatsappUrl.searchParams.set("text", message);
+    window.open(whatsappUrl.toString(), "_blank");
+  };
+
+  const handleDownload = async () => {
+    if (isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadBookingTicketPdf(data);
+      toast.success("Ticket downloaded successfully.");
+    } catch {
+      toast.error("Unable to download ticket right now.");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleBookAnother = () => router.push("/booking");
+
+  useEffect(() => {
+    if (!isBookingRefCopied) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setIsBookingRefCopied(false);
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isBookingRefCopied]);
+
+  const handleCopyBookingRef = async () => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(data.bookingRef);
+      } else if (typeof document !== "undefined") {
+        const input = document.createElement("textarea");
+        input.value = data.bookingRef;
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.appendChild(input);
+        input.focus();
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+      setIsBookingRefCopied(true);
+    } catch {
+      setIsBookingRefCopied(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{
+        opacity: 0,
+        rotateY: -15,
+        rotateX: 10,
+        filter: "blur(10px)",
+        scale: 0.9,
+      }}
+      animate={{
+        opacity: 1,
+        rotateY: 0,
+        rotateX: 0,
+        filter: "blur(0px)",
+        scale: 1,
+      }}
+      transition={{
+        duration: 1,
+        delay: 0.2,
+        ease: [0.16, 1, 0.3, 1],
+      }}
+      className="relative"
+      style={{ perspective: "1000px" }}
+    >
+      <div
+        className={
+          embedded
+            ? "relative"
+            : "relative overflow-hidden border border-[#2f7e7a]/20 bg-white shadow-xl shadow-[#cfdedb]/60"
+        }
+      >
+        <div className="space-y-3.5 px-0 py-3 sm:space-y-4 sm:px-4 sm:py-4 md:px-5">
+          <div className="flex flex-col gap-2 lg:flex-row lg:justify-between">
+            <div className="min-w-0 text-center sm:text-left lg:flex lg:max-w-[74%] lg:flex-col lg:justify-start lg:gap-[5px]">
+              <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
+                Booking Reference
+              </p>
+              <div className="relative inline-flex max-w-full items-center justify-center gap-1.5 sm:justify-start">
+                <code className="relative z-10 break-all border border-[#d7e4e1] bg-[#f8fbfa] px-2.5 py-1 text-sm font-bold tracking-wider text-zinc-900 sm:text-[17.5px]">
+                  {data.bookingRef}
+                </code>
+                <button
+                  type="button"
+                  onClick={handleCopyBookingRef}
+                  title={isBookingRefCopied ? "Copied" : "Copy booking reference"}
+                  className="inline-flex h-8 min-w-8 cursor-pointer items-center justify-center border border-[#d7e4e1] bg-white px-2 text-zinc-600 transition hover:bg-[#f8fbfa] hover:text-[#245e5b]"
+                >
+                  {isBookingRefCopied ? (
+                    <span className="text-[11px] font-semibold text-emerald-600">Copied</span>
+                  ) : (
+                    <Copy size={14} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="hidden lg:flex lg:shrink-0 lg:items-center lg:justify-end lg:gap-3">
+              {SHOW_DOWNLOAD_TICKET_ACTION && (
+                <MiniActionButton
+                  label={isDownloadingPdf ? "Downloading..." : "Download"}
+                  icon={<Download size={14} />}
+                  onClick={handleDownload}
+                  variant="primary"
+                  disabled={isDownloadingPdf}
+                />
+              )}
+              <MiniActionButton
+                label="Share on WhatsApp"
+                icon={<WhatsAppIcon size={14} />}
+                onClick={handleWhatsAppShare}
+                variant="secondary"
+              />
+              <MiniActionButton
+                label="Book Another Slot"
+                icon={<Ticket size={14} />}
+                onClick={handleBookAnother}
+                variant="tertiary"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+            <DetailItem
+              icon={<User size={16} />}
+              label="Booked By"
+              value={data.contact.name}
+            />
+            <DetailItem
+              icon={<Ticket size={16} />}
+              label="Package"
+              value={data.theatreName}
+            />
+            <DetailItem
+              icon={<Calendar size={16} />}
+              label="Date"
+              value={data.date}
+            />
+            <DetailItem
+              icon={<Clock size={16} />}
+              label="Time"
+              value={data.timeSlot}
+            />
+            <DetailItem
+              icon={<MapPin size={16} />}
+              label="Location"
+              value={data.locationName}
+            />
+            <DetailItem
+              icon={<Users size={16} />}
+              label="Guests"
+              value={`${data.guestCount} People`}
+            />
+          </div>
+
+          <div className="mb-3 space-y-1.5 border border-[#d7e4e1] bg-[#f8fbfa] p-2.5 sm:p-3.5">
+            {showDiscountBreakdown && (
+              <PriceRow
+                label="Subtotal (Before Discount)"
+                value={formatCurrency(subtotalBeforeDiscount)}
+              />
+            )}
+            {showDiscountBreakdown && (
+              <PriceRow
+                label="Discount"
+                value={`-${formatCurrency(discountAmount)}`}
+                highlight
+              />
+            )}
+            <PriceRow
+              label={
+                showDiscountBreakdown
+                  ? "Final Total (After Discount)"
+                  : "Total Amount"
+              }
+              value={formatCurrency(data.totalAmount)}
+              bold={showDiscountBreakdown}
+            />
+
+            <PriceRow
+              label={data.createdByRole === "ADMIN" ? "Amount Paid" : "Paid Online"}
+              value={formatCurrency(data.advancePaid)}
+              success
+            />
+            {showRemainingRow && (
+              <div className="mt-2 space-y-2 border-t border-slate-200 pt-2">
+                <PriceRow
+                  label={remainingLabel}
+                  value={formatCurrency(data.remainingPayable)}
+                  bold
+                />
+                <p className="text-[11px] leading-relaxed text-slate-500 sm:text-xs">
+                  Please arrive 15 minutes before your slot. You can pay the
+                  remaining balance at the venue via UPI, Card, or Cash.
+                </p>
+              </div>
+            )}
+            {showAdminPaymentMeta && (
+              <div className="mt-2 space-y-1.5 border-t border-slate-200 pt-2">
+                {paymentModeLabel && (
+                  <PriceRow label="Payment Mode" value={paymentModeLabel} />
+                )}
+                {data.payment?.method && (
+                  <PriceRow
+                    label="Payment Method"
+                    value={data.payment.method}
+                  />
+                )}
+                {data.payment?.transactionId && (
+                  <PriceRow
+                    label="Reference ID"
+                    value={data.payment.transactionId}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 lg:hidden">
+            {SHOW_DOWNLOAD_TICKET_ACTION && (
+              <MiniActionButton
+                label={isDownloadingPdf ? "Downloading..." : "Download"}
+                icon={<Download size={14} />}
+                onClick={handleDownload}
+                variant="primary"
+                disabled={isDownloadingPdf}
+              />
+            )}
+            <MiniActionButton
+              label="Share on WhatsApp"
+              icon={<WhatsAppIcon size={14} />}
+              onClick={handleWhatsAppShare}
+              variant="secondary"
+            />
+            <MiniActionButton
+              label="Book Another Slot"
+              icon={<Ticket size={14} />}
+              onClick={handleBookAnother}
+              variant="tertiary"
+            />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function DetailItem({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="space-y-1 border border-[#d7e4e1] bg-white p-2">
+      <div className="flex items-center gap-1.5 text-slate-500">
+        {icon}
+        <p className="text-[10px] uppercase tracking-wide sm:text-xs">{label}</p>
+      </div>
+      <p className="break-words text-xs font-semibold leading-snug text-slate-900 sm:text-sm">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function PriceRow({
+  label,
+  value,
+  bold,
+  highlight,
+  success,
+}: {
+  label: string;
+  value: string;
+  bold?: boolean;
+  highlight?: boolean;
+  success?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-xs leading-snug text-slate-600 sm:text-sm">{label}</span>
+      <span
+        className={`shrink-0 text-xs sm:text-sm ${bold
+            ? "font-bold text-slate-900"
+            : highlight
+              ? "font-semibold text-emerald-600"
+              : success
+                ? "font-semibold text-emerald-600"
+                : "text-slate-900"
+          }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function MiniActionButton({
+  icon,
+  label,
+  onClick,
+  variant,
+  disabled = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  variant: "primary" | "secondary" | "tertiary";
+  disabled?: boolean;
+}) {
+  const variantClass =
+    variant === "primary"
+      ? "border border-[#347f7c] bg-[#347f7c] text-white hover:bg-[#245e5b]"
+      : variant === "secondary"
+        ? "border border-[#2f7e7a]/35 bg-[#edf3f1] text-[#245e5b] hover:bg-[#e3efec]"
+        : "border border-[#d7e4e1] bg-transparent text-zinc-700 hover:bg-[#f8fbfa]";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 px-3 text-[11px] font-semibold whitespace-nowrap transition-colors sm:w-auto sm:px-4 sm:text-xs ${disabled
+          ? "cursor-not-allowed border border-zinc-300 bg-zinc-200 text-zinc-500"
+          : `cursor-pointer ${variantClass}`
+        }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
