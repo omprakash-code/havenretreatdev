@@ -219,6 +219,13 @@ export async function GET(
             },
           },
         },
+        venue: {
+          select: {
+            id: true,
+            name: true,
+            images: true,
+          },
+        },
         slot: {
           select: {
             id: true,
@@ -316,6 +323,18 @@ export async function GET(
       booking.paymentStatus,
       booking.razorpayOrderId
     );
+    const displaySpace = {
+      id: booking.theatre?.id ?? booking.venue?.id ?? "",
+      name: booking.theatre?.name ?? booking.venue?.name ?? "Haven Retreat",
+      image: booking.theatre?.images?.[0] ?? booking.venue?.images?.[0] ?? null,
+      locationName: booking.theatre?.location?.name ?? booking.venue?.name ?? "—",
+    };
+    const scheduleDate = booking.slot?.date ?? booking.eventDate;
+    const scheduleStartTime = booking.slot?.startTime ?? booking.eventStartTime ?? "";
+    const scheduleEndTime = booking.slot?.endTime ?? booking.eventEndTime ?? "";
+    const scheduleDateKey = scheduleDate
+      ? formatInTimeZone(scheduleDate, IST_TIMEZONE, "yyyy-MM-dd")
+      : "";
 
     if (view === "drawer") {
       return NextResponse.json({
@@ -329,16 +348,16 @@ export async function GET(
             email: booking.contactEmail ?? booking.user?.email ?? null,
           },
           theatre: {
-            id: booking.theatre.id,
-            name: booking.theatre.name,
+            id: displaySpace.id,
+            name: displaySpace.name,
           },
-          locationName: booking.theatre.location?.name ?? "—",
-          theatreImage: booking.theatre.images?.[0] ?? null,
+          locationName: displaySpace.locationName,
+          theatreImage: displaySpace.image,
           slot: {
-            date: formatInTimeZone(booking.slot.date, IST_TIMEZONE, "yyyy-MM-dd"),
-            startTime: booking.slot.startTime,
-            endTime: booking.slot.endTime,
-            status: booking.slot.status,
+            date: scheduleDateKey,
+            startTime: scheduleStartTime,
+            endTime: scheduleEndTime,
+            status: booking.slot?.status ?? booking.bookingStatus,
           },
           guestCount: booking.guestCount,
           decorationRequired: booking.decorationRequired,
@@ -422,8 +441,8 @@ export async function GET(
           phone: booking.contactPhone ?? booking.user?.phone ?? "",
           email: booking.contactEmail ?? booking.user?.email ?? "",
         },
-        locationId: booking.theatre.locationId,
-        date: formatInTimeZone(booking.slot.date, IST_TIMEZONE, "yyyy-MM-dd"),
+        locationId: booking.theatre?.locationId ?? "",
+        date: scheduleDateKey,
         theatreId: booking.theatreId,
         slotId: booking.slotId,
         guestCount: booking.guestCount,
@@ -708,6 +727,14 @@ export async function PATCH(
 
       const slotChanged = slot.id !== booking.slotId;
       if (slotChanged) {
+        if (!booking.slot) {
+          throw new AdminBookingEditError(
+            409,
+            "SLOT_CHANGE_NOT_ALLOWED",
+            "This booking does not have a previous slot to change."
+          );
+        }
+
         const currentSlotStarted = isSlotExpiredInIST(
           { startTime: booking.slot.startTime, endTime: booking.slot.endTime },
           booking.slot.date,
@@ -1241,7 +1268,7 @@ export async function PATCH(
         }
       } else if (
         effectivePaymentStatus === PaymentStatus.PAID &&
-        booking.slot.status !== "BOOKED"
+        booking.slot?.status !== "BOOKED"
       ) {
         await tx.slot.updateMany({
           where: {
@@ -1472,7 +1499,7 @@ export async function PATCH(
         }
       }
 
-      if (slotChanged) {
+      if (slotChanged && booking.slotId && booking.slot) {
         const otherActiveBookings = await tx.booking.count({
           where: {
             slotId: booking.slotId,
@@ -1512,11 +1539,13 @@ export async function PATCH(
             adminNotification = {
               type: "PREMIUM_SLOT_RELEASED",
               title: "Premium slot status updated",
-              message: `Premium slot is now available: ${booking.theatre.name} | ${dateLabel} | ${booking.slot.startTime} - ${booking.slot.endTime} | Booking ${booking.bookingRef}`,
+              message: `Premium slot is now available: ${
+                booking.theatre?.name ?? "Haven Retreat"
+              } | ${dateLabel} | ${booking.slot.startTime} - ${booking.slot.endTime} | Booking ${booking.bookingRef}`,
               details: {
                 bookingRef: booking.bookingRef,
                 slotId: booking.slotId,
-                theatreName: booking.theatre.name,
+                theatreName: booking.theatre?.name ?? "Haven Retreat",
                 date: formatInTimeZone(booking.slot.date, IST_TIMEZONE, "yyyy-MM-dd"),
                 startTime: booking.slot.startTime,
                 endTime: booking.slot.endTime,
@@ -1747,7 +1776,7 @@ export async function DELETE(
 
       const activeConfirmedBookingsOnSlot = await tx.booking.count({
         where: {
-          slotId: booking.slot.id,
+          slotId: booking.slot?.id ?? "",
           bookingStatus: BookingStatus.CONFIRMED,
           OR: [
             { cancelledReason: null },
@@ -1756,7 +1785,10 @@ export async function DELETE(
         },
       });
 
-      if (booking.slot.status === "LOCKED" && booking.bookingStatus !== BookingStatus.CONFIRMED) {
+      if (
+        booking.slot?.status === "LOCKED" &&
+        booking.bookingStatus !== BookingStatus.CONFIRMED
+      ) {
         await tx.slot.updateMany({
           where: {
             id: booking.slot.id,
@@ -1771,7 +1803,10 @@ export async function DELETE(
         });
       }
 
-      if (booking.slot.status === "BOOKED" && activeConfirmedBookingsOnSlot === 0) {
+      if (
+        booking.slot?.status === "BOOKED" &&
+        activeConfirmedBookingsOnSlot === 0
+      ) {
         await tx.slot.updateMany({
           where: {
             id: booking.slot.id,

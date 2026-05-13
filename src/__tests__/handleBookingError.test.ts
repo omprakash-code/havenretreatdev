@@ -67,7 +67,7 @@ describe("handleBookingError", () => {
     const handled = handleBookingError(
       {
         code: "BOOKING_FINALIZED",
-        bookingRef: "DS/ABC 123",
+        bookingRef: "HR/ABC 123",
         successToken: "secure-token-123",
       },
       router
@@ -82,7 +82,7 @@ describe("handleBookingError", () => {
     );
   });
 
-  it("redirects to theatre on SLOT_EXPIRED", () => {
+  it("redirects to package selection on SLOT_EXPIRED", () => {
     const router = createRouter();
 
     const handled = handleBookingError(
@@ -96,7 +96,7 @@ describe("handleBookingError", () => {
     expect(toast.error).toHaveBeenCalledWith(
       "Reservation expired, please try again."
     );
-    expect(router.replace).toHaveBeenCalledWith("/booking/theatre");
+    expect(router.replace).toHaveBeenCalledWith("/booking/package");
   });
 
   it("returns false and shows fallback for unknown code", () => {

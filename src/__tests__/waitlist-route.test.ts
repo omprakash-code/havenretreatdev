@@ -43,7 +43,7 @@ describe("POST /api/waitlist", () => {
       prisma.waitlistEntry.findFirst as unknown as ReturnType<typeof vi.fn>
     ).mockResolvedValue({
       id: "wait-1",
-      reference: "DS-20260218-0001",
+      reference: "HR-20260218-0001",
       createdAt: new Date("2026-02-18T00:00:00.000Z"),
     });
 
@@ -75,7 +75,7 @@ describe("POST /api/waitlist", () => {
       prisma.waitlistEntry.create as unknown as ReturnType<typeof vi.fn>
     ).mockResolvedValue({
       id: "wait-2",
-      reference: "DS-20260218-0002",
+      reference: "HR-20260218-0002",
       status: "NEW",
       createdAt: new Date("2026-02-18T10:00:00.000Z"),
     });
@@ -101,7 +101,7 @@ describe("POST /api/waitlist", () => {
 
     expect(res.status).toBe(201);
     expect(json.success).toBe(true);
-    expect(json.data.reference).toBe("DS-20260218-0002");
+    expect(json.data.reference).toBe("HR-20260218-0002");
     expect(prisma.waitlistEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

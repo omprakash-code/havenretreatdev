@@ -7,7 +7,7 @@ import {
 } from "@/components/booking/success/metaPurchase";
 
 const paidBooking = {
-  bookingRef: "DS-BOOK-1",
+  bookingRef: "HR-BOOK-1",
   paymentStatus: "PAID",
   payment: {
     provider: "razorpay",
@@ -40,16 +40,16 @@ describe("booking success meta purchase helpers", () => {
 
   it("builds a dedupe-safe browser purchase payload", () => {
     expect(buildBookingSuccessPurchaseEvent(paidBooking, "token-1")).toEqual({
-      eventId: "purchase:DS-BOOK-1:pay_123",
-      storageKey: "meta:purchase:DS-BOOK-1:token-1",
+      eventId: "purchase:HR-BOOK-1:pay_123",
+      storageKey: "meta:purchase:HR-BOOK-1:token-1",
       params: {
         currency: "INR",
         value: 2000,
         advance_paid_value: 750,
         total_booking_value: 2000,
-        order_id: "DS-BOOK-1",
-        content_name: "Private Theatre Booking",
-        content_category: "private_theatre",
+        order_id: "HR-BOOK-1",
+        content_name: "Haven Retreat Booking",
+        content_category: "event_venue",
         payment_method: "upi",
       },
     });

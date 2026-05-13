@@ -51,12 +51,12 @@ function parsePeopleCount(input: number | string | null | undefined) {
 function buildWaitlistReference(now: Date, counter: number) {
   const day = formatInTimeZone(now, "Asia/Kolkata", "yyyyMMdd");
   const incremental = String(counter).padStart(4, "0");
-  return `DS-${day}-${incremental}`;
+  return `HR-${day}-${incremental}`;
 }
 
 function getWaitlistReferencePrefix(now: Date) {
   const day = formatInTimeZone(now, "Asia/Kolkata", "yyyyMMdd");
-  return `DS-${day}-`;
+  return `HR-${day}-`;
 }
 
 function isWaitlistReferenceUniqueConflict(error: unknown) {

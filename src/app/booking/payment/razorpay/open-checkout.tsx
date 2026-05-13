@@ -227,7 +227,7 @@ export function openRazorpayCheckout({
       trackMetaStandardEvent("InitiateCheckout", {
         currency: "INR",
         value: Number((amountInPaise / 100).toFixed(2)),
-        content_name: "Private Theatre Booking",
+        content_name: "Haven Retreat Booking",
         content_type: "service",
         booking_id: bookingId,
       });

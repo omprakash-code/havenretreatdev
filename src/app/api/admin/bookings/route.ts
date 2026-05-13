@@ -121,15 +121,14 @@ export async function GET(req: Request) {
           { contactName: { contains: search, mode: "insensitive" } },
           { contactPhone: { contains: search } },
           { theatre: { name: { contains: search, mode: "insensitive" } } },
+          { venue: { name: { contains: search, mode: "insensitive" } } },
         ],
       });
     }
 
     if (theatre) {
       whereAnd.push({
-        theatre: {
-          name: theatre,
-        },
+        OR: [{ theatre: { name: theatre } }, { venue: { name: theatre } }],
       });
     }
 
@@ -184,6 +183,9 @@ export async function GET(req: Request) {
       bookingStatus: true,
       cancelledReason: true,
       createdAt: true,
+      eventDate: true,
+      eventStartTime: true,
+      eventEndTime: true,
       theatre: {
         select: {
           id: true,
@@ -193,6 +195,12 @@ export async function GET(req: Request) {
               name: true,
             },
           },
+        },
+      },
+      venue: {
+        select: {
+          id: true,
+          name: true,
         },
       },
       slot: {
@@ -225,49 +233,54 @@ export async function GET(req: Request) {
           }),
         ]);
 
-    const data = bookings.map((b, index) => ({
-      srNo: index + 1,
+    const data = bookings.map((b, index) => {
+      const scheduleDate = b.slot?.date ?? b.eventDate;
+      return {
+        srNo: index + 1,
 
-      id: b.id,
-      bookingRef: b.bookingRef,
+        id: b.id,
+        bookingRef: b.bookingRef,
 
-      customer: {
-        name: b.contactName,
-        phone: b.contactPhone,
-        email: b.contactEmail ?? null,
-      },
+        customer: {
+          name: b.contactName,
+          phone: b.contactPhone,
+          email: b.contactEmail ?? null,
+        },
 
-      theatre: {
-        id: b.theatre.id,
-        name: b.theatre.name,
-        locationName: b.theatre.location?.name ?? null,
-      },
+        theatre: {
+          id: b.theatre?.id ?? b.venue?.id ?? "",
+          name: b.theatre?.name ?? b.venue?.name ?? "Haven Retreat",
+          locationName: b.theatre?.location?.name ?? b.venue?.name ?? null,
+        },
 
-      slot: {
-        date: formatInTimeZone(b.slot.date, IST_TIMEZONE, "yyyy-MM-dd"),
-        startTime: b.slot.startTime,
-        endTime: b.slot.endTime,
-        status: b.slot.status,
-      },
+        slot: {
+          date: scheduleDate
+            ? formatInTimeZone(scheduleDate, IST_TIMEZONE, "yyyy-MM-dd")
+            : "",
+          startTime: b.slot?.startTime ?? b.eventStartTime ?? "",
+          endTime: b.slot?.endTime ?? b.eventEndTime ?? "",
+          status: b.slot?.status ?? b.bookingStatus,
+        },
 
-      guestCount: b.guestCount,
+        guestCount: b.guestCount,
 
-      pricing: {
-        base: b.baseAmount,
-        extras: b.extrasAmount,
-        products: b.productsAmount,
-        decoration: b.decorationAmount,
-        discount: b.discountAmount,
-        total: b.totalAmount,
-        advancePaid: b.advancePaid,
-        remainingPayable: b.remainingPayable,
-      },
+        pricing: {
+          base: b.baseAmount,
+          extras: b.extrasAmount,
+          products: b.productsAmount,
+          decoration: b.decorationAmount,
+          discount: b.discountAmount,
+          total: b.totalAmount,
+          advancePaid: b.advancePaid,
+          remainingPayable: b.remainingPayable,
+        },
 
-      paymentStatus: b.paymentStatus,
-      bookingStatus: b.bookingStatus,
-      cancelledReason: b.cancelledReason,
-      createdAt: b.createdAt.toISOString(),
-    }));
+        paymentStatus: b.paymentStatus,
+        bookingStatus: b.bookingStatus,
+        cancelledReason: b.cancelledReason,
+        createdAt: b.createdAt.toISOString(),
+      };
+    });
 
     return NextResponse.json({
       success: true,

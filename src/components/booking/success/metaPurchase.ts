@@ -34,8 +34,8 @@ export function buildBookingSuccessPurchaseEvent(
       advance_paid_value: data.advancePaid,
       total_booking_value: data.totalAmount,
       order_id: data.bookingRef,
-      content_name: "Private Theatre Booking",
-      content_category: "private_theatre",
+      content_name: "Haven Retreat Booking",
+      content_category: "event_venue",
       payment_method:
         data.payment?.method ?? data.payment?.provider ?? "razorpay",
     },

@@ -21,7 +21,7 @@ vi.mock("@/lib/pdf/booking-confirmation", () => ({
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
 
 const baseEmailData = {
-  bookingRef: "DS-BOOK-100",
+  bookingRef: "HR-BOOK-100",
   customerName: "Demo User",
   customerPhone: "9999999999",
   customerEmail: "demo@example.com",
@@ -43,7 +43,7 @@ describe("sendBookingConfirmationEmail", () => {
     vi.clearAllMocks();
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     buildPdfMock.mockResolvedValue({
-      filename: "DS-BOOK-100.pdf",
+      filename: "HR-BOOK-100.pdf",
       content: "cGRm",
       contentType: "application/pdf",
     });
@@ -56,26 +56,26 @@ describe("sendBookingConfirmationEmail", () => {
   it("sends email with PDF attachment", async () => {
     await sendBookingConfirmationEmail({
       to: "demo@example.com",
-      bookingRef: "DS-BOOK-100",
+      bookingRef: "HR-BOOK-100",
       emailData: baseEmailData,
       theme: "dark",
     });
 
-    expect(buildPdfMock).toHaveBeenCalledWith("DS-BOOK-100", baseEmailData);
+    expect(buildPdfMock).toHaveBeenCalledWith("HR-BOOK-100", baseEmailData);
     expect(renderEmailMock).toHaveBeenCalledWith(baseEmailData, "dark");
     expect(sendEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "demo@example.com",
-        subject: "Your Private Theatre is Booked – DS-BOOK-100",
+        subject: "Your Haven Retreat booking is confirmed - HR-BOOK-100",
         react: null,
         attachments: expect.arrayContaining([
           {
-            filename: "DS-BOOK-100.pdf",
+            filename: "HR-BOOK-100.pdf",
             content: "cGRm",
             contentType: "application/pdf",
           },
           expect.objectContaining({
-            filename: "DS-BOOK-100.ics",
+            filename: "HR-BOOK-100.ics",
             contentType: "text/calendar; charset=utf-8; method=REQUEST",
             content: expect.any(String),
           }),
@@ -89,7 +89,7 @@ describe("sendBookingConfirmationEmail", () => {
 
     await sendBookingConfirmationEmail({
       to: "demo@example.com",
-      bookingRef: "DS-BOOK-100",
+      bookingRef: "HR-BOOK-100",
       emailData: baseEmailData,
       theme: "light",
     });
@@ -97,11 +97,11 @@ describe("sendBookingConfirmationEmail", () => {
     expect(sendEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "demo@example.com",
-        subject: "Your Private Theatre is Booked – DS-BOOK-100",
+        subject: "Your Haven Retreat booking is confirmed - HR-BOOK-100",
         react: null,
         attachments: expect.arrayContaining([
           expect.objectContaining({
-            filename: "DS-BOOK-100.ics",
+            filename: "HR-BOOK-100.ics",
             contentType: "text/calendar; charset=utf-8; method=REQUEST",
             content: expect.any(String),
           }),
@@ -114,7 +114,7 @@ describe("sendBookingConfirmationEmail", () => {
     expect(firstCallArg.attachments).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          filename: "DS-BOOK-100.ics",
+          filename: "HR-BOOK-100.ics",
         }),
       ])
     );

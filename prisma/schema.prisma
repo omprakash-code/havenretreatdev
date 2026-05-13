@@ -397,7 +397,7 @@ enum UserRole {
 // - business logic migration is intentionally deferred to a later phase
 model Booking {
   id         String @id @default(cuid())
-  bookingRef String @unique // DS191120250001 (display ID)
+  bookingRef String @unique // HR191120250001 (display ID)
 
   userId       String? // optional
   contactName  String?

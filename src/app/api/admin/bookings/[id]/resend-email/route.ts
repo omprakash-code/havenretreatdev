@@ -244,6 +244,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
             location: true,
           },
         },
+        venue: true,
         slot: true,
         items: {
           orderBy: { createdAt: "asc" },
@@ -290,17 +291,31 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     );
 
     const latestPayment = booking.payment[0];
+    const slotDate = booking.slot?.date ?? booking.eventDate;
+    const slotStartTime = booking.slot?.startTime ?? booking.eventStartTime;
+    const slotEndTime = booking.slot?.endTime ?? booking.eventEndTime;
+
+    if (!slotDate || !slotStartTime || !slotEndTime) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Booking does not have event schedule details.",
+        },
+        { status: 400 }
+      );
+    }
+
     const emailData = buildEmailData({
       bookingRef: booking.bookingRef,
       successToken,
       contactName: booking.contactName,
       contactPhone: booking.contactPhone,
       contactEmail: booking.contactEmail,
-      locationName: booking.theatre.location?.name ?? null,
-      theatreName: booking.theatre.name,
-      slotDate: booking.slot.date,
-      slotStartTime: booking.slot.startTime,
-      slotEndTime: booking.slot.endTime,
+      locationName: booking.theatre?.location?.name ?? booking.venue?.name ?? null,
+      theatreName: booking.theatre?.name ?? booking.venue?.name ?? "Haven Retreat",
+      slotDate,
+      slotStartTime,
+      slotEndTime,
       guestCount: booking.guestCount,
       occasionLabel: booking.occasionLabel,
       occasionData: booking.occasionData as Prisma.JsonValue | null,

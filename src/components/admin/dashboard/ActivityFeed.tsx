@@ -9,7 +9,7 @@ type ActivityItem = {
 const MOCK_ACTIVITY: ActivityItem[] = [
   {
     id: "1",
-    message: "Booking DS130120260004 confirmed",
+    message: "Booking HR130120260004 confirmed",
     time: "2 mins ago",
   },
   {
@@ -19,7 +19,7 @@ const MOCK_ACTIVITY: ActivityItem[] = [
   },
   {
     id: "3",
-    message: "Admin viewed live booking DS130120260002",
+    message: "Admin viewed live booking HR130120260002",
     time: "12 mins ago",
   },
 ];

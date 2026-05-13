@@ -1128,6 +1128,7 @@ export async function POST(req: Request) {
               location: true,
             },
           },
+          venue: true,
           slot: true,
           items: {
             orderBy: { createdAt: "asc" },
@@ -1154,37 +1155,58 @@ export async function POST(req: Request) {
           bookingForNotification.occasionData as Prisma.JsonValue | null
         );
         const latestPayment = bookingForNotification.payment[0];
+        const slotDate =
+          bookingForNotification.slot?.date ?? bookingForNotification.eventDate;
+        const slotStartTime =
+          bookingForNotification.slot?.startTime ??
+          bookingForNotification.eventStartTime;
+        const slotEndTime =
+          bookingForNotification.slot?.endTime ??
+          bookingForNotification.eventEndTime;
 
-        const emailData = buildEmailData({
-          bookingRef: bookingForNotification.bookingRef,
-          successToken,
-          contactName: bookingForNotification.contactName,
-          contactPhone: bookingForNotification.contactPhone,
-          contactEmail: bookingForNotification.contactEmail,
-          locationName: bookingForNotification.theatre.location?.name ?? null,
-          theatreName: bookingForNotification.theatre.name,
-          slotDate: bookingForNotification.slot.date,
-          slotStartTime: bookingForNotification.slot.startTime,
-          slotEndTime: bookingForNotification.slot.endTime,
-          guestCount: bookingForNotification.guestCount,
-          occasionLabel: bookingForNotification.occasionLabel,
-          occasionData: bookingForNotification.occasionData as Prisma.JsonValue | null,
-          addonItems,
-          paymentType: "OFFLINE",
-          paymentMethod: latestPayment?.method ?? null,
-          paymentStatus: bookingForNotification.paymentStatus ?? latestPayment?.status ?? null,
-          paymentReference: latestPayment?.transactionId ?? null,
-          baseAmount: bookingForNotification.baseAmount,
-          extrasAmount: bookingForNotification.extrasAmount,
-          productsAmount: bookingForNotification.productsAmount,
-          decorationAmount: bookingForNotification.decorationAmount,
-          discountAmount: bookingForNotification.discountAmount,
-          totalAmount: bookingForNotification.totalAmount,
-          advancePaid: bookingForNotification.advancePaid,
-          remainingPayable: bookingForNotification.remainingPayable,
-        });
+        const emailData =
+          slotDate && slotStartTime && slotEndTime
+            ? buildEmailData({
+                bookingRef: bookingForNotification.bookingRef,
+                successToken,
+                contactName: bookingForNotification.contactName,
+                contactPhone: bookingForNotification.contactPhone,
+                contactEmail: bookingForNotification.contactEmail,
+                locationName:
+                  bookingForNotification.theatre?.location?.name ??
+                  bookingForNotification.venue?.name ??
+                  null,
+                theatreName:
+                  bookingForNotification.theatre?.name ??
+                  bookingForNotification.venue?.name ??
+                  "Haven Retreat",
+                slotDate,
+                slotStartTime,
+                slotEndTime,
+                guestCount: bookingForNotification.guestCount,
+                occasionLabel: bookingForNotification.occasionLabel,
+                occasionData:
+                  bookingForNotification.occasionData as Prisma.JsonValue | null,
+                addonItems,
+                paymentType: "OFFLINE",
+                paymentMethod: latestPayment?.method ?? null,
+                paymentStatus:
+                  bookingForNotification.paymentStatus ??
+                  latestPayment?.status ??
+                  null,
+                paymentReference: latestPayment?.transactionId ?? null,
+                baseAmount: bookingForNotification.baseAmount,
+                extrasAmount: bookingForNotification.extrasAmount,
+                productsAmount: bookingForNotification.productsAmount,
+                decorationAmount: bookingForNotification.decorationAmount,
+                discountAmount: bookingForNotification.discountAmount,
+                totalAmount: bookingForNotification.totalAmount,
+                advancePaid: bookingForNotification.advancePaid,
+                remainingPayable: bookingForNotification.remainingPayable,
+              })
+            : null;
 
-        if (bookingForNotification.contactEmail) {
+        if (bookingForNotification.contactEmail && emailData) {
           try {
             await sendBookingConfirmationEmail({
               to: bookingForNotification.contactEmail,
@@ -1202,17 +1224,22 @@ export async function POST(req: Request) {
           }
         }
 
-        try {
-          await sendAdminBookingConfirmationEmail({
-            bookingRef: bookingForNotification.bookingRef,
-            emailData,
-            confirmationSource: "ADMIN_OFFLINE_CREATE",
-          });
-        } catch (adminEmailError) {
-          console.error("ADMIN_OFFLINE_ADMIN_CONFIRMATION_EMAIL_FAILED", adminEmailError);
+        if (emailData) {
+          try {
+            await sendAdminBookingConfirmationEmail({
+              bookingRef: bookingForNotification.bookingRef,
+              emailData,
+              confirmationSource: "ADMIN_OFFLINE_CREATE",
+            });
+          } catch (adminEmailError) {
+            console.error(
+              "ADMIN_OFFLINE_ADMIN_CONFIRMATION_EMAIL_FAILED",
+              adminEmailError
+            );
+          }
         }
 
-        if (bookingForNotification.contactPhone) {
+        if (bookingForNotification.contactPhone && emailData) {
           try {
             await sendBookingConfirmationWhatsApp({
               phone: bookingForNotification.contactPhone.startsWith("91")
