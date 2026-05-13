@@ -8,7 +8,7 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
     seed:
-      "rm -rf /tmp/havenretreat-prisma-seed && npx tsc -p prisma/tsconfig.seed.json --outDir /tmp/havenretreat-prisma-seed && node /tmp/havenretreat-prisma-seed/seed.js",
+      "sh -c 'rm -rf /tmp/havenretreat-prisma-seed && npx tsc -p prisma/tsconfig.seed.json --outDir /tmp/havenretreat-prisma-seed && node /tmp/havenretreat-prisma-seed/seed.js'",
   },
   datasource: {
     url: process.env["DATABASE_URL"],
