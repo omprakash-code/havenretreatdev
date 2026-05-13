@@ -1,6 +1,4 @@
 //src/services/booking/lockBooking.service.ts
-import { randomUUID } from "node:crypto";
-
 import { prisma } from "@/lib/db";
 import {
   BOOKING_LOCK_MINUTES_KEY,
@@ -350,7 +348,7 @@ export async function lockBookingService({
     } else {
       booking = await tx.booking.create({
         data: {
-          bookingRef: `TEMP-${randomUUID()}`,
+          bookingRef: `TEMP-${crypto.randomUUID()}`,
           bookingStatus: "INCOMPLETE",
           paymentStatus: null,
 
