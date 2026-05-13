@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { rmSync } from "node:fs";
+import { join } from "node:path";
 
-const outDir = "/tmp/havenretreat-prisma-seed";
+const outDir = join(process.cwd(), ".prisma-seed");
 
 rmSync(outDir, { recursive: true, force: true });
 
