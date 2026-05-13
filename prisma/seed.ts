@@ -360,6 +360,28 @@ function calculateDuration(startTime: string, endTime: string): number {
     : endMin + 1440 - startMin;
 }
 
+function getIstDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getIstMidnightFromDateKey(dateKey: string) {
+  return new Date(`${dateKey}T00:00:00+05:30`);
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
 /* -----------------------------
    Seed Slot Templates
 ------------------------------ */
@@ -436,6 +458,101 @@ async function seedSlotTemplates(): Promise<void> {
 /* -----------------------------
    Seed Slots
 ------------------------------ */
+async function seedSlots(): Promise<void> {
+  console.log("Seeding slots");
+
+  const parsedDaysAhead = Number(process.env.SLOT_SYNC_DAYS_AHEAD ?? 90);
+  const daysAhead = Number.isFinite(parsedDaysAhead)
+    ? Math.min(Math.max(Math.trunc(parsedDaysAhead), 1), 365)
+    : 90;
+  const todayKey = getIstDateKey(new Date());
+  const windowStart = getIstMidnightFromDateKey(todayKey);
+  const windowEndExclusive = addDays(windowStart, daysAhead);
+
+  const templates = await prisma.slotTemplate.findMany({
+    where: {
+      isActive: true,
+      theatre: {
+        isActive: true,
+      },
+    },
+    include: {
+      theatre: {
+        select: {
+          baseGuests: true,
+        },
+      },
+    },
+    orderBy: [{ theatreId: "asc" }, { startTime: "asc" }],
+  });
+
+  if (templates.length === 0) {
+    console.log("No active slot templates found");
+    return;
+  }
+
+  const existingSlots = await prisma.slot.findMany({
+    where: {
+      slotTemplateId: {
+        in: templates.map((template) => template.id),
+      },
+      date: {
+        gte: windowStart,
+        lt: windowEndExclusive,
+      },
+    },
+    select: {
+      slotTemplateId: true,
+      date: true,
+    },
+  });
+
+  const existingKeys = new Set(
+    existingSlots.map(
+      (slot) => `${slot.slotTemplateId}|${getIstDateKey(slot.date)}`
+    )
+  );
+  const slotsToCreate: Prisma.SlotCreateManyInput[] = [];
+
+  for (const template of templates) {
+    for (let dayOffset = 0; dayOffset < daysAhead; dayOffset += 1) {
+      const slotDate = addDays(windowStart, dayOffset);
+      const slotDateKey = getIstDateKey(slotDate);
+      const key = `${template.id}|${slotDateKey}`;
+
+      if (existingKeys.has(key)) continue;
+
+      const finalPrice = template.salePrice ?? template.regularPrice;
+      slotsToCreate.push({
+        theatreId: template.theatreId,
+        slotTemplateId: template.id,
+        date: getIstMidnightFromDateKey(slotDateKey),
+        startTime: template.startTime,
+        endTime: template.endTime,
+        durationMin: template.durationMin,
+        basePrice: finalPrice,
+        baseGuests: template.theatre.baseGuests,
+        regularPrice: template.regularPrice,
+        salePrice: template.salePrice,
+        finalPrice,
+        isSpecial: template.salePrice !== null,
+        decorationMandatory: template.decorationMandatory,
+        discountText: null,
+        status: "AVAILABLE",
+      });
+      existingKeys.add(key);
+    }
+  }
+
+  if (slotsToCreate.length > 0) {
+    const result = await prisma.slot.createMany({
+      data: slotsToCreate,
+    });
+    console.log(`Slots seeded: ${result.count}`);
+  } else {
+    console.log("Slots already up to date");
+  }
+}
 
 
 
@@ -1005,7 +1122,7 @@ async function main(): Promise<void>  {
   await seedVenueEventModule();
   await seedTheatres();
   await seedSlotTemplates();
-  // await seedSlots();
+  await seedSlots();
   await seedOccasions();
 
   await seedProducts();
