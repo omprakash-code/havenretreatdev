@@ -44,3 +44,5 @@ next-env.d.ts
 
 # runtime uploads (do not commit)
 public/media/admin-uploads/
+
+/unused

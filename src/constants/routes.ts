@@ -5,6 +5,7 @@ export const BOOKING_ROUTES = {
   DETAILS: "/booking/details",
   OCCASION: "/booking/occasion",
   EXTRAS: (category: string) => `/booking/extras/${category}`,
+  AGREEMENT: "/booking/agreement",
   PAYMENT: "/booking/payment",
   THANK_YOU: "/booking/thank-you",
 };

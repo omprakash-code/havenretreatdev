@@ -23,6 +23,7 @@ export type BookingSummaryProps = {
   products?: BookingItemSnapshot[];
   onRemoveItem?: (id: string) => void;
   onSubmit?: () => void;
+  onInvalidSubmit?: () => void;
   onSkipExtras?: () => void;
   isSubmitDisabled?: boolean;
   enableInvalidSubmitFeedback?: boolean;

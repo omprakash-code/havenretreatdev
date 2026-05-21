@@ -7,19 +7,14 @@ import ContactForm from "@/components/booking/contact/ContactForm";
 import BookingSummary from "@/components/booking/summary/BookingSummary";
 import StepIndicator from "@/components/booking/steps/StepIndicator";
 import { useContactSubmit } from "@/hooks/booking/useContactSubmit";
-import TermsModal from "@/components/booking/terms/TermsModal";
 import MobileStickyAction from "@/components/booking/global/MobileStickyAction";
 import { BOOKING_ROUTES } from "@/constants/routes";
-import { handleBookingError } from "@/utils/handleBookingError";
-import { ensureRazorpayCheckoutLoaded } from "@/lib/razorpay/checkout-client";
 
 export default function ContactPage() {
   const router = useRouter();
-  const { booking, setContact, hydrated, resetBooking } = useBooking();
+  const { booking, setContact, hydrated } = useBooking();
   const { submitContact } = useContactSubmit();
 
-  const [showTerms, setShowTerms] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showInlineSummarySubmit, setShowInlineSummarySubmit] = useState(false);
   const formId = "booking-contact-form";
@@ -75,7 +70,7 @@ export default function ContactPage() {
         return;
       }
 
-      setShowTerms(true);
+      router.push(BOOKING_ROUTES.AGREEMENT);
     } finally {
       setIsSubmitting(false);
     }
@@ -112,11 +107,6 @@ export default function ContactPage() {
     }
   }, [hydrated, booking.bookingId, booking.theatre, booking.slot, router]);
 
-  useEffect(() => {
-    if (!showTerms) return;
-    void ensureRazorpayCheckoutLoaded();
-  }, [showTerms]);
-
   if (!hydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center text-sm text-gray-500">
@@ -128,9 +118,6 @@ export default function ContactPage() {
   if (!booking.bookingId || !booking.theatre || !booking.slot) {
     return null;
   }
-
-
-
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-[#f6f8f7]">
       <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-0 sm:pt-5 pb-5">
@@ -169,39 +156,6 @@ export default function ContactPage() {
             />
           </div>
         </div>
-
-        {/* TERMS POPUP */}
-        <TermsModal
-          open={showTerms}
-          onClose={() => setShowTerms(false)}
-          checked={termsAccepted}
-          setChecked={setTermsAccepted}
-          advancePay={booking.pricing?.advancePay ?? null}
-          onConfirm={async () => {
-            if (!termsAccepted || !booking.bookingId) return;
-
-            const res = await fetch("/api/bookings/accept-terms", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                bookingId: booking.bookingId,
-              }),
-            });
-
-            const json = await res.json().catch(() => null);
-            if (!res.ok || !json?.success) {
-              handleBookingError(json, router, {
-                resetBooking,
-                fallbackMessage: "Unable to continue to payment.",
-              });
-              return;
-            }
-
-            void ensureRazorpayCheckoutLoaded();
-            router.push(BOOKING_ROUTES.PAYMENT);
-          }}
-        />
-
       </div>
       <MobileStickyAction
         label={isSubmitting ? "Saving..." : "Save & Continue"}

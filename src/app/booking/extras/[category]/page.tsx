@@ -10,11 +10,9 @@ import { ChevronLeft } from "@/components/icons";
 
 import { useBookingItems } from "@/hooks/booking/useBookingItems";
 import { useBookingProductCategories } from "@/hooks/booking/useBookingProductCategories";
-import TermsModal from "@/components/booking/terms/TermsModal";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { handleBookingError } from "@/utils/handleBookingError";
 import MobileStickyAction from "@/components/booking/global/MobileStickyAction";
-import { ensureRazorpayCheckoutLoaded } from "@/lib/razorpay/checkout-client";
 
 /* --------------------------------
   Page
@@ -23,8 +21,6 @@ import { ensureRazorpayCheckoutLoaded } from "@/lib/razorpay/checkout-client";
 export default function ExtrasCategoryPage() {
   const router = useRouter();
   const params = useParams();
-  const [showTerms, setShowTerms] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [showInlineSummarySubmit, setShowInlineSummarySubmit] = useState(false);
 
 
@@ -142,12 +138,6 @@ export default function ExtrasCategoryPage() {
     resetBooking,
   ]);
 
-  useEffect(() => {
-    if (!showTerms) return;
-    void ensureRazorpayCheckoutLoaded();
-  }, [showTerms]);
-
-
   /* -----------------------------
      Protect Direct URL Access
   ------------------------------ */
@@ -169,7 +159,7 @@ export default function ExtrasCategoryPage() {
     if (!booking.bookingId) return;
 
     if (bookingCategories.length === 0) {
-      router.replace(BOOKING_ROUTES.PAYMENT);
+      router.replace(BOOKING_ROUTES.AGREEMENT);
       return;
     }
 
@@ -236,7 +226,7 @@ export default function ExtrasCategoryPage() {
         return;
       }
 
-      setShowTerms(true);
+      router.push(BOOKING_ROUTES.AGREEMENT);
       return;
     }
 
@@ -370,38 +360,6 @@ export default function ExtrasCategoryPage() {
         hidden={showInlineSummarySubmit}
         totalPrice={booking.pricing?.total ?? booking.slot?.basePrice ?? null}
         advancePay={booking.pricing?.advancePay ?? null}
-      />
-
-      {/* TERMS POPUP */}
-      <TermsModal
-        open={showTerms}
-        onClose={() => setShowTerms(false)}
-        checked={termsAccepted}
-        setChecked={setTermsAccepted}
-        advancePay={booking.pricing?.advancePay ?? null}
-        onConfirm={async () => {
-          if (!termsAccepted || !booking.bookingId) return;
-
-          const res = await fetch("/api/bookings/accept-terms", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              bookingId: booking.bookingId,
-            }),
-          });
-
-          const json = await res.json().catch(() => null);
-          if (!res.ok || !json?.success) {
-            handleBookingError(json, router, {
-              resetBooking,
-              fallbackMessage: "Unable to continue to payment.",
-            });
-            return;
-          }
-
-          void ensureRazorpayCheckoutLoaded();
-          router.push(BOOKING_ROUTES.PAYMENT);
-        }}
       />
     </div>
   );

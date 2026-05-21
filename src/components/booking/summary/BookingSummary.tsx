@@ -63,6 +63,7 @@ export default function BookingSummary({
   products = [],
   onRemoveItem,
   onSubmit,
+  onInvalidSubmit,
   onSkipExtras,
   isSubmitDisabled,
   enableInvalidSubmitFeedback = false,
@@ -325,6 +326,7 @@ export default function BookingSummary({
     if (isSubmitDisabled) {
       if (enableInvalidSubmitFeedback) {
         triggerInvalidSubmitFeedback();
+        onInvalidSubmit?.();
       }
       return;
     }
@@ -425,13 +427,15 @@ export default function BookingSummary({
   const isExtrasFlowPage = pathname.startsWith("/booking/extras/");
   const headerStepText = (() => {
     if (pathname.startsWith("/booking/payment")) return "Review and payment";
+    if (pathname.startsWith("/booking/agreement")) return "Review and signature";
     return undefined;
   })();
   const summaryStepNumber = (() => {
     if (pathname.startsWith("/booking/contact")) return 2;
     if (pathname.startsWith("/booking/occasion")) return 3;
     if (pathname.startsWith("/booking/extras/")) return 4;
-    if (pathname.startsWith("/booking/payment")) return 5;
+    if (pathname.startsWith("/booking/agreement")) return 5;
+    if (pathname.startsWith("/booking/payment")) return 6;
     return null;
   })();
   const extrasSubProgress =

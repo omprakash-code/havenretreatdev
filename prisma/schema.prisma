@@ -554,6 +554,12 @@ model SignedAgreement {
   signedAt            DateTime
   signatureImage      String
   ipAddress           String?
+  userAgent           String?
+  agreementVersion    String?
+  agreementHtmlSnapshot String?
+  confirmationAccepted Boolean @default(false)
+  paymentReference    String?
+  pdfGeneratedAt      DateTime?
 
   booking           Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   agreementTemplate AgreementTemplate @relation(fields: [agreementTemplateId], references: [id])

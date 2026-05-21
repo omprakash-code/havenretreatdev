@@ -12,6 +12,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcrypt";
 import { LOCATION_SEED_CONFIGS } from "./seed-data/location-theatre-config.js";
 import { HAVEN_RETREAT_VENUE_CONFIG } from "./seed-data/venue-package-config.js";
+import { buildHavenAgreementTemplateContent } from "../src/constants/haven-agreement-content.js";
 
 /* --------------------------------
    Prisma Setup (ONE INSTANCE ONLY)
@@ -313,21 +314,13 @@ async function seedVenueEventModule() {
 async function seedAgreementTemplates() {
   console.log("Seeding agreement templates");
 
-  const content = [
-    "This agreement confirms the event booking request submitted for the selected venue package.",
-    "",
-    "The customer agrees that event details, selected add-ons, guest count, and venue rules will be honored as captured during checkout.",
-    "",
-    "Final payment collection, arrival instructions, permitted use, damage policy, and cancellation handling remain subject to the venue's operating policy and manual confirmation workflow.",
-    "",
-    "By signing below, the customer confirms that the submitted contact information is accurate and that they authorize the venue to proceed with payment coordination for this booking.",
-  ].join("\n");
+  const content = buildHavenAgreementTemplateContent();
 
   await prisma.agreementTemplate.upsert({
     where: {
       title_version: {
-        title: "Venue Booking Agreement",
-        version: "v1",
+        title: "Haven Retreat Event Rental Agreement",
+        version: "v2",
       },
     },
     update: {
@@ -335,8 +328,8 @@ async function seedAgreementTemplates() {
       isActive: true,
     },
     create: {
-      title: "Venue Booking Agreement",
-      version: "v1",
+      title: "Haven Retreat Event Rental Agreement",
+      version: "v2",
       content,
       isActive: true,
     },

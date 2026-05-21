@@ -77,7 +77,7 @@ export function useSubmitOccasion() {
         if (categories[0]?.slug) {
           firstCategorySlug = categories[0].slug;
         } else if (categories.length === 0) {
-          router.push(BOOKING_ROUTES.PAYMENT);
+          router.push(BOOKING_ROUTES.AGREEMENT);
           return true;
         }
       } catch {

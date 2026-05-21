@@ -4,6 +4,15 @@ import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
 
+function extractRequestIp(req: Request) {
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    return forwardedFor.split(",")[0]?.trim() ?? null;
+  }
+
+  return req.headers.get("x-real-ip");
+}
+
 function isEditableBookingStatus(status: string) {
   return (
     status === "INCOMPLETE" ||
@@ -16,14 +25,26 @@ export async function POST(req: Request) {
   try {
     const body = (await req
       .json()
-      .catch(() => null)) as { bookingId?: string } | null;
+      .catch(() => null)) as {
+      bookingId?: string;
+      signerName?: string;
+      signatureImage?: string;
+      confirmationAccepted?: boolean;
+      agreementVersion?: string;
+      agreementHtmlSnapshot?: string;
+    } | null;
     const bookingId = body?.bookingId;
 
-    if (!bookingId) {
+    if (
+      !bookingId ||
+      !body?.signerName ||
+      !body?.signatureImage ||
+      !body?.confirmationAccepted
+    ) {
       return bookingErrorResponse(
         400,
         "INVALID_REQUEST",
-        "bookingId is required."
+        "bookingId, signerName, signatureImage, and confirmationAccepted are required."
       );
     }
 
@@ -65,16 +86,53 @@ export async function POST(req: Request) {
       );
     }
 
-    await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        termsAcceptedAt: booking.termsAcceptedAt ?? new Date(),
-        bookingStatus: "AWAITING_PAYMENT",
-        paymentStatus: "INITIALIZED",
-        razorpayOrderId: null,
-        razorpayPaymentId: null,
-        razorpaySignature: null,
-      },
+    const template = await prisma.agreementTemplate.findFirst({
+      where: { isActive: true },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    if (!template) {
+      return bookingErrorResponse(
+        409,
+        "AGREEMENT_TEMPLATE_NOT_FOUND",
+        "No active agreement template is available yet."
+      );
+    }
+
+    const signedAt = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.signedAgreement.deleteMany({
+        where: { bookingId },
+      });
+
+      await tx.signedAgreement.create({
+        data: {
+          bookingId,
+          agreementTemplateId: template.id,
+          signerName: body.signerName!.trim(),
+          signerEmail: booking.contactEmail ?? "",
+          signedAt,
+          signatureImage: body.signatureImage!,
+          ipAddress: extractRequestIp(req),
+          userAgent: req.headers.get("user-agent"),
+          agreementVersion: body.agreementVersion ?? template.version,
+          agreementHtmlSnapshot: body.agreementHtmlSnapshot ?? template.content,
+          confirmationAccepted: true,
+        },
+      });
+
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          termsAcceptedAt: booking.termsAcceptedAt ?? signedAt,
+          bookingStatus: "AWAITING_PAYMENT",
+          paymentStatus: "INITIALIZED",
+          razorpayOrderId: null,
+          razorpayPaymentId: null,
+          razorpaySignature: null,
+        },
+      });
     });
 
     return NextResponse.json({ success: true });

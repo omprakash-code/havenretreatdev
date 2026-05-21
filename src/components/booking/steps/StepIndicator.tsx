@@ -6,6 +6,7 @@ import {
   User,
   Sparkles,
   Gift,
+  FileSignature,
   CreditCard,
   Check,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const steps = [
   { label: "Contact", icon: User },
   { label: "Occasion", icon: Sparkles },
   { label: "Add-ons", icon: Gift },
+  { label: "Agreement", icon: FileSignature },
   { label: "Payment", icon: CreditCard },
 ];
 
@@ -36,11 +38,6 @@ export default function StepIndicator({
   extrasSubProgress,
 }: Props) {
   const clampedStep = Math.max(1, Math.min(currentStep, steps.length));
-  const previousStep = Math.max(clampedStep - 1, 1);
-  const progressPercent =
-    ((clampedStep - 1) / (steps.length - 1)) * 100;
-  const initialPercent =
-    ((previousStep - 1) / (steps.length - 1)) * 100;
   const normalizedExtrasSubProgress =
     extrasSubProgress && extrasSubProgress.total > 0
       ? {
@@ -54,32 +51,7 @@ export default function StepIndicator({
 
   return (
     <div className={`w-full max-w-6xl mx-auto px-2 py-2 ${className}`}>
-      <div className="relative flex items-center justify-between">
-        {/* Base line (constrained under circles) */}
-        <div
-          className="absolute bg-[#d7e4e1]"
-          style={{
-            height: LINE_HEIGHT,
-            left: CIRCLE_SIZE / 2,
-            right: CIRCLE_SIZE / 2,
-            top: CIRCLE_SIZE / 2 - LINE_HEIGHT / 2,
-          }}
-        />
-
-        {/* Progress line */}
-        <motion.div
-          initial={{ width: `${initialPercent}%` }}
-          animate={{ width: `${progressPercent}%` }}
-          transition={{ duration: 0.45, ease: "easeInOut" }}
-          className="absolute bg-[#347f7c]"
-          style={{
-            height: LINE_HEIGHT,
-            left: CIRCLE_SIZE / 2,
-            top: CIRCLE_SIZE / 2 - LINE_HEIGHT / 2,
-            maxWidth: `calc(100% - ${CIRCLE_SIZE}px)`,
-          }}
-        />
-
+      <div className="relative grid grid-cols-6 items-start">
         {steps.map((step, index) => {
           const stepNo = index + 1;
           const isCompleted = stepNo < clampedStep;
@@ -91,14 +63,27 @@ export default function StepIndicator({
           return (
             <div
               key={step.label}
-              className="relative z-10 flex flex-col items-center"
-              style={{ width: CIRCLE_SIZE }}
+              className="relative flex flex-col items-center"
             >
+              {index < steps.length - 1 ? (
+                <div
+                  className={`absolute ${
+                    stepNo < clampedStep ? "bg-[#347f7c]" : "bg-[#d7e4e1]"
+                  }`}
+                  style={{
+                    height: LINE_HEIGHT,
+                    left: `calc(50% + ${CIRCLE_SIZE / 2}px)`,
+                    right: `calc(-50% + ${CIRCLE_SIZE / 2}px)`,
+                    top: CIRCLE_SIZE / 2 - LINE_HEIGHT / 2,
+                  }}
+                />
+              ) : null}
+
               {/* Circle */}
               <motion.div
                 animate={{ scale: isActive ? 1.08 : 1 }}
                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                className="w-[26px] h-[26px] rounded-full flex items-center justify-center border transition-colors duration-300"
+                className="relative z-10 w-[26px] h-[26px] rounded-full flex items-center justify-center border transition-colors duration-300"
                 style={{
                   backgroundColor:
                     isCompleted || isActive ? "#347f7c" : "#ffffff",

@@ -6,6 +6,7 @@ import { ArrowRight } from "@/components/icons";
 type MobileStickyActionProps = {
   label: string;
   onClick?: () => void;
+  onInvalidClick?: () => void;
   disabled?: boolean;
   hidden?: boolean;
   isInvalid?: boolean;
@@ -28,6 +29,7 @@ function formatCurrency(amount: number) {
 export default function MobileStickyAction({
   label,
   onClick,
+  onInvalidClick,
   disabled = false,
   hidden = false,
   isInvalid = false,
@@ -109,6 +111,7 @@ export default function MobileStickyAction({
       window.requestAnimationFrame(() => {
         setIsShaking(true);
       });
+      onInvalidClick?.();
       return;
     }
     setShowInvalidError(false);
