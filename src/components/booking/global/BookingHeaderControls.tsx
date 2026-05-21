@@ -229,13 +229,16 @@ export default function BookingHeaderControls({
             locationName: location.name,
             city: location.city,
             date: date.toISOString(),
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            durationHours: booking.durationHours,
           }),
         });
       } catch {
         // silent fail: local state already updated
       }
     },
-    []
+    [booking.durationHours, booking.endTime, booking.startTime]
   );
 
   const releaseBookingSession = useCallback(async () => {

@@ -1,5 +1,6 @@
 //src/services/theatre.service.ts
 import {
+  findActiveTheatreCatalogByLocation,
   findAllTheatres,
   findTheatreAvailabilityCountsByLocationAndDate,
   findTheatresWithSlotsByLocationAndDate,
@@ -22,6 +23,10 @@ let pendingUnlockRun: Promise<void> | null = null;
 /* Existing function – keep */
 export async function listTheatres() {
   return findAllTheatres();
+}
+
+export async function getTheatreCatalog(locationId: string) {
+  return findActiveTheatreCatalogByLocation(locationId);
 }
 
 async function ensureExpiredSlotsUnlocked() {
@@ -53,11 +58,20 @@ async function ensureExpiredSlotsUnlocked() {
 export async function getTheatresWithSlots(
   locationId: string,
   date: string,
-  guestToken: string | null
+  guestToken: string | null,
+  range?: {
+    startTime?: string | null;
+    endTime?: string | null;
+  }
 ) {
   await ensureExpiredSlotsUnlocked();
 
-  return findTheatresWithSlotsByLocationAndDate(locationId, date, guestToken);
+  return findTheatresWithSlotsByLocationAndDate(
+    locationId,
+    date,
+    guestToken,
+    range
+  );
 }
 
 export async function getTheatreAvailabilityCounts(

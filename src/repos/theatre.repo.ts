@@ -18,11 +18,49 @@ export async function findAllTheatres() {
   });
 }
 
+export async function findActiveTheatreCatalogByLocation(locationId: string) {
+  const theatres = await prisma.theatre.findMany({
+    where: { locationId, isActive: true },
+    include: {
+      slotTemplates: {
+        where: { isActive: true },
+        orderBy: { startTime: "asc" },
+        take: 1,
+      },
+    },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+
+  return theatres.map((theatre) => {
+    const rawCardContent = (theatre as { cardContent?: unknown }).cardContent;
+
+    return {
+      ...theatre,
+      menuFile: theatre.menuFile ?? null,
+      mapUrl: theatre.mapUrl ?? null,
+      basePrice:
+        theatre.slotTemplates[0]?.salePrice ??
+        theatre.slotTemplates[0]?.regularPrice ??
+        0,
+      cardContent: normalizeTheatreCardContent(rawCardContent),
+      images: theatre.images.map((url) => ({
+        url,
+        type: url.endsWith(".mp4") || url.endsWith(".webm") ? "video" : "image",
+      })),
+      slots: [],
+    };
+  });
+}
+
 /* NEW: Fetch theatres with slots by location + date */
 export async function findTheatresWithSlotsByLocationAndDate(
   locationId: string,
   date: string,
-  guestToken: string | null
+  guestToken: string | null,
+  range?: {
+    startTime?: string | null;
+    endTime?: string | null;
+  }
 ) {
   // Convert date string to IST midnight
   // date string is in format YYYY-MM-DD (IST date)
@@ -34,6 +72,12 @@ export async function findTheatresWithSlotsByLocationAndDate(
       slots: {
         where: {
           date: dateInIST,
+          ...(range?.startTime && range?.endTime
+            ? {
+                startTime: range.startTime,
+                endTime: range.endTime,
+              }
+            : {}),
         },
         orderBy: { startTime: "asc" },
       },

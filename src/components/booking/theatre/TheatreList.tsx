@@ -1,68 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useBooking } from "@/context/BookingContext";
 import TheatreCard from "./TheatreCard";
 import type { Theatre } from "@/types/theatre";
 import type { Location as BookingLocation } from "@/context/BookingContext";
-import { formatInTimeZone } from "date-fns-tz";
 import { BOOKING_ROUTES } from "@/constants/routes";
-import { AlertTriangle, Calendar } from "@/components/icons";
-import { addDays } from "@/lib/date";
-import { toast } from "sonner";
-
-const IST_TIMEZONE = "Asia/Kolkata";
+import { AlertTriangle, Calendar, Clock } from "@/components/icons";
+import { formatDuration, formatISTTime } from "@/lib/formatters";
 
 export default function TheatreList() {
-  const { booking, hydrated, setDate } = useBooking();
+  const { booking, hydrated } = useBooking();
   const router = useRouter();
 
   const [theatres, setTheatres] = useState<Theatre[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [nextDaySlotCounts, setNextDaySlotCounts] =
-    useState<Record<string, number>>({});
-  const [changingDate, setChangingDate] = useState(false);
-
-  useEffect(() => {
-    if (!hydrated) return;
-
-    const location = booking.location;
-    const date = booking.date;
-
-    if (!location || !date) {
-      setLoading(false);
-      setLoadError(null);
-      setNextDaySlotCounts({});
-      router.replace(BOOKING_ROUTES.ROOT);
-      return;
-    }
-
-    void fetchTheatres(location, date);
-    void fetchNextDaySlotCounts(location.id, date);
-  }, [hydrated, booking.location, booking.date, router]);
-
-  async function fetchTheatres(
-    location: BookingLocation,
-    date: Date
-  ) {
+  const fetchTheatres = useCallback(async (
+    location: BookingLocation
+  ) => {
     try {
       setLoading(true);
       setLoadError(null);
 
-      // Convert date to IST format (not UTC)
-      const dateStr = formatInTimeZone(date, IST_TIMEZONE, "yyyy-MM-dd");
-
       const res = await fetch(
-        `/api/theatres?locationId=${location.id}&date=${dateStr}`,
+        `/api/theatres?locationId=${location.id}&catalog=1`,
         { credentials: "include" }
       );
 
       const json = await res.json();
       if (!res.ok || !json?.success) {
         setTheatres([]);
-      setLoadError(json?.message || "Unable to load packages right now.");
+        setLoadError(json?.message || "Unable to load packages right now.");
         return;
       }
       setTheatres(json.data?.theatres ?? []);
@@ -73,81 +43,35 @@ export default function TheatreList() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function fetchNextDaySlotCounts(
-    locationId: string,
-    selectedDate: Date
-  ) {
-    try {
-      const nextDate = addDays(selectedDate, 1);
-      nextDate.setHours(0, 0, 0, 0);
-      const dateStr = formatInTimeZone(nextDate, IST_TIMEZONE, "yyyy-MM-dd");
+  useEffect(() => {
+    if (!hydrated) return;
 
-      const res = await fetch(
-        `/api/theatres/available-counts?locationId=${locationId}&date=${dateStr}`,
-        { credentials: "include" }
-      );
-      const json = await res.json().catch(() => null);
-      const nextCounts =
-        json?.success &&
-        json?.data &&
-        typeof json.data === "object" &&
-        json.data.counts &&
-        typeof json.data.counts === "object"
-          ? (json.data.counts as Record<string, number>)
-          : {};
+    const location = booking.location;
+    const date = booking.date;
 
-      setNextDaySlotCounts(nextCounts);
-    } catch {
-      setNextDaySlotCounts({});
+    if (!location || !date || !booking.startTime || !booking.endTime) {
+      setLoading(false);
+      setLoadError(null);
+      router.replace(BOOKING_ROUTES.ROOT);
+      return;
     }
-  }
 
-  async function handleNextDayClick(theatreId: string) {
-    if (!booking.location || !booking.date || changingDate) return;
-    const nextDayCount = nextDaySlotCounts[theatreId] ?? 0;
-    if (nextDayCount <= 0) return;
-
-    const nextDate = addDays(booking.date, 1);
-    nextDate.setHours(0, 0, 0, 0);
-    const nextDateLabel = formatInTimeZone(nextDate, IST_TIMEZONE, "EEE, dd MMM");
-    const slotLabel = `${nextDayCount} slot${nextDayCount === 1 ? "" : "s"}`;
-
-    setChangingDate(true);
-    setDate(nextDate);
-    toast.success(`Date changed to ${nextDateLabel}`, {
-      id: "theatre-next-day-updated",
-      description: `Showing ${slotLabel} for this package.`,
-    });
-
-    try {
-      await fetch("/api/bookings/release", {
-        method: "POST",
-        keepalive: true,
-      });
-
-      await fetch("/api/prebooking/set", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        keepalive: true,
-        body: JSON.stringify({
-          locationId: booking.location.id,
-          locationName: booking.location.name,
-          city: booking.location.city,
-          date: nextDate.toISOString(),
-        }),
-      });
-    } catch {
-      // local booking context already updated
-    } finally {
-      setChangingDate(false);
-    }
-  }
+    void fetchTheatres(location);
+  }, [
+    hydrated,
+    booking.location,
+    booking.date,
+    booking.startTime,
+    booking.endTime,
+    fetchTheatres,
+    router,
+  ]);
 
   function handleRetry() {
-    if (!booking.location || !booking.date) return;
-    void fetchTheatres(booking.location, booking.date);
+    if (!booking.location) return;
+    void fetchTheatres(booking.location);
   }
 
   /* ---------------- Skeleton Loader ---------------- */
@@ -177,6 +101,16 @@ export default function TheatreList() {
           <p className="mx-auto max-w-2xl text-sm text-gray-500 sm:text-base lg:text-lg">
             Flexible options for intimate gatherings, styled celebrations, and personalized setups based on your event needs.
           </p>
+          {booking.startTime && booking.endTime && booking.durationHours && (
+            <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border border-[#d7e4e1] px-4 py-2.5 text-sm font-semibold text-[#347f7c]">
+              <span className="inline-flex items-center gap-2">
+                <Clock size={15} />
+                {formatISTTime(booking.startTime)} - {formatISTTime(booking.endTime)}
+              </span>
+              <span className="text-[#98a2b3]">|</span>
+              <span>{formatDuration(booking.durationHours * 60)}</span>
+            </div>
+          )}
         </div>
 
         {/* Error state */}
@@ -206,17 +140,17 @@ export default function TheatreList() {
               <Calendar size={18} />
             </div>
             <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
-              No packages available for this date
+              No packages available for this location
             </h3>
             <p className="mt-1 text-sm text-slate-600">
-              Try a different date or location to see available packages.
+              Try a different location to see available packages.
             </p>
             <button
               type="button"
               onClick={() => router.push(BOOKING_ROUTES.ROOT)}
               className="mt-4 inline-flex cursor-pointer items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 transition hover:bg-slate-100"
             >
-              Change Date or Location
+              Change Location
             </button>
           </div>
         )}
@@ -228,12 +162,6 @@ export default function TheatreList() {
               <TheatreCard
                 key={theatre.id}
                 theatre={theatre}
-                onNextDayClick={() => {
-                  void handleNextDayClick(theatre.id);
-                }}
-                nextDayCount={nextDaySlotCounts[theatre.id] ?? 0}
-                hasNextDay={(nextDaySlotCounts[theatre.id] ?? 0) > 0}
-                changingDate={changingDate}
               />
             ))}
           </div>

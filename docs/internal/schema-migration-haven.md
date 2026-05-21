@@ -36,6 +36,26 @@ Haven booking is moving from fixed slot chips toward date and time-range inputs.
 Slot templates and `slotId` are not removed in Phase 1A because current package
 selection, booking locks, pricing, and payment confirmation still rely on them.
 
+## Phase 1B: Independent Package Catalog
+
+The package page reads from a location-only active package catalog and no longer
+exposes slot chips or a second event-time selector on package cards. Package
+visibility is not controlled by the selected date, time range, or legacy slot
+availability. A sticky package summary still shows location, date, selected
+range, and duration while customers compare packages in the current step order.
+
+Until the range-native booking lock exists, the package CTA resolves the legacy
+slot handoff only after the customer chooses a package. `/api/theatres` still
+accepts optional `startTime` and `endTime` for that transitional handoff and
+narrows the returned slot payload to an exact matching legacy slot. This keeps
+downstream contact, agreement, payment, and confirmation lifecycles stable while
+package comparison itself becomes step-order friendly.
+
+If no exact legacy slot exists for the requested range, package selection can be
+shown but cannot yet create the downstream booking session. A later phase should
+replace this exact-slot bridge with overlap-aware dynamic availability and
+range-native booking creation.
+
 Follow-up phases should introduce range-aware architecture incrementally for:
 
 - overlap validation
