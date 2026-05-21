@@ -26,6 +26,9 @@ type PrebookingPayload = {
   locationName: string;
   city?: string;
   date: string; // ISO string
+  startTime?: string;
+  endTime?: string;
+  durationHours?: number;
 };
 
 export function createPrebookingToken(

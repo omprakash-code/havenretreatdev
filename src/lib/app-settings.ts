@@ -37,11 +37,17 @@ export const BOOKING_LOCK_MINUTES_KEY = "BOOKING_LOCK_MINUTES";
 export const BOOKING_LOCK_MINUTES_MIN = 1;
 export const BOOKING_LOCK_MINUTES_MAX = 60;
 export const DEFAULT_BOOKING_LOCK_MINUTES = 10;
+export const MINIMUM_BOOKING_DURATION_HOURS_KEY =
+  "MINIMUM_BOOKING_DURATION_HOURS";
+export const MINIMUM_BOOKING_DURATION_HOURS_MIN = 1;
+export const MINIMUM_BOOKING_DURATION_HOURS_MAX = 23.5;
+export const DEFAULT_MINIMUM_BOOKING_DURATION_HOURS = 4;
 
 export const PRIORITY_SETTING_KEYS = [
   "SPECIAL_SLOT_TEXT",
   ADVANCE_PAYMENT_AMOUNT_KEY,
   BOOKING_LOCK_MINUTES_KEY,
+  MINIMUM_BOOKING_DURATION_HOURS_KEY,
   SLOT_EXPIRY_MODE_KEY,
   SLOT_EXPIRY_GRACE_MINUTES_KEY,
 ] as const;
@@ -75,6 +81,17 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
     min: BOOKING_LOCK_MINUTES_MIN,
     max: BOOKING_LOCK_MINUTES_MAX,
     step: 1,
+  },
+  [MINIMUM_BOOKING_DURATION_HOURS_KEY]: {
+    label: "Minimum Booking Duration (hours)",
+    description:
+      "Shortest time range customers can request before viewing packages. The booking entry picker supports 30-minute increments. Example: 4 hours.",
+    type: "number",
+    placeholder: String(DEFAULT_MINIMUM_BOOKING_DURATION_HOURS),
+    defaultValue: String(DEFAULT_MINIMUM_BOOKING_DURATION_HOURS),
+    min: MINIMUM_BOOKING_DURATION_HOURS_MIN,
+    max: MINIMUM_BOOKING_DURATION_HOURS_MAX,
+    step: 0.5,
   },
   [SLOT_EXPIRY_MODE_KEY]: {
     label: "Slot Expiry Mode",
@@ -124,6 +141,12 @@ export function normalizeAppSettingValue(key: string, value: string) {
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed)) return trimmed;
     return String(Math.trunc(parsed));
+  }
+
+  if (key === MINIMUM_BOOKING_DURATION_HOURS_KEY) {
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) return trimmed;
+    return String(parsed);
   }
 
   if (key === SLOT_EXPIRY_MODE_KEY) {
@@ -194,6 +217,23 @@ export function validateAppSetting(key: string, value: string) {
     return null;
   }
 
+  if (key === MINIMUM_BOOKING_DURATION_HOURS_KEY) {
+    const hours = Number(normalized);
+    if (!Number.isFinite(hours)) {
+      return "Enter a valid duration.";
+    }
+    if (hours < MINIMUM_BOOKING_DURATION_HOURS_MIN) {
+      return `Duration must be at least ${MINIMUM_BOOKING_DURATION_HOURS_MIN} hour.`;
+    }
+    if (hours > MINIMUM_BOOKING_DURATION_HOURS_MAX) {
+      return `Duration must be at most ${MINIMUM_BOOKING_DURATION_HOURS_MAX} hours.`;
+    }
+    if (!Number.isInteger(hours * 2)) {
+      return "Duration must use 30-minute increments.";
+    }
+    return null;
+  }
+
   if (key === SLOT_EXPIRY_MODE_KEY) {
     if (
       normalized !== "START_TIME" &&
@@ -237,6 +277,19 @@ export function parseAdvancePaymentAmount(value: unknown) {
     return null;
   }
   return Math.trunc(amount);
+}
+
+export function parseMinimumBookingDurationHours(value: unknown) {
+  const hours = Number(value);
+  if (!Number.isFinite(hours)) return null;
+  if (
+    hours < MINIMUM_BOOKING_DURATION_HOURS_MIN ||
+    hours > MINIMUM_BOOKING_DURATION_HOURS_MAX
+  ) {
+    return null;
+  }
+  if (!Number.isInteger(hours * 2)) return null;
+  return hours;
 }
 
 export function mergeWithKnownAppSettings(items: AppSettingItem[]) {

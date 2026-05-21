@@ -1080,6 +1080,10 @@ async function seedAppSettings() {
       value: "10",
     },
     {
+      key: "MINIMUM_BOOKING_DURATION_HOURS",
+      value: "4",
+    },
+    {
       key: "SLOT_EXPIRY_MODE",
       value: "START_TIME",
     },

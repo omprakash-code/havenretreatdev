@@ -4,7 +4,7 @@ import { createPrebookingToken } from "@/services/booking/prebookingSession.serv
 
 export async function POST(req: Request) {
   try {
-    const { locationId, locationName, city, date } =
+    const { locationId, locationName, city, date, startTime, endTime, durationHours } =
       await req.json();
 
     if (!locationId || !locationName || !date) {
@@ -19,6 +19,9 @@ export async function POST(req: Request) {
       locationName,
       city,
       date,
+      startTime,
+      endTime,
+      durationHours,
     });
 
     const cookieStore = await cookies();

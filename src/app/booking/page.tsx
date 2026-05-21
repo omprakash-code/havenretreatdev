@@ -21,7 +21,13 @@ function BookingContent() {
     }
   }, [searchParams, resetBooking]);
   
-  const canContinue = Boolean(booking.location && booking.date);
+  const canContinue = Boolean(
+    booking.location &&
+      booking.date &&
+      booking.startTime &&
+      booking.endTime &&
+      booking.durationHours
+  );
 
   const handleContinue = async () => {
     if (!canContinue || !booking.location || !booking.date) return;
@@ -35,6 +41,9 @@ function BookingContent() {
         locationName: booking.location.name,
         city: booking.location.city,
         date: booking.date.toISOString(),
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        durationHours: booking.durationHours,
       }),
     });
 

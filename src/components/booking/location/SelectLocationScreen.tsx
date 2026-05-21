@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { Calendar, MapPin } from "@/components/icons";
 import BookingCalendar from "@/components/booking/location/BookingCalendar";
+import TimeRangePicker from "@/components/booking/time-range/TimeRangePicker";
 import { useBooking } from "@/context/BookingContext";
 import { toDateKey } from "@/lib/date";
 import { formatISTDate } from "@/lib/formatters";
@@ -31,6 +32,8 @@ export default function SelectLocationScreen({ onContinue }: Props) {
     booking,
     setDate,
     setLocation,
+    setTimeRange,
+    minimumBookingDurationHours,
     openCalendar,
     setOpenCalendar,
   } = useBooking();
@@ -244,7 +247,13 @@ export default function SelectLocationScreen({ onContinue }: Props) {
     }
   };
 
-  const canContinue = Boolean(booking.location && booking.date);
+  const canContinue = Boolean(
+    booking.location &&
+      booking.date &&
+      booking.startTime &&
+      booking.endTime &&
+      booking.durationHours
+  );
 
   /* -----------------------------
      Render
@@ -267,7 +276,7 @@ export default function SelectLocationScreen({ onContinue }: Props) {
         {/* Heading */}
         <div className="mb-4 text-center sm:mb-5 lg:mb-6">
           <h1 className="mb-1 text-xl font-bold text-[#1f2937] sm:text-2xl lg:text-3xl">
-            Select Location & Date
+            Select Location, Date & Time
           </h1>
           <p className="text-sm text-gray-600 sm:text-base">
             Choose where and when you want to celebrate
@@ -505,6 +514,14 @@ export default function SelectLocationScreen({ onContinue }: Props) {
             onClose={() => setOpenCalendar(false)}
           />
         )}
+
+        <TimeRangePicker
+          startTime={booking.startTime}
+          endTime={booking.endTime}
+          minDurationHours={minimumBookingDurationHours}
+          onChange={setTimeRange}
+          disabled={!booking.date}
+        />
 
         {/* Footer */}
         <div className="mt-4 flex flex-col items-stretch justify-between gap-2.5 sm:gap-3 md:flex-row md:items-center">

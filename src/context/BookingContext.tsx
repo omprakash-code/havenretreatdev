@@ -9,8 +9,12 @@ import React, {
 } from "react";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
+  DEFAULT_MINIMUM_BOOKING_DURATION_HOURS,
+  MINIMUM_BOOKING_DURATION_HOURS_KEY,
   parseAdvancePaymentAmount,
+  parseMinimumBookingDurationHours,
 } from "@/lib/app-settings";
+import { calculateDurationHours } from "@/lib/booking-time-range";
 import { formatSlotTime } from "@/lib/formatters";
 import {
   BOOKING_SESSION_EXPIRED_MODAL_MESSAGE,
@@ -89,6 +93,9 @@ type PrebookingResponse = {
     locationName: string;
     city?: string;
     date: string;
+    startTime?: string;
+    endTime?: string;
+    durationHours?: number;
   };
 };
 
@@ -143,6 +150,10 @@ function normalizeBookingItems(
 type BookingState = {
   location: Location | null;
   date: Date | null;
+  selectedDate: Date | null;
+  startTime: string | null;
+  endTime: string | null;
+  durationHours: number | null;
   theatre: SelectedTheatre | null;
   slot: SelectedSlot | null;
 
@@ -177,11 +188,13 @@ type BookingContextType = {
   loading: boolean;
   hydrated: boolean;
   itemsHydrated: boolean;
+  minimumBookingDurationHours: number;
   refreshBooking: () => Promise<void>;
 
   // Temporary setters (will be removed later phase)
   setLocation: (l: Location) => void;
   setDate: (d: Date) => void;
+  setTimeRange: (startTime: string | null, endTime: string | null) => void;
   setTheatreAndSlot: (
     theatre: SelectedTheatre,
     slot: SelectedSlot
@@ -222,6 +235,10 @@ const BookingContext = createContext<BookingContextType | null>(null);
 const INITIAL_BOOKING: BookingState = {
   location: null,
   date: null,
+  selectedDate: null,
+  startTime: null,
+  endTime: null,
+  durationHours: null,
   theatre: null,
   slot: null,
   guestCount: 2,
@@ -246,6 +263,8 @@ export function BookingProvider({
   const [loading, setLoading] = useState(true);
   const [configuredAdvanceAmount, setConfiguredAdvanceAmount] =
     useState<number | null>(null);
+  const [minimumBookingDurationHours, setMinimumBookingDurationHours] =
+    useState(DEFAULT_MINIMUM_BOOKING_DURATION_HOURS);
   const [itemsHydrated, setItemsHydrated] =
     useState(false);
   const [openCalendar, setOpenCalendar] =
@@ -282,6 +301,13 @@ const loadBooking = async () => {
         city: data.city,
       },
       date: new Date(data.date),
+      selectedDate: new Date(data.date),
+      startTime: data.startTime ?? null,
+      endTime: data.endTime ?? null,
+      durationHours:
+        calculateDurationHours(data.startTime, data.endTime) ??
+        data.durationHours ??
+        null,
     });
 
     return true;
@@ -300,12 +326,16 @@ const loadBooking = async () => {
     const parsedAdvance = parseAdvancePaymentAmount(
       settingsJson?.data?.[ADVANCE_PAYMENT_AMOUNT_KEY]
     );
+    const parsedMinimumDuration = parseMinimumBookingDurationHours(
+      settingsJson?.data?.[MINIMUM_BOOKING_DURATION_HOURS_KEY]
+    );
 
-    if (parsedAdvance === null) {
+    if (parsedAdvance === null || parsedMinimumDuration === null) {
       throw new Error("ADVANCE_PAYMENT_CONFIG_INVALID");
     }
 
     setConfiguredAdvanceAmount(parsedAdvance);
+    setMinimumBookingDurationHours(parsedMinimumDuration);
 
     const typeRes = await fetch("/api/session/type", {
       credentials: "include",
@@ -373,6 +403,15 @@ const loadBooking = async () => {
         date: data.slot?.date
           ? new Date(data.slot.date)
           : null,
+        selectedDate: data.slot?.date
+          ? new Date(data.slot.date)
+          : null,
+        startTime: data.slot?.startTime ?? null,
+        endTime: data.slot?.endTime ?? null,
+        durationHours: calculateDurationHours(
+          data.slot?.startTime,
+          data.slot?.endTime
+        ),
         theatre: data.theatre
           ? {
               id: data.theatre.id,
@@ -536,6 +575,7 @@ const loadBooking = async () => {
     setBooking((p) => ({
       ...p,
       date,
+      selectedDate: date,
       theatre: null,
       slot: null,
       bookingId: undefined,
@@ -548,6 +588,14 @@ const loadBooking = async () => {
       appliedCoupons: [],
       contact: undefined,
       occasion: undefined,
+    }));
+
+  const setTimeRange = (startTime: string | null, endTime: string | null) =>
+    setBooking((p) => ({
+      ...p,
+      startTime,
+      endTime,
+      durationHours: calculateDurationHours(startTime, endTime),
     }));
 
   const setTheatreAndSlot = (
@@ -652,10 +700,12 @@ const loadBooking = async () => {
         loading,
         hydrated,
         itemsHydrated,
+        minimumBookingDurationHours,
         refreshBooking: loadBooking,
 
         setLocation,
         setDate,
+        setTimeRange,
         setTheatreAndSlot,
         setGuestCount,
         setDecorationRequired,
