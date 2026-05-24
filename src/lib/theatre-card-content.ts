@@ -135,7 +135,7 @@ export const DEFAULT_THEATRE_CARD_CONTENT: TheatreCardContent = {
     totalValue: "",
   },
   cta: {
-    text: "Book This Package",
+    text: "Continue with This Package",
   },
 };
 

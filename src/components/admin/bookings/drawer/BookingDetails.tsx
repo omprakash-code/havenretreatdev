@@ -81,6 +81,31 @@ function humanizePaymentMethodTag(value: string | null | undefined) {
   return "Checkout dismissed";
 }
 
+function FieldRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className="text-xs text-slate-500">{label}</span>
+      <span className="text-sm font-medium text-slate-900 text-right">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+function MonoValue({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="max-w-[260px] break-all rounded bg-slate-100 px-2 py-1 text-right font-mono text-xs text-slate-700">
+      {children}
+    </span>
+  );
+}
+
 // Status Badge Component
 function StatusBadge({
   status,
@@ -450,7 +475,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
               <div className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                   <Calendar size={16} />
-                  Slot Details
+                  Booking Schedule
                 </h3>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -477,7 +502,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   <div className="bg-white rounded-lg p-3 border border-slate-200">
                     <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
                       <FileText size={12} />
-                      Theatre
+                      Package
                     </div>
                     <p className="text-sm font-semibold text-slate-900">
                       {booking.theatre.name}
@@ -496,8 +521,26 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
-                  <span className="text-xs text-slate-500">Slot Status</span>
+                  <span className="text-xs text-slate-500">Reservation Status</span>
                   <StatusBadge status={booking.slot.status} type="booking" />
+                </div>
+
+                <div className="space-y-2 border-t border-slate-200 pt-3">
+                  <FieldRow label="Location">
+                    {booking.theatre.locationName ?? booking.locationName ?? "—"}
+                  </FieldRow>
+                  <FieldRow label="Decoration">
+                    {booking.decorationRequired ? "Required" : "Not Required"}
+                  </FieldRow>
+                  <FieldRow label="Slot ID">
+                    {booking.slot.id ? <MonoValue>{booking.slot.id}</MonoValue> : "—"}
+                  </FieldRow>
+                  <FieldRow label="Slot Price">
+                    ₹{(booking.slot.finalPrice ?? booking.slot.basePrice ?? booking.pricing.base).toLocaleString()}
+                  </FieldRow>
+                  <FieldRow label="Decoration Mandatory">
+                    {booking.slot.decorationMandatory ? "Yes" : "No"}
+                  </FieldRow>
                 </div>
               </div>
 
@@ -558,11 +601,11 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                 </div>
               )}
 
-              {/* Terms & Conditions */}
+              {/* Agreement & Signature */}
               <div className="border border-slate-200 rounded-lg p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                   <FileText size={16} />
-                  Terms & Conditions
+                  Agreement & Signature
                 </h3>
 
                 <div className="flex items-start justify-between gap-4">
@@ -588,6 +631,80 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     </span>
                   </div>
                 )}
+
+                {booking.signedAgreement ? (
+                  <div className="space-y-3 border-t border-slate-200 pt-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <p className="mb-1 text-xs text-slate-500">Signer Name</p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {booking.signedAgreement.signerName}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <p className="mb-1 text-xs text-slate-500">Signed At</p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {formatIST(booking.signedAgreement.signedAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="mb-2 text-xs font-medium text-slate-500">
+                        Digital Signature
+                      </p>
+                      <div className="flex min-h-[96px] items-center justify-center rounded-md bg-slate-50 p-3">
+                        <Image
+                          src={booking.signedAgreement.signatureImage}
+                          alt={`Signature of ${booking.signedAgreement.signerName}`}
+                          width={360}
+                          height={120}
+                          unoptimized
+                          className="max-h-24 w-full object-contain"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <FieldRow label="Agreement ID">
+                        <MonoValue>{booking.signedAgreement.id}</MonoValue>
+                      </FieldRow>
+                      <FieldRow label="Version">
+                        {booking.signedAgreement.agreementVersion ?? "—"}
+                      </FieldRow>
+                      <FieldRow label="Signer Email">
+                        {booking.signedAgreement.signerEmail || "—"}
+                      </FieldRow>
+                      <FieldRow label="Confirmation Checkbox">
+                        {booking.signedAgreement.confirmationAccepted ? "Accepted" : "Not Accepted"}
+                      </FieldRow>
+                      <FieldRow label="IP Address">
+                        {booking.signedAgreement.ipAddress ?? "—"}
+                      </FieldRow>
+                      <FieldRow label="Payment Reference">
+                        {booking.signedAgreement.paymentReference ? (
+                          <MonoValue>{booking.signedAgreement.paymentReference}</MonoValue>
+                        ) : (
+                          "—"
+                        )}
+                      </FieldRow>
+                      <FieldRow label="PDF Generated">
+                        {booking.signedAgreement.pdfGeneratedAt
+                          ? formatIST(booking.signedAgreement.pdfGeneratedAt)
+                          : "—"}
+                      </FieldRow>
+                      <FieldRow label="User Agent">
+                        <span className="max-w-[260px] break-words text-right text-xs">
+                          {booking.signedAgreement.userAgent ?? "—"}
+                        </span>
+                      </FieldRow>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    No signed agreement record found for this booking.
+                  </div>
+                )}
               </div>
 
               {/* Metadata */}
@@ -601,6 +718,9 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       {booking.bookingRef}
                     </span>
                   </div>
+                  <FieldRow label="Booking ID">
+                    <MonoValue>{booking.id}</MonoValue>
+                  </FieldRow>
 
                   <div className="flex items-start justify-between gap-4">
                     <span className="text-xs text-slate-500">Created</span>
@@ -868,7 +988,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
               )}
 
               {/* Razorpay Details */}
-              {(booking.razorpayOrderId || booking.razorpayPaymentId) && (
+              {(booking.razorpayOrderId || booking.razorpayPaymentId || booking.razorpaySignature) && (
                 <div className="border border-slate-200 rounded-lg p-4 space-y-3">
                   <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                     <CreditCard size={16} />
@@ -889,6 +1009,15 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       <span className="text-xs text-slate-500">Payment ID</span>
                       <span className="text-xs font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded break-all">
                         {booking.razorpayPaymentId}
+                      </span>
+                    </div>
+                  )}
+
+                  {booking.razorpaySignature && (
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-xs text-slate-500">Signature</span>
+                      <span className="max-w-[260px] break-all rounded bg-slate-100 px-2 py-1 text-xs font-mono text-slate-700">
+                        {booking.razorpaySignature}
                       </span>
                     </div>
                   )}

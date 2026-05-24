@@ -521,6 +521,7 @@ export default function SelectLocationScreen({ onContinue }: Props) {
           minDurationHours={minimumBookingDurationHours}
           onChange={setTimeRange}
           disabled={!booking.date}
+          selectedDate={booking.date}
         />
 
         {/* Footer */}

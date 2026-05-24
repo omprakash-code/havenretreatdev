@@ -270,6 +270,24 @@ export async function GET(
             recordedByAdminId: true,
           },
         },
+        signedAgreements: {
+          orderBy: { signedAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            signerName: true,
+            signerEmail: true,
+            signedAt: true,
+            signatureImage: true,
+            ipAddress: true,
+            userAgent: true,
+            agreementVersion: true,
+            confirmationAccepted: true,
+            paymentReference: true,
+            pdfGeneratedAt: true,
+            createdAt: true,
+          },
+        },
         couponUsages: {
           where: {
             status: {
@@ -300,6 +318,7 @@ export async function GET(
     }
 
     const latestPayment = booking.payment[0] ?? null;
+    const latestSignedAgreement = booking.signedAgreements[0] ?? null;
     const paymentType: PaymentType =
       latestPayment?.provider === "OFFLINE" ? "OFFLINE" : "ONLINE";
     const paymentAmountMode: PaymentAmountMode =
@@ -350,14 +369,19 @@ export async function GET(
           theatre: {
             id: displaySpace.id,
             name: displaySpace.name,
+            locationName: displaySpace.locationName,
           },
           locationName: displaySpace.locationName,
           theatreImage: displaySpace.image,
           slot: {
+            id: booking.slot?.id ?? null,
             date: scheduleDateKey,
             startTime: scheduleStartTime,
             endTime: scheduleEndTime,
             status: booking.slot?.status ?? booking.bookingStatus,
+            basePrice: booking.slot?.basePrice ?? null,
+            finalPrice: booking.slot?.finalPrice ?? null,
+            decorationMandatory: booking.slot?.decorationMandatory ?? false,
           },
           guestCount: booking.guestCount,
           decorationRequired: booking.decorationRequired,
@@ -403,8 +427,25 @@ export async function GET(
           abandonmentAdminEmailSentAt:
             booking.abandonmentAdminEmailSentAt?.toISOString() ?? null,
           termsAcceptedAt: booking.termsAcceptedAt?.toISOString() ?? null,
+          signedAgreement: latestSignedAgreement
+            ? {
+                id: latestSignedAgreement.id,
+                signerName: latestSignedAgreement.signerName,
+                signerEmail: latestSignedAgreement.signerEmail,
+                signedAt: latestSignedAgreement.signedAt.toISOString(),
+                signatureImage: latestSignedAgreement.signatureImage,
+                ipAddress: latestSignedAgreement.ipAddress,
+                userAgent: latestSignedAgreement.userAgent,
+                agreementVersion: latestSignedAgreement.agreementVersion,
+                confirmationAccepted: latestSignedAgreement.confirmationAccepted,
+                paymentReference: latestSignedAgreement.paymentReference,
+                pdfGeneratedAt: latestSignedAgreement.pdfGeneratedAt?.toISOString() ?? null,
+                createdAt: latestSignedAgreement.createdAt.toISOString(),
+              }
+            : null,
           razorpayOrderId: booking.razorpayOrderId ?? null,
           razorpayPaymentId: booking.razorpayPaymentId ?? null,
+          razorpaySignature: booking.razorpaySignature ?? null,
           paymentDetails: latestPayment
             ? {
                 provider: latestPayment.provider,

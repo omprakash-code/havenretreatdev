@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   buildTimeValues,
   calculateDurationHours,
@@ -9,6 +9,8 @@ import {
 } from "@/lib/booking-time-range";
 import { formatISTTime } from "@/lib/formatters";
 
+const IST_TIMEZONE = "Asia/Kolkata";
+
 type TimeRangePickerProps = {
   startTime: string | null;
   endTime: string | null;
@@ -16,7 +18,29 @@ type TimeRangePickerProps = {
   onChange: (startTime: string | null, endTime: string | null) => void;
   incrementMinutes?: number;
   disabled?: boolean;
+  selectedDate?: Date | null;
 };
+
+function getISTDateKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: IST_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function getNowISTMinutes() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: IST_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
 
 export default function TimeRangePicker({
   startTime,
@@ -25,11 +49,30 @@ export default function TimeRangePicker({
   onChange,
   incrementMinutes = DEFAULT_TIME_RANGE_INCREMENT_MINUTES,
   disabled = false,
+  selectedDate = null,
 }: TimeRangePickerProps) {
   const times = useMemo(() => buildTimeValues(incrementMinutes), [incrementMinutes]);
+  const [nowISTMinutes, setNowISTMinutes] = useState(() => getNowISTMinutes());
   const minDurationMinutes = Math.round(minDurationHours * 60);
   const startMinutes = parseTimeValue(startTime);
   const durationHours = calculateDurationHours(startTime, endTime);
+  const isSelectedDateToday =
+    selectedDate !== null && getISTDateKey(selectedDate) === getISTDateKey(new Date());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNowISTMinutes(getNowISTMinutes());
+    }, 60_000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!isSelectedDateToday || startMinutes === null) return;
+    if (startMinutes <= nowISTMinutes) {
+      onChange(null, null);
+    }
+  }, [isSelectedDateToday, nowISTMinutes, onChange, startMinutes]);
 
   const canUseEndTime = (candidate: string) => {
     const candidateMinutes = parseTimeValue(candidate);
@@ -38,6 +81,18 @@ export default function TimeRangePicker({
       candidateMinutes !== null &&
       candidateMinutes - startMinutes >= minDurationMinutes
     );
+  };
+
+  const canUseStartTime = (candidate: string) => {
+    const candidateMinutes = parseTimeValue(candidate);
+    const hasSameDayEnd =
+      candidateMinutes !== null &&
+      candidateMinutes + minDurationMinutes <= 23 * 60 + 30;
+    const hasNotExpired =
+      !isSelectedDateToday ||
+      (candidateMinutes !== null && candidateMinutes > nowISTMinutes);
+
+    return hasSameDayEnd && hasNotExpired;
   };
 
   const handleStartChange = (nextStart: string) => {
@@ -84,13 +139,8 @@ export default function TimeRangePicker({
           >
             <option value="">Select start time</option>
             {times.map((time) => {
-              const timeMinutes = parseTimeValue(time);
-              const hasSameDayEnd =
-                timeMinutes !== null &&
-                timeMinutes + minDurationMinutes <= 23 * 60 + 30;
-
               return (
-                <option key={time} value={time} disabled={!hasSameDayEnd}>
+                <option key={time} value={time} disabled={!canUseStartTime(time)}>
                   {formatISTTime(time)}
                 </option>
               );
@@ -135,6 +185,8 @@ export default function TimeRangePicker({
           `End times before ${minDurationHours} ${
             minDurationHours === 1 ? "hour" : "hours"
           } are disabled.`
+        ) : isSelectedDateToday ? (
+          "Past start times for today are disabled."
         ) : (
           "Time options are shown in 30-minute increments."
         )}

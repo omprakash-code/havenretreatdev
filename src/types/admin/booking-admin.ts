@@ -29,15 +29,22 @@ export type AdminBooking = {
     name: string;
     locationName?: string | null;
   };
+  locationName?: string | null;
+  theatreImage?: string | null;
 
   slot: {
+    id?: string | null;
     date: string;
     startTime: string;
     endTime: string;
     status: string;
+    basePrice?: number | null;
+    finalPrice?: number | null;
+    decorationMandatory?: boolean;
   };
 
   guestCount: number;
+  decorationRequired?: boolean;
 
   pricing: {
     base: number;
@@ -60,9 +67,24 @@ export type AdminBooking = {
   abandonmentCustomerEmailSentAt: string | null;
   abandonmentAdminEmailSentAt: string | null;
   termsAcceptedAt: string | null;
+  signedAgreement?: {
+    id: string;
+    signerName: string;
+    signerEmail: string;
+    signedAt: string;
+    signatureImage: string;
+    ipAddress: string | null;
+    userAgent: string | null;
+    agreementVersion: string | null;
+    confirmationAccepted: boolean;
+    paymentReference: string | null;
+    pdfGeneratedAt: string | null;
+    createdAt: string;
+  } | null;
 
   razorpayOrderId: string | null;
   razorpayPaymentId: string | null;
+  razorpaySignature?: string | null;
   paymentDetails: {
     provider: string;
     method: string | null;
