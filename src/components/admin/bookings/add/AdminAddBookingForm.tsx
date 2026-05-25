@@ -7,7 +7,10 @@ import { toast } from "sonner";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
+  DEFAULT_MINIMUM_BOOKING_DURATION_HOURS,
+  MINIMUM_BOOKING_DURATION_HOURS_KEY,
   parseAdvancePaymentAmount,
+  parseMinimumBookingDurationHours,
 } from "@/lib/app-settings";
 import { resolveCouponIdentityGate } from "@/lib/coupon-identity-gate";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
@@ -207,6 +210,8 @@ export function AdminAddBookingForm({
   const [date, setDate] = useState("");
   const [theatreId, setTheatreId] = useState("");
   const [slotId, setSlotId] = useState("");
+  const [startTime, setStartTime] = useState<string | null>(null);
+  const [endTime, setEndTime] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -240,6 +245,9 @@ export function AdminAddBookingForm({
   const couponAutoRefreshRequestIdRef = useRef(0);
 
   const [defaultAdvanceAmount, setDefaultAdvanceAmount] = useState(0);
+  const [minimumBookingDurationHours, setMinimumBookingDurationHours] = useState(
+    DEFAULT_MINIMUM_BOOKING_DURATION_HOURS
+  );
   const [customAdvanceAmount, setCustomAdvanceAmount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [paymentStatus, setPaymentStatus] = useState<
@@ -315,6 +323,13 @@ export function AdminAddBookingForm({
         } else {
           toast.error("Advance payment setting is missing or invalid.");
         }
+
+        const parsedMinimumDuration = parseMinimumBookingDurationHours(
+          settingsJson?.data?.[MINIMUM_BOOKING_DURATION_HOURS_KEY]
+        );
+        setMinimumBookingDurationHours(
+          parsedMinimumDuration ?? DEFAULT_MINIMUM_BOOKING_DURATION_HOURS
+        );
       } finally {
         if (!cancelled) setLoadingBootData(false);
       }
@@ -363,6 +378,8 @@ export function AdminAddBookingForm({
         setDate(booking.date);
         setTheatreId(booking.theatreId);
         setSlotId(booking.slotId);
+        setStartTime(null);
+        setEndTime(null);
 
         setName(booking.customer.name ?? "");
         setPhone(normalizePhone(booking.customer.phone ?? ""));
@@ -750,6 +767,8 @@ export function AdminAddBookingForm({
     if (!theatres.some((theatre) => theatre.id === theatreId)) {
       setTheatreId("");
       setSlotId("");
+      setStartTime(null);
+      setEndTime(null);
     }
   }, [theatreId, theatres, loadingTheatres]);
 
@@ -766,6 +785,12 @@ export function AdminAddBookingForm({
     () => theatreSlots.find((slot) => slot.id === slotId) ?? null,
     [slotId, theatreSlots]
   );
+  useEffect(() => {
+    if (!selectedSlot) return;
+    setStartTime(selectedSlot.startTime);
+    setEndTime(selectedSlot.endTime);
+  }, [selectedSlot]);
+
   const slotConflictMessage = useMemo(() => {
     const conflict = getSlotConflictMessage(selectedSlot);
     if (!conflict) return null;
@@ -1406,6 +1431,8 @@ export function AdminAddBookingForm({
       setDate(resolvedNextDate);
       setTheatreId("");
       setSlotId("");
+      setStartTime(null);
+      setEndTime(null);
       setTheatres([]);
       setProducts([]);
       setActiveVariants({});
@@ -1419,6 +1446,8 @@ export function AdminAddBookingForm({
     setDate(nextDate);
     setTheatreId("");
     setSlotId("");
+    setStartTime(null);
+    setEndTime(null);
     setExtraGuestCount(0);
     setEditProductsHydrated(false);
   }
@@ -1428,10 +1457,108 @@ export function AdminAddBookingForm({
     if (nextTheatreId !== theatreId) {
       setTheatreId(nextTheatreId);
       setSlotId(nextSlotId);
+      setStartTime(null);
+      setEndTime(null);
       setExtraGuestCount(0);
       return;
     }
     setSlotId(nextSlotId);
+  }
+
+  function handleTimeRangeChange(nextStartTime: string | null, nextEndTime: string | null) {
+    clearAppliedCouponState();
+    setStartTime(nextStartTime);
+    setEndTime(nextEndTime);
+
+    if (!nextStartTime || !nextEndTime) {
+      setSlotId("");
+      return;
+    }
+
+    const exactSlot = theatreSlots.find(
+      (slot) => slot.startTime === nextStartTime && slot.endTime === nextEndTime
+    );
+    if (exactSlot) {
+      setSlotId(exactSlot.id);
+      return;
+    }
+
+    setSlotId("");
+    void resolveSlotForSelectedTimeRange(nextStartTime, nextEndTime).catch((error) => {
+      toast.error((error as Error)?.message || "Selected time range is not available.");
+    });
+  }
+
+  async function resolveSlotForSelectedTimeRange(
+    nextStartTime = startTime,
+    nextEndTime = endTime
+  ) {
+    if (!locationId || !date || !theatreId || !nextStartTime || !nextEndTime) {
+      return null;
+    }
+
+    const exactSlot = theatreSlots.find(
+      (slot) => slot.startTime === nextStartTime && slot.endTime === nextEndTime
+    );
+    if (exactSlot) {
+      setSlotId(exactSlot.id);
+      return exactSlot.id;
+    }
+
+    const res = await fetch("/api/bookings/resolve-range-slot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        theatreId,
+        date,
+        startTime: nextStartTime,
+        endTime: nextEndTime,
+      }),
+    });
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok || !json?.success || !json.data?.slot?.id) {
+      throw new Error(
+        json?.message || "Selected time range is not available."
+      );
+    }
+
+    const slot = json.data.slot as {
+      id: string;
+      startTime: string;
+      endTime: string;
+      basePrice: number;
+      finalPrice: number | null;
+      decorationMandatory: boolean;
+      status: SlotStatus;
+    };
+    const resolvedSlot: SlotOption = {
+      id: slot.id,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      basePrice: Number(slot.basePrice ?? 0),
+      finalPrice: Number(slot.finalPrice ?? slot.basePrice ?? 0),
+      decorationMandatory: Boolean(slot.decorationMandatory),
+      status: slot.status ?? "AVAILABLE",
+      statusLabel: toTitleStatus(slot.status ?? "AVAILABLE"),
+    };
+
+    setTheatres((current) =>
+      current.map((theatre) =>
+        theatre.id === theatreId
+          ? {
+              ...theatre,
+              slots: [
+                ...theatre.slots.filter((item) => item.id !== resolvedSlot.id),
+                resolvedSlot,
+              ],
+            }
+          : theatre
+      )
+    );
+    setSlotId(resolvedSlot.id);
+    return resolvedSlot.id;
   }
 
   function incrementGuests() {
@@ -1698,14 +1825,20 @@ export function AdminAddBookingForm({
     }
   }
 
-  function buildFormErrors(options?: { enforceAdvanceNumeric?: boolean }) {
-    const { enforceAdvanceNumeric = true } = options ?? {};
+  function buildFormErrors(options?: {
+    enforceAdvanceNumeric?: boolean;
+    resolvedSlotId?: string;
+  }) {
+    const { enforceAdvanceNumeric = true, resolvedSlotId = slotId } = options ?? {};
     const nextErrors: Record<string, string> = {};
 
     if (!locationId) nextErrors.locationId = "Location is required.";
     if (!date) nextErrors.date = "Date is required.";
     if (!theatreId) nextErrors.theatreId = "Theatre is required.";
-    if (!slotId) nextErrors.slotId = "Slot is required.";
+    if (!startTime || !endTime) nextErrors.slotId = "Event time is required.";
+    if (startTime && endTime && !resolvedSlotId) {
+      nextErrors.slotId = "Event time must be resolved before saving.";
+    }
     if (slotConflictMessage) nextErrors.slotStatus = slotConflictMessage;
     if (!name.trim()) nextErrors.name = "Name is required.";
 
@@ -1772,8 +1905,11 @@ export function AdminAddBookingForm({
     return nextErrors;
   }
 
-  function validateForm() {
-    const nextErrors = buildFormErrors({ enforceAdvanceNumeric: true });
+  function validateForm(resolvedSlotId = slotId) {
+    const nextErrors = buildFormErrors({
+      enforceAdvanceNumeric: true,
+      resolvedSlotId,
+    });
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
@@ -2259,7 +2395,17 @@ export function AdminAddBookingForm({
       return;
     }
 
-    if (!validateForm()) {
+    let resolvedSlotId = slotId;
+    try {
+      if (startTime && endTime && !slotId) {
+        resolvedSlotId = (await resolveSlotForSelectedTimeRange()) ?? "";
+      }
+    } catch (error) {
+      toast.error((error as Error)?.message || "Selected time range is not available.");
+      return;
+    }
+
+    if (!validateForm(resolvedSlotId)) {
       toast.error("Please fix the highlighted fields.");
       return;
     }
@@ -2279,7 +2425,7 @@ export function AdminAddBookingForm({
         locationId,
         date,
         theatreId,
-        slotId,
+        slotId: resolvedSlotId,
         customer: {
           name: name.trim(),
           phone: normalizePhone(phone),
@@ -2409,17 +2555,19 @@ export function AdminAddBookingForm({
           locationId={locationId}
           date={date}
           theatreId={theatreId}
-          slotId={slotId}
+          startTime={startTime}
+          endTime={endTime}
+          minimumBookingDurationHours={minimumBookingDurationHours}
           locations={locations}
           loadingTheatres={loadingTheatres}
           theatres={theatres}
-          theatreSlots={theatreSlots}
           errors={errors}
           dateHoverHint={dateHoverHint}
           theatreHoverHint={theatreHoverHint}
           slotHoverHint={slotHoverHint}
           onLocationDateChange={handleLocationDateChange}
           onTheatreSlotChange={handleTheatreSlotChange}
+          onTimeRangeChange={handleTimeRangeChange}
         />
 
         <CustomerInfoSection

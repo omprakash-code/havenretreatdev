@@ -26,6 +26,12 @@ import { resolveBookingLockMinutes } from "@/services/booking/lockBooking.servic
 import { resolveSlotExpiryConfig } from "@/services/booking/slot-expiry-config.service";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import {
+  BookingOverlapError,
+  BookingSlotLockError,
+  lockSlotRowForUpdate,
+  validateNoOverlappingActiveBooking,
+} from "@/services/booking/booking-safety.service";
+import {
   AdminBookingApiError as AdminBookingError,
   IST_TIMEZONE,
   OFFLINE_METHODS,
@@ -503,6 +509,11 @@ export async function POST(req: Request) {
 
     const result = await prisma.$transaction(async (tx) => {
       const abandonedBookingIds = new Set<string>();
+      await lockSlotRowForUpdate(tx, {
+        slotId: body.slotId,
+        context: "admin-booking-create",
+      });
+
       let slot = await tx.slot.findUnique({
         where: { id: body.slotId },
         include: {
@@ -607,6 +618,14 @@ export async function POST(req: Request) {
           `Guest count cannot exceed theatre capacity (${slot.theatre.capacity}).`
         );
       }
+
+      await validateNoOverlappingActiveBooking(tx, {
+        theatreId: slot.theatreId,
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        context: "admin-booking-create",
+      });
 
       const normalizedItemsMap = new Map<
         string,
@@ -1268,6 +1287,22 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error) {
+    if (error instanceof BookingSlotLockError) {
+      return bookingErrorResponse(
+        404,
+        "SLOT_NOT_FOUND",
+        "Selected slot does not exist."
+      );
+    }
+
+    if (error instanceof BookingOverlapError) {
+      return bookingErrorResponse(
+        409,
+        "RANGE_ALREADY_RESERVED",
+        "Selected time range is already reserved."
+      );
+    }
+
     if (error instanceof AdminBookingError) {
       return bookingErrorResponse(
         error.status,

@@ -39,6 +39,12 @@ import {
   createRazorpayOrder,
   RazorpayServerError,
 } from "@/lib/razorpay/server";
+import {
+  BookingOverlapError,
+  BookingSlotLockError,
+  lockSlotRowForUpdate,
+  validateNoOverlappingActiveBooking,
+} from "@/services/booking/booking-safety.service";
 
 const NON_EDITABLE_BOOKING_STATUSES: BookingStatus[] = [
   BookingStatus.CANCELLED,
@@ -726,6 +732,11 @@ export async function PATCH(
         );
       }
 
+      await lockSlotRowForUpdate(tx, {
+        slotId: body.slotId,
+        context: "admin-booking-update",
+      });
+
       let slot = await tx.slot.findUnique({
         where: { id: body.slotId },
         include: {
@@ -852,6 +863,15 @@ export async function PATCH(
           "Selected slot is no longer available."
         );
       }
+
+      await validateNoOverlappingActiveBooking(tx, {
+        theatreId: slot.theatreId,
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        excludeBookingId: booking.id,
+        context: "admin-booking-update",
+      });
 
       const normalizedItemsMap = new Map<
         string,
@@ -1735,6 +1755,22 @@ export async function PATCH(
       message: "Booking updated successfully.",
     });
   } catch (error) {
+    if (error instanceof BookingSlotLockError) {
+      return bookingErrorResponse(
+        404,
+        "SLOT_NOT_FOUND",
+        "Selected slot does not exist."
+      );
+    }
+
+    if (error instanceof BookingOverlapError) {
+      return bookingErrorResponse(
+        409,
+        "RANGE_ALREADY_RESERVED",
+        "Selected time range is already reserved."
+      );
+    }
+
     if (error instanceof RazorpayServerError) {
       return bookingErrorResponse(
         error.status === 500 ? 500 : 502,

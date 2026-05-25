@@ -80,6 +80,7 @@ describe("Step 2: Admin Booking Slot Lifecycle Safety", () => {
 
   it("POST /api/admin/bookings/create returns SLOT_UNAVAILABLE when selected slot is BOOKED in DB", async () => {
     mockTransaction({
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "slot_new" }]),
       slot: {
         findUnique: vi.fn().mockResolvedValue({
           id: "slot_new",
@@ -136,6 +137,7 @@ describe("Step 2: Admin Booking Slot Lifecycle Safety", () => {
 
   it("PATCH /api/admin/bookings/[id] returns SLOT_UNAVAILABLE when slot is changed to DB-BOOKED slot", async () => {
     mockTransaction({
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "slot_new" }]),
       booking: {
         findUnique: vi.fn().mockResolvedValue({
           id: "booking_1",
@@ -219,6 +221,177 @@ describe("Step 2: Admin Booking Slot Lifecycle Safety", () => {
       success: false,
       code: "SLOT_UNAVAILABLE",
       message: "Selected slot is no longer available.",
+    });
+  });
+
+  it("POST /api/admin/bookings/create rejects an available slot when the time range overlaps an active booking", async () => {
+    mockTransaction({
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "slot_new" }]),
+      slot: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "slot_new",
+          theatreId: "theatre_1",
+          date: new Date("2026-03-05T18:30:00.000Z"),
+          startTime: "13:00",
+          endTime: "16:00",
+          status: "AVAILABLE",
+          theatre: {
+            id: "theatre_1",
+            locationId: "loc_1",
+            capacity: 6,
+          },
+        }),
+      },
+      booking: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "booking_overlap",
+          bookingStatus: "AWAITING_PAYMENT",
+          slotId: "slot_overlap",
+        }),
+      },
+      appSetting: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const req = new Request("http://localhost/api/admin/bookings/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "CREATE",
+        locationId: "loc_1",
+        date: "2026-03-06",
+        theatreId: "theatre_1",
+        slotId: "slot_new",
+        customer: {
+          name: "Om",
+          phone: "6201000000",
+          email: "om@gmail.com",
+        },
+        guestCount: 2,
+        decorationRequired: false,
+        items: [],
+        payment: {
+          type: "OFFLINE",
+          amountMode: "FULL",
+          offlineMethod: "CASH",
+          offlineReference: "",
+        },
+      }),
+    });
+
+    const res = await adminCreateBookingPOST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json).toMatchObject({
+      success: false,
+      code: "RANGE_ALREADY_RESERVED",
+      message: "Selected time range is already reserved.",
+    });
+  });
+
+  it("PATCH /api/admin/bookings/[id] rejects reschedule when the new time range overlaps an active booking", async () => {
+    mockTransaction({
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "slot_new" }]),
+      booking: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "booking_1",
+          bookingStatus: "CONFIRMED",
+          paymentStatus: "PAID",
+          remainingPayable: 0,
+          advancePaid: 100,
+          slotId: "slot_old",
+          slot: {
+            id: "slot_old",
+            startTime: "09:30",
+            endTime: "12:30",
+            date: new Date("2026-03-05T18:30:00.000Z"),
+            status: "BOOKED",
+          },
+          theatre: {
+            id: "theatre_1",
+            baseGuests: 4,
+            extraPersonPrice: 300,
+            decorationPrice: 750,
+            advanceAmount: 750,
+          },
+          items: [],
+          cancelledReason: null,
+        }),
+        findFirst: vi.fn().mockResolvedValue({
+          id: "booking_overlap",
+          bookingStatus: "PAYMENT_PROCESSING",
+          slotId: "slot_overlap",
+        }),
+      },
+      slot: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "slot_new",
+          theatreId: "theatre_1",
+          date: new Date("2026-03-05T18:30:00.000Z"),
+          startTime: "13:00",
+          endTime: "16:00",
+          status: "AVAILABLE",
+          basePrice: 1000,
+          finalPrice: 1000,
+          decorationMandatory: false,
+          theatre: {
+            id: "theatre_1",
+            locationId: "loc_1",
+            capacity: 6,
+            baseGuests: 4,
+            extraPersonPrice: 300,
+            decorationPrice: 750,
+          },
+        }),
+      },
+      appSetting: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const req = new Request("http://localhost/api/admin/bookings/booking_1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        locationId: "loc_1",
+        date: "2026-03-06",
+        theatreId: "theatre_1",
+        slotId: "slot_new",
+        customer: {
+          name: "Om",
+          phone: "6201000000",
+          email: "om@gmail.com",
+        },
+        guestCount: 2,
+        decorationRequired: false,
+        occasionKey: "BIRTHDAY",
+        occasionData: {
+          celebrant_name: "Om",
+        },
+        items: [],
+        payment: {
+          type: "OFFLINE",
+          amountMode: "FULL",
+          advanceAmount: 0,
+          offlineMethod: "CASH",
+          offlineReference: "",
+          paymentStatus: "PAID",
+        },
+      }),
+    });
+
+    const res = await adminPatchBooking(req, {
+      params: Promise.resolve({ id: "booking_1" }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json).toMatchObject({
+      success: false,
+      code: "RANGE_ALREADY_RESERVED",
+      message: "Selected time range is already reserved.",
     });
   });
 });

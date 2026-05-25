@@ -22,6 +22,7 @@ type TimeRangePickerProps = {
   incrementMinutes?: number;
   disabled?: boolean;
   selectedDate?: Date | null;
+  variant?: "event-card" | "admin-field";
 };
 
 function getISTDateKey(date: Date) {
@@ -58,6 +59,7 @@ export default function TimeRangePicker({
   incrementMinutes = DEFAULT_TIME_RANGE_INCREMENT_MINUTES,
   disabled = false,
   selectedDate = null,
+  variant = "event-card",
 }: TimeRangePickerProps) {
   const times = useMemo(() => buildTimeValues(incrementMinutes), [incrementMinutes]);
   const [nowISTMinutes, setNowISTMinutes] = useState(() => getNowISTMinutes());
@@ -236,23 +238,39 @@ export default function TimeRangePicker({
   return (
     <section
       aria-label="Choose booking time range"
-      className="border border-[#c6ddcf] bg-white p-4 text-[#0d3b24] transition duration-300 ease-out hover:border-[#9fbfba] sm:p-5"
+      className={
+        variant === "admin-field"
+          ? "text-slate-900"
+          : "border border-[#c6ddcf] bg-white p-4 text-[#0d3b24] transition duration-300 ease-out hover:border-[#9fbfba] sm:p-5"
+      }
     >
       <div>
-        <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#101828]">
-          Event Duration
-        </p>
+        {variant === "event-card" && (
+          <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#101828]">
+            Event Duration
+          </p>
+        )}
         <button
           type="button"
           disabled={disabled}
           onClick={openPicker}
-          className="group mt-4 flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-4 bg-[#f2f3f3] px-4 py-3 text-left transition duration-300 ease-out hover:bg-[#ecefef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#f6f7f8] disabled:text-[#98a2b3]"
+          className={
+            variant === "admin-field"
+              ? "group flex h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3.5 text-left text-base text-slate-900 transition-all hover:border-slate-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black/5 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 sm:h-10 sm:rounded-md sm:px-3 sm:text-sm"
+              : "group mt-4 flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-4 bg-[#f2f3f3] px-4 py-3 text-left transition duration-300 ease-out hover:bg-[#ecefef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#f6f7f8] disabled:text-[#98a2b3]"
+          }
         >
           <span className="flex min-w-0 items-center gap-3">
             <span className="flex shrink-0 items-center justify-center text-[#344054] transition duration-300 group-hover:text-[#245e5b]">
-              <Clock size={22} />
+              <Clock size={variant === "admin-field" ? 16 : 22} />
             </span>
-            <span className="block min-w-0 truncate text-base font-semibold text-[#101828] sm:text-lg">
+            <span
+              className={
+                variant === "admin-field"
+                  ? "block min-w-0 truncate text-sm font-medium text-slate-900"
+                  : "block min-w-0 truncate text-base font-semibold text-[#101828] sm:text-lg"
+              }
+            >
               {durationHours
                 ? `${formatISTTime(startTime!)} - ${formatISTTime(endTime!)}`
                 : startTime
@@ -261,12 +279,18 @@ export default function TimeRangePicker({
             </span>
           </span>
           <span className="flex shrink-0 items-center justify-center text-[#344054] transition duration-300 group-hover:text-[#245e5b]">
-            <Edit size={18} />
+            <Edit size={variant === "admin-field" ? 15 : 18} />
           </span>
         </button>
-        <p className="mt-3 pl-4 text-sm italic text-[#245e5b]">
+        <p
+          className={
+            variant === "admin-field"
+              ? "mt-1 text-xs text-slate-500"
+              : "mt-3 pl-4 text-sm italic text-[#245e5b]"
+          }
+        >
           {disabled
-            ? "Choose an available date first."
+            ? "Choose package and date first."
             : `${minDurationHours} ${
                 minDurationHours === 1 ? "hour" : "hours"
               } minimum`}
