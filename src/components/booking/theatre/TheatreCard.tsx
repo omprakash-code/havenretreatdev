@@ -18,6 +18,7 @@ type Props = {
 
 const IST_TIMEZONE = "Asia/Kolkata";
 const DEFAULT_PACKAGE_CTA = "Continue with This Package";
+const PACKAGE_HERO_IMAGE = "/media/booking/success/pool-view.avif";
 
 export default function TheatreCard({ theatre }: Props) {
   const { booking, setTheatreAndSlot, setBookingId, setSlotLockExpiresAt } = useBooking();
@@ -127,6 +128,10 @@ export default function TheatreCard({ theatre }: Props) {
     cardContent.priceNote.enabled && cardContent.priceNote.text.trim().length > 0
       ? cardContent.priceNote.text
       : theatre.footerMessage?.trim() ?? "";
+  const compactPriceNoteText = priceNoteText.replace(
+    /\s+with\s+package\s+pricing\s*$/i,
+    ""
+  );
   const includedItems =
     cardContent.included.enabled && cardContent.included.items.length > 0
       ? cardContent.included.items
@@ -152,51 +157,58 @@ export default function TheatreCard({ theatre }: Props) {
       : DEFAULT_PACKAGE_CTA;
 
   const displayPrice = theatre.basePrice > 0 ? theatre.basePrice : null;
-  const packageTypeLabel = theatre.name.toLowerCase().includes("package")
-    ? "Package"
-    : "Venue Package";
-
+  const isMostPopular = badgeText.toLowerCase().includes("popular");
   return (
     <div className="flex flex-col bg-white shadow-[0_18px_45px_rgba(16,24,40,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(16,24,40,0.12)]">
-      <div className="bg-[#e8f2ef] px-4 py-2.5 text-center text-[0.68rem] font-bold uppercase tracking-[0.28em] text-[#1d5f5b]">
-        {badgeText || "Signature Experience"}
-      </div>
-
-      <div className="relative isolate overflow-hidden bg-[#2f817d] px-5 py-6 text-center text-white">
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(135deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.12)_22%,transparent_22%,transparent_100%)]" />
-        <div className="absolute right-0 top-0 -z-10 h-24 w-24 bg-white/14 [clip-path:polygon(100%_0,100%_100%,0_100%)]" />
-        <div className="absolute bottom-0 left-0 -z-10 h-16 w-16 bg-white/12 [clip-path:polygon(0_0,100%_0,0_100%)]" />
-        <div className="absolute inset-x-0 top-[47%] -z-10 h-px bg-white/12" />
-
-        <p className="text-[0.68rem] font-bold uppercase tracking-[0.28em] text-white/58">
-          {packageTypeLabel}
-        </p>
-        <h3 className="mx-auto mt-3 max-w-[15rem] truncate font-playfair text-[1.45rem] font-semibold leading-none tracking-[-0.035em]">
-          {theatre.name}
-        </h3>
-        {cardContent.capacity.text.trim().length > 0 && (
-          <p className="mt-3 text-sm font-semibold text-white/78">
-            {cardContent.capacity.text}
-          </p>
+      <div
+        className="relative isolate min-h-[185px] overflow-hidden bg-[#102f2d] px-5 py-7 text-center text-white"
+        style={{
+          backgroundImage: `linear-gradient(180deg,rgba(9,22,20,0.36),rgba(9,22,20,0.84)), url(${PACKAGE_HERO_IMAGE})`,
+          backgroundPosition: "center",
+          backgroundSize: "cover",
+        }}
+      >
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(52,127,124,0.28),transparent_42%)]" />
+        {badgeText && (
+          <div
+            className={`absolute left-2.5 top-2.5 z-10 px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.06em] shadow-[0_10px_22px_rgba(16,24,40,0.18)] ring-1 ${
+              isMostPopular
+                ? "bg-[#347f7c] text-white ring-[#347f7c]"
+                : "bg-[#e8f2ef] text-[#1d5f5b] ring-[#c6ddcf]"
+            }`}
+          >
+            {badgeText}
+          </div>
         )}
 
-        <div className="mx-auto mt-4 h-px w-12 bg-white/34" />
+        <div className="mx-auto flex min-h-[132px] max-w-[20rem] flex-col items-center justify-center pt-4">
+          <h3 className="max-w-full truncate font-playfair text-[1.75rem] font-semibold leading-none tracking-[-0.035em] drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
+            {theatre.name}
+          </h3>
 
-        {displayPrice !== null ? (
-          <p className="mt-4 flex items-start justify-center gap-1.5 font-playfair text-[2.45rem] font-semibold leading-none tracking-[-0.055em]">
-            <span className="mt-1 font-sans text-sm font-semibold tracking-normal text-white/76">$</span>
-            <span>{displayPrice.toLocaleString()}</span>
-          </p>
-        ) : (
-          <p className="mt-4 text-sm font-medium text-white/78">
-            Package price unavailable
-          </p>
-        )}
-        {priceNoteText && (
-          <p className="mt-2 text-sm font-semibold text-white/62">
-            {priceNoteText}
-          </p>
-        )}
+          {displayPrice !== null ? (
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <p className="font-playfair text-[1.9rem] font-medium leading-none tracking-[-0.04em] text-white/95">
+                ${displayPrice.toLocaleString()}
+              </p>
+              {compactPriceNoteText && (
+                <span className="bg-[#e8f2ef] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.04em] text-[#1d5f5b]">
+                  {compactPriceNoteText}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm font-medium text-white/78">
+              Package price unavailable
+            </p>
+          )}
+
+          {cardContent.capacity.text.trim().length > 0 && (
+            <p className="mt-3 text-sm font-semibold text-white/84">
+              {cardContent.capacity.text}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col p-5">
