@@ -144,11 +144,36 @@ describe("POST /api/payments/razorpay/create-order", () => {
           findUnique: vi.fn().mockResolvedValue({
             id: "booking-1",
             bookingRef: "DS-BOOK-1",
+            theatreId: "theatre-1",
             totalAmount: 2500,
             advancePaid: 750,
             razorpayOrderId: "order_existing_1",
+            slotId: "slot-1",
+            slot: {
+              id: "slot-1",
+              theatreId: "theatre-1",
+              date: new Date("2099-01-01T00:00:00.000Z"),
+              startTime: "10:00",
+              endTime: "14:00",
+              status: "LOCKED",
+              lockedBy: "owner-1",
+              lockExpiresAt: new Date("2099-01-01T00:00:00.000Z"),
+            },
           }),
+          findFirst: vi.fn().mockResolvedValue(null),
           update: vi.fn().mockResolvedValue({}),
+        },
+        slot: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "slot-1",
+            theatreId: "theatre-1",
+            date: new Date("2099-01-01T00:00:00.000Z"),
+            startTime: "10:00",
+            endTime: "14:00",
+            status: "LOCKED",
+            lockedBy: "owner-1",
+            lockExpiresAt: new Date("2099-01-01T00:00:00.000Z"),
+          }),
         },
       })
     );

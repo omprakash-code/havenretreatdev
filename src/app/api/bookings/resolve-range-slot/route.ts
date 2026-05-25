@@ -5,16 +5,14 @@ import { toDate } from "date-fns-tz";
 import { prisma } from "@/lib/db";
 import { parseTimeValue } from "@/lib/booking-time-range";
 import { verifyBookingSessionToken } from "@/services/booking/bookingSession.server";
+import {
+  BookingOverlapError,
+  logBookingSafetyEvent,
+  validateNoOverlappingActiveBooking,
+} from "@/services/booking/booking-safety.service";
 
 const IST_TIMEZONE = "Asia/Kolkata";
 const DYNAMIC_RANGE_SLOT_REASON = "DYNAMIC_RANGE_SLOT_CREATED";
-
-const ACTIVE_BLOCKING_STATUSES = [
-  "INCOMPLETE",
-  "AWAITING_PAYMENT",
-  "PAYMENT_PROCESSING",
-  "CONFIRMED",
-] as const;
 
 function errorResponse(status: number, code: string, message: string) {
   return NextResponse.json(
@@ -72,32 +70,28 @@ export async function POST(req: Request) {
         },
       });
 
-      if (exactSlot) return exactSlot;
-
-      const conflictingBooking = await tx.booking.findFirst({
-        where: {
-          theatreId,
-          bookingStatus: { in: [...ACTIVE_BLOCKING_STATUSES] },
-          ...(currentBookingId ? { id: { not: currentBookingId } } : {}),
-          slot: {
-            date: slotDate,
-            startTime: { lt: endTime },
-            endTime: { gt: startTime },
-            ...(guestToken
-              ? {
-                  OR: [
-                    { lockedBy: null },
-                    { lockedBy: { not: guestToken } },
-                  ],
-                }
-              : {}),
-          },
-        },
-        select: { id: true },
+      await validateNoOverlappingActiveBooking(tx, {
+        theatreId,
+        date: slotDate,
+        startTime,
+        endTime,
+        excludeBookingId: currentBookingId,
+        allowLockOwner: guestToken,
+        context: exactSlot
+          ? "resolve-range-slot:exact"
+          : "resolve-range-slot:create",
       });
 
-      if (conflictingBooking) {
-        throw new Error("RANGE_ALREADY_RESERVED");
+      if (exactSlot) {
+        logBookingSafetyEvent("RANGE_SLOT_RESOLVED", {
+          mode: "exact",
+          slotId: exactSlot.id,
+          theatreId,
+          date,
+          startTime,
+          endTime,
+        });
+        return exactSlot;
       }
 
       const theatre = await tx.theatre.findUnique({
@@ -169,7 +163,7 @@ export async function POST(req: Request) {
       if (!template) throw new Error("SLOT_TEMPLATE_NOT_RESOLVED");
 
       try {
-        return await tx.slot.create({
+        const createdSlot = await tx.slot.create({
           data: {
             theatreId,
             slotTemplateId: template.id,
@@ -189,6 +183,15 @@ export async function POST(req: Request) {
             overrideReason: DYNAMIC_RANGE_SLOT_REASON,
           },
         });
+        logBookingSafetyEvent("RANGE_SLOT_RESOLVED", {
+          mode: "created",
+          slotId: createdSlot.id,
+          theatreId,
+          date,
+          startTime,
+          endTime,
+        });
+        return createdSlot;
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -202,7 +205,26 @@ export async function POST(req: Request) {
               endTime,
             },
           });
-          if (resolvedSlot) return resolvedSlot;
+          if (resolvedSlot) {
+            await validateNoOverlappingActiveBooking(tx, {
+              theatreId,
+              date: slotDate,
+              startTime,
+              endTime,
+              excludeBookingId: currentBookingId,
+              allowLockOwner: guestToken,
+              context: "resolve-range-slot:unique-retry",
+            });
+            logBookingSafetyEvent("RANGE_SLOT_RESOLVED", {
+              mode: "unique-retry",
+              slotId: resolvedSlot.id,
+              theatreId,
+              date,
+              startTime,
+              endTime,
+            });
+            return resolvedSlot;
+          }
         }
 
         throw error;
@@ -224,6 +246,14 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof BookingOverlapError) {
+      return errorResponse(
+        409,
+        "RANGE_ALREADY_RESERVED",
+        "This time range is currently reserved. Choose another time range."
+      );
+    }
+
     if (error instanceof Error) {
       if (error.message === "RANGE_ALREADY_RESERVED") {
         return errorResponse(

@@ -42,6 +42,12 @@ import {
 } from "@/lib/payment-capture-failure";
 import { sendMetaCapiEvent, getClientIpAddress } from "@/lib/meta/server";
 import { buildMetaPurchaseEventId } from "@/lib/meta/shared";
+import {
+  BookingOverlapError,
+  lockSlotRowForUpdate,
+  logBookingSafetyEvent,
+  validateNoOverlappingActiveBooking,
+} from "@/services/booking/booking-safety.service";
 
 const IST_TIMEZONE = "Asia/Kolkata";
 
@@ -827,6 +833,11 @@ export async function POST(req: Request) {
           } satisfies VerifyResult;
         }
 
+        await lockSlotRowForUpdate(tx, {
+          slotId: existing.slotId,
+          context: "razorpay-verify",
+        });
+
         const location = await tx.location.findUnique({
           where: { id: existing.theatre.locationId },
         });
@@ -1128,6 +1139,15 @@ export async function POST(req: Request) {
           );
         }
 
+        await validateNoOverlappingActiveBooking(tx, {
+          theatreId: existing.theatreId ?? existing.slot.theatreId,
+          date: existing.slot.date,
+          startTime: existing.slot.startTime,
+          endTime: existing.slot.endTime,
+          excludeBookingId: existing.id,
+          context: "razorpay-verify",
+        });
+
         if (bookingItems.length > 0) {
           const variantIds = [...new Set(bookingItems.map((item) => item.variantId))];
           const variants = await tx.productVariant.findMany({
@@ -1257,6 +1277,12 @@ export async function POST(req: Request) {
             lockExpiresAt: null,
             lockedBy: null,
           },
+        });
+        logBookingSafetyEvent("PAYMENT_CONFIRMED_BOOKING", {
+          bookingId: updatedBooking.id,
+          slotId: existing.slotId,
+          paymentId: razorpay_payment_id,
+          orderId: razorpay_order_id,
         });
 
         // Release any other slots still locked by the same owner after successful confirmation.
@@ -1493,6 +1519,44 @@ export async function POST(req: Request) {
 
       return response;
     } catch (error) {
+      if (error instanceof BookingOverlapError) {
+        paymentMarkedPaid = true;
+        return finalizePaymentCapturedBookingFailure({
+          bookingId: bookingSnapshot.id,
+          bookingRef: bookingSnapshot.bookingRef,
+          slotId: bookingSnapshot.slotId,
+          bookingSnapshot: {
+            contactName: bookingSnapshot.contactName,
+            contactPhone: bookingSnapshot.contactPhone,
+            contactEmail: bookingSnapshot.contactEmail,
+            guestCount: bookingSnapshot.guestCount,
+            occasionLabel: bookingSnapshot.occasionLabel,
+            occasionData: bookingSnapshot.occasionData as Prisma.JsonValue | null,
+            items: bookingSnapshot.items,
+            totalAmount: bookingSnapshot.totalAmount,
+            advancePaid: bookingSnapshot.advancePaid,
+            theatre: {
+              name: bookingSnapshot.theatre.name,
+              locationId: bookingSnapshot.theatre.locationId,
+            },
+            slot: bookingSnapshot.slot
+              ? {
+                  date: bookingSnapshot.slot.date,
+                  startTime: bookingSnapshot.slot.startTime,
+                  endTime: bookingSnapshot.slot.endTime,
+                  status: bookingSnapshot.slot.status,
+                }
+              : null,
+          },
+          paymentAttemptId: paymentAttempt.id,
+          paymentAmount,
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          razorpaySignature: razorpay_signature,
+          reason: PAYMENT_CAPTURED_SLOT_UNAVAILABLE_REASON,
+          code: "SLOT_ALREADY_BOOKED",
+        });
+      }
       await markAttemptFailed();
       throw error;
     }

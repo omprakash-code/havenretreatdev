@@ -24,6 +24,7 @@ import { prisma } from "@/lib/db";
 import { lockBookingService } from "@/services/booking/lockBooking.service";
 
 type TxMock = {
+  $queryRaw: ReturnType<typeof vi.fn>;
   slot: {
     updateMany: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
@@ -45,6 +46,7 @@ type TxMock = {
 
 function createTxMock(): TxMock {
   return {
+    $queryRaw: vi.fn().mockResolvedValue([{ id: "slot-1" }]),
     slot: {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       findUnique: vi.fn(),
@@ -102,6 +104,8 @@ describe("lockBookingService orphan and lock integrity", () => {
     tx.slot.findUnique.mockResolvedValue({ ...futureSlot });
     tx.booking.findFirst
       // active booking lookup for locked slot
+      .mockResolvedValueOnce(null)
+      // overlap validation before acquiring lock
       .mockResolvedValueOnce(null)
       // existing INCOMPLETE booking after lock
       .mockResolvedValueOnce(null);
@@ -211,7 +215,11 @@ describe("lockBookingService orphan and lock integrity", () => {
       lockedAt: null,
       lockExpiresAt: null,
     });
-    tx.booking.findFirst.mockResolvedValueOnce(null);
+    tx.booking.findFirst
+      // overlap validation before acquiring lock
+      .mockResolvedValueOnce(null)
+      // existing INCOMPLETE booking after lock
+      .mockResolvedValueOnce(null);
 
     const result = await lockBookingService({
       slotId: "slot-1",
@@ -275,7 +283,11 @@ describe("lockBookingService orphan and lock integrity", () => {
       lockedAt: null,
       lockExpiresAt: null,
     });
-    tx.booking.findFirst.mockResolvedValueOnce(null);
+    tx.booking.findFirst
+      // overlap validation before acquiring lock
+      .mockResolvedValueOnce(null)
+      // existing INCOMPLETE booking after lock
+      .mockResolvedValueOnce(null);
 
     await lockBookingService({
       slotId: "slot-1",
@@ -294,5 +306,37 @@ describe("lockBookingService orphan and lock integrity", () => {
       bookingStatus: "INCOMPLETE",
       OR: [{ createdByRole: null }, { createdByRole: { not: "ADMIN" } }],
     });
+  });
+
+  it("rejects an available slot when another active booking overlaps the requested range", async () => {
+    const tx = createTxMock();
+    mockTransaction(tx);
+
+    tx.slot.findUnique.mockResolvedValue({
+      ...futureSlot,
+      status: "AVAILABLE",
+      lockedBy: null,
+      lockedAt: null,
+      lockExpiresAt: null,
+    });
+    tx.booking.findFirst.mockResolvedValueOnce({
+      id: "booking-overlap",
+      bookingStatus: "AWAITING_PAYMENT",
+      slotId: "slot-overlap",
+    });
+
+    await expect(
+      lockBookingService({
+        slotId: "slot-1",
+        theatreId: "theatre-1",
+        lockOwner: "owner-new",
+        currentBookingId: null,
+      })
+    ).rejects.toThrow("LOCK_IN_USE");
+
+    const triedAcquire = tx.slot.updateMany.mock.calls.some(
+      ([arg]) => arg?.where?.id === "slot-1" && arg?.where?.status === "AVAILABLE"
+    );
+    expect(triedAcquire).toBe(false);
   });
 });

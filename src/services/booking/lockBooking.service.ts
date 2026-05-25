@@ -12,6 +12,12 @@ import { isSlotExpiredInIST } from "@/lib/slot-time";
 import { releaseSiblingSessionLocks } from "./booking-lock-lifecycle.service";
 import { resolveSlotExpiryConfig } from "./slot-expiry-config.service";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
+import {
+  BookingOverlapError,
+  lockSlotRowForUpdate,
+  logBookingSafetyEvent,
+  validateNoOverlappingActiveBooking,
+} from "@/services/booking/booking-safety.service";
 
 export const BOOKING_LOCK_MINUTES = DEFAULT_BOOKING_LOCK_MINUTES;
 const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
@@ -154,6 +160,11 @@ export async function lockBookingService({
     /* ---------------------------------
        3. Fetch slot
     ---------------------------------- */
+    await lockSlotRowForUpdate(tx, {
+      slotId,
+      context: "lock-booking",
+    });
+
     const slot = await tx.slot.findUnique({
       where: { id: slotId },
     });
@@ -258,8 +269,15 @@ export async function lockBookingService({
       throw new Error("SLOT_NOT_AVAILABLE");
     }
 
-
-
+    await validateNoOverlappingActiveBooking(tx, {
+      theatreId,
+      date: slot.date,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      excludeBookingId: currentBookingId,
+      allowLockOwner: lockOwner,
+      context: "lock-booking",
+    });
 
     /* ---------------------------------
        5. Lock slot FIRST (source of truth)
@@ -281,6 +299,12 @@ export async function lockBookingService({
     if (lockResult.count === 0) {
       throw new Error("LOCK_IN_USE");
     }
+    logBookingSafetyEvent("BOOKING_SLOT_LOCKED", {
+      slotId,
+      theatreId,
+      lockOwner,
+      lockExpiresAt: lockExpiresAt.toISOString(),
+    });
 
     /* ---------------------------------
        5.1 Keep only one active lock for this session owner
@@ -394,6 +418,11 @@ export async function lockBookingService({
       lockExpiresAt,
       abandonedBookingIds: Array.from(abandonedBookingIdsToNotify),
     };
+  }).catch((error) => {
+    if (error instanceof BookingOverlapError) {
+      throw new Error("LOCK_IN_USE");
+    }
+    throw error;
   });
 
   if (result.abandonedBookingIds.length > 0) {

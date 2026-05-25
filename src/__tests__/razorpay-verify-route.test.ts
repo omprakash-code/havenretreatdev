@@ -79,6 +79,7 @@ type TxMock = {
   $queryRaw: ReturnType<typeof vi.fn>;
   booking: {
     findUnique: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
   bookingItem: {
@@ -105,6 +106,7 @@ function createTxMock(): TxMock {
     $queryRaw: vi.fn().mockResolvedValue([{ id: "booking-1" }]),
     booking: {
       findUnique: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue({
         ...baseBooking,
         bookingRef: "DS-BOOK-1",

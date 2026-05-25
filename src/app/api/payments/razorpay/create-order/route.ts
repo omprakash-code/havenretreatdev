@@ -29,6 +29,12 @@ import {
   createRazorpayOrder,
   RazorpayServerError,
 } from "@/lib/razorpay/server";
+import {
+  BookingOverlapError,
+  lockSlotRowForUpdate,
+  logBookingSafetyEvent,
+  validateNoOverlappingActiveBooking,
+} from "@/services/booking/booking-safety.service";
 
 class ApiError extends Error {
   status: number;
@@ -267,6 +273,7 @@ export async function POST(req: Request) {
 
       const fresh = await tx.booking.findUnique({
         where: { id: booking.id },
+        include: { slot: true },
       });
 
       if (!fresh) {
@@ -276,6 +283,60 @@ export async function POST(req: Request) {
           "Booking not found."
         );
       }
+
+      if (!fresh.slotId || !fresh.slot) {
+        throw new ApiError(
+          409,
+          "SLOT_EXPIRED",
+          "Selected slot has expired. Please choose a slot again."
+        );
+      }
+
+      await lockSlotRowForUpdate(tx, {
+        slotId: fresh.slotId,
+        context: "razorpay-create-order",
+      });
+
+      const lockedSlot = await tx.slot.findUnique({
+        where: { id: fresh.slotId },
+      });
+
+      if (!lockedSlot || lockedSlot.status !== "LOCKED") {
+        throw new ApiError(
+          409,
+          "SLOT_EXPIRED",
+          "Selected slot has expired. Please choose a slot again."
+        );
+      }
+
+      if (lockedSlot.lockedBy !== effectiveLockOwner) {
+        throw new ApiError(
+          403,
+          "UNAUTHORIZED",
+          "This booking session is no longer valid."
+        );
+      }
+
+      if (
+        lockedSlot.lockExpiresAt &&
+        lockedSlot.lockExpiresAt.getTime() < Date.now()
+      ) {
+        throw new ApiError(
+          409,
+          "SESSION_EXPIRED",
+          RESERVATION_TIMED_OUT_MESSAGE
+        );
+      }
+
+      await validateNoOverlappingActiveBooking(tx, {
+        theatreId: fresh.theatreId ?? lockedSlot.theatreId,
+        date: lockedSlot.date,
+        startTime: lockedSlot.startTime,
+        endTime: lockedSlot.endTime,
+        excludeBookingId: fresh.id,
+        allowLockOwner: effectiveLockOwner,
+        context: "razorpay-create-order",
+      });
 
       const lockedAdvance =
         fresh.advancePaid && fresh.advancePaid > 0
@@ -306,6 +367,11 @@ export async function POST(req: Request) {
           remainingPayable: Math.max(fresh.totalAmount - lockedAdvance, 0),
         },
       });
+      logBookingSafetyEvent("PAYMENT_ORDER_STARTED", {
+        bookingId: fresh.id,
+        slotId: fresh.slotId,
+        orderId,
+      });
 
       return {
         id: orderId,
@@ -333,6 +399,14 @@ export async function POST(req: Request) {
         error.code,
         error.message,
         error.extra
+      );
+    }
+
+    if (error instanceof BookingOverlapError) {
+      return jsonError(
+        409,
+        "RANGE_ALREADY_RESERVED",
+        "This time range is currently reserved. Choose another time range."
       );
     }
 
