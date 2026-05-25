@@ -42,12 +42,17 @@ export const MINIMUM_BOOKING_DURATION_HOURS_KEY =
 export const MINIMUM_BOOKING_DURATION_HOURS_MIN = 1;
 export const MINIMUM_BOOKING_DURATION_HOURS_MAX = 23.5;
 export const DEFAULT_MINIMUM_BOOKING_DURATION_HOURS = 4;
+export const EXTRA_HOURLY_RATE_KEY = "EXTRA_HOURLY_RATE";
+export const EXTRA_HOURLY_RATE_MIN = 0;
+export const EXTRA_HOURLY_RATE_MAX = 50000;
+export const DEFAULT_EXTRA_HOURLY_RATE = 120;
 
 export const PRIORITY_SETTING_KEYS = [
   "SPECIAL_SLOT_TEXT",
   ADVANCE_PAYMENT_AMOUNT_KEY,
   BOOKING_LOCK_MINUTES_KEY,
   MINIMUM_BOOKING_DURATION_HOURS_KEY,
+  EXTRA_HOURLY_RATE_KEY,
   SLOT_EXPIRY_MODE_KEY,
   SLOT_EXPIRY_GRACE_MINUTES_KEY,
 ] as const;
@@ -92,6 +97,17 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
     min: MINIMUM_BOOKING_DURATION_HOURS_MIN,
     max: MINIMUM_BOOKING_DURATION_HOURS_MAX,
     step: 0.5,
+  },
+  [EXTRA_HOURLY_RATE_KEY]: {
+    label: "Extra Hourly Rate",
+    description:
+      "Additional amount charged per hour when a customer books beyond the included minimum duration. Supports 30-minute increments. Example: $120/hour.",
+    type: "number",
+    placeholder: String(DEFAULT_EXTRA_HOURLY_RATE),
+    defaultValue: String(DEFAULT_EXTRA_HOURLY_RATE),
+    min: EXTRA_HOURLY_RATE_MIN,
+    max: EXTRA_HOURLY_RATE_MAX,
+    step: 1,
   },
   [SLOT_EXPIRY_MODE_KEY]: {
     label: "Slot Expiry Mode",
@@ -147,6 +163,12 @@ export function normalizeAppSettingValue(key: string, value: string) {
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed)) return trimmed;
     return String(parsed);
+  }
+
+  if (key === EXTRA_HOURLY_RATE_KEY) {
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) return trimmed;
+    return String(Math.trunc(parsed));
   }
 
   if (key === SLOT_EXPIRY_MODE_KEY) {
@@ -234,6 +256,23 @@ export function validateAppSetting(key: string, value: string) {
     return null;
   }
 
+  if (key === EXTRA_HOURLY_RATE_KEY) {
+    const amount = Number(normalized);
+    if (!Number.isFinite(amount)) {
+      return "Enter a valid amount.";
+    }
+    if (!Number.isInteger(amount)) {
+      return "Amount must be a whole number.";
+    }
+    if (amount < EXTRA_HOURLY_RATE_MIN) {
+      return `Amount must be at least ${EXTRA_HOURLY_RATE_MIN}.`;
+    }
+    if (amount > EXTRA_HOURLY_RATE_MAX) {
+      return `Amount must be at most ${EXTRA_HOURLY_RATE_MAX}.`;
+    }
+    return null;
+  }
+
   if (key === SLOT_EXPIRY_MODE_KEY) {
     if (
       normalized !== "START_TIME" &&
@@ -290,6 +329,16 @@ export function parseMinimumBookingDurationHours(value: unknown) {
   }
   if (!Number.isInteger(hours * 2)) return null;
   return hours;
+}
+
+export function parseExtraHourlyRate(value: unknown) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return null;
+  if (!Number.isInteger(amount)) return null;
+  if (amount < EXTRA_HOURLY_RATE_MIN || amount > EXTRA_HOURLY_RATE_MAX) {
+    return null;
+  }
+  return Math.trunc(amount);
 }
 
 export function mergeWithKnownAppSettings(items: AppSettingItem[]) {

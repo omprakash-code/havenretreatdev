@@ -53,6 +53,12 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
+function formatDurationHours(durationInMinutes: number) {
+  const hours = durationInMinutes / 60;
+  if (Number.isInteger(hours)) return `${hours} hr`;
+  return `${hours.toFixed(1)} hr`;
+}
+
 type CouponFeedbackTone = "help" | "error";
 type CouponFeedback = {
   message: string;
@@ -394,6 +400,11 @@ export default function BookingSummary({
      (never NaN / undefined)
   ------------------------------ */
   const basePrice = Number(pricing.base) || 0;
+  const extraHoursPrice = Number(pricing.extraHours) || 0;
+  const extraDurationHours = Number(pricing.extraDurationHours) || 0;
+  const extraHourlyRate = Number(pricing.extraHourlyRate) || 0;
+  const rentalDurationHours = Number(booking.durationHours) || 0;
+  const rentalAmount = basePrice + extraHoursPrice;
   const extrasPrice = Number(pricing.extras) || 0;
   const decorationPrice = Number(pricing.decoration) || 0;
   const productsPrice = Number(pricing?.products ?? 0);
@@ -402,7 +413,7 @@ export default function BookingSummary({
   const advancePay = Number(pricing.advancePay) || 0;
   const remainingAtTheatre = Math.max(totalPrice - advancePay, 0);
   const subtotalBeforeDiscount =
-    basePrice + extrasPrice + decorationPrice + productsPrice;
+    basePrice + extraHoursPrice + extrasPrice + decorationPrice + productsPrice;
   const extraGuestCount = Math.max(
     (booking.guestCount ?? theatre.baseGuests) - theatre.baseGuests,
     0
@@ -679,10 +690,28 @@ export default function BookingSummary({
               />
 
               <SummaryRow
-                label="Price"
-                value={formatCurrency(basePrice)}
+                label="Event Rental"
+                value={formatCurrency(rentalAmount)}
                 labelClassName="text-gray-500 text-sm font-normal"
                 icon={DollarSign}
+                customLabel={
+                  <span className="inline-flex items-start gap-1.5">
+                    <DollarSign size={14} className="mt-0.5 text-gray-400" />
+                    <span>
+                      <span className="block">Event Rental</span>
+                      {rentalDurationHours > 0 && (
+                        <span className="mt-0.5 block text-xs font-normal text-gray-400">
+                          {formatDurationHours(rentalDurationHours * 60)}
+                          {extraHoursPrice > 0
+                            ? ` selected · ${formatDurationHours(
+                                extraDurationHours * 60
+                              )} × ${formatCurrency(extraHourlyRate)}/hr added`
+                            : " selected"}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                }
               />
 
               {extrasPrice > 0 && (

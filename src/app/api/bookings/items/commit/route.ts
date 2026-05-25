@@ -29,6 +29,10 @@ import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
+import {
+  resolveBookingDurationPricingConfig,
+  resolveSlotDurationHours,
+} from "@/lib/booking-duration-pricing";
 
 function isEditableBookingStatus(status: string) {
   return (
@@ -299,10 +303,19 @@ export async function POST(req: Request) {
       const effectiveDecorationRequired = booking.slot.decorationMandatory
         ? true
         : requestedDecorationRequired;
+      const durationPricing = await resolveBookingDurationPricingConfig(tx);
+      const durationHours = resolveSlotDurationHours({
+        startTime: booking.slot.startTime,
+        endTime: booking.slot.endTime,
+        durationMin: booking.slot.durationMin,
+      });
 
       const pricingBase = calculateBookingPricing({
         slotBasePrice: booking.slot.basePrice,
         slotFinalPrice: booking.slot.finalPrice,
+        durationHours,
+        includedDurationHours: durationPricing.includedDurationHours,
+        extraHourlyRate: durationPricing.extraHourlyRate,
         guestCount: requestedGuestCount,
         theatreBaseGuests: booking.theatre.baseGuests,
         theatreExtraPersonPrice: booking.theatre.extraPersonPrice,

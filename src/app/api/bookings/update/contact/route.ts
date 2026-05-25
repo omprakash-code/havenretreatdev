@@ -12,6 +12,10 @@ import {
   resolveBookingCouponUserId,
 } from "@/services/coupon/booking-coupon.service";
 import { getRequiredAdvancePaymentAmount } from "@/lib/advance-payment";
+import {
+  resolveBookingDurationPricingConfig,
+  resolveSlotDurationHours,
+} from "@/lib/booking-duration-pricing";
 
 const EDITABLE_BOOKING_STATUSES = [
   "INCOMPLETE",
@@ -88,10 +92,19 @@ export async function POST(req: Request) {
         (sum, item) => sum + Math.max(Number(item.totalPrice ?? 0), 0),
         0
       );
+      const durationPricing = await resolveBookingDurationPricingConfig(tx);
+      const durationHours = resolveSlotDurationHours({
+        startTime: booking.slot.startTime,
+        endTime: booking.slot.endTime,
+        durationMin: booking.slot.durationMin,
+      });
 
       const pricingBase = calculateBookingPricing({
         slotBasePrice: booking.slot.basePrice,
         slotFinalPrice: booking.slot.finalPrice,
+        durationHours,
+        includedDurationHours: durationPricing.includedDurationHours,
+        extraHourlyRate: durationPricing.extraHourlyRate,
         guestCount,
         theatreBaseGuests: booking.theatre.baseGuests,
         theatreExtraPersonPrice: booking.theatre.extraPersonPrice,

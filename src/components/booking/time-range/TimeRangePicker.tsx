@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Clock, Edit, X } from "@/components/icons";
 import {
   buildTimeValues,
   calculateDurationHours,
@@ -10,6 +11,8 @@ import {
 import { formatISTTime } from "@/lib/formatters";
 
 const IST_TIMEZONE = "Asia/Kolkata";
+const BUSINESS_OPEN_MINUTES = 9 * 60;
+const BUSINESS_CLOSE_MINUTES = 23 * 60;
 
 type TimeRangePickerProps = {
   startTime: string | null;
@@ -42,6 +45,11 @@ function getNowISTMinutes() {
   return hour * 60 + minute;
 }
 
+function formatDurationHint(minutes: number) {
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+}
+
 export default function TimeRangePicker({
   startTime,
   endTime,
@@ -53,9 +61,15 @@ export default function TimeRangePicker({
 }: TimeRangePickerProps) {
   const times = useMemo(() => buildTimeValues(incrementMinutes), [incrementMinutes]);
   const [nowISTMinutes, setNowISTMinutes] = useState(() => getNowISTMinutes());
+  const [open, setOpen] = useState(false);
+  const [draftStartTime, setDraftStartTime] = useState<string | null>(startTime);
+  const [draftEndTime, setDraftEndTime] = useState<string | null>(endTime);
   const minDurationMinutes = Math.round(minDurationHours * 60);
   const startMinutes = parseTimeValue(startTime);
+  const draftStartMinutes = parseTimeValue(draftStartTime);
   const durationHours = calculateDurationHours(startTime, endTime);
+  const draftDurationHours = calculateDurationHours(draftStartTime, draftEndTime);
+  const isSelectingEndTime = Boolean(draftStartTime && !draftEndTime);
   const isSelectedDateToday =
     selectedDate !== null && getISTDateKey(selectedDate) === getISTDateKey(new Date());
 
@@ -74,123 +88,359 @@ export default function TimeRangePicker({
     }
   }, [isSelectedDateToday, nowISTMinutes, onChange, startMinutes]);
 
-  const canUseEndTime = (candidate: string) => {
-    const candidateMinutes = parseTimeValue(candidate);
-    return (
-      startMinutes !== null &&
-      candidateMinutes !== null &&
-      candidateMinutes - startMinutes >= minDurationMinutes
-    );
-  };
-
   const canUseStartTime = (candidate: string) => {
     const candidateMinutes = parseTimeValue(candidate);
+    const isWithinBusinessHours =
+      candidateMinutes !== null &&
+      candidateMinutes >= BUSINESS_OPEN_MINUTES &&
+      candidateMinutes <= BUSINESS_CLOSE_MINUTES;
     const hasSameDayEnd =
       candidateMinutes !== null &&
-      candidateMinutes + minDurationMinutes <= 23 * 60 + 30;
+      candidateMinutes + minDurationMinutes <= BUSINESS_CLOSE_MINUTES;
     const hasNotExpired =
       !isSelectedDateToday ||
       (candidateMinutes !== null && candidateMinutes > nowISTMinutes);
 
-    return hasSameDayEnd && hasNotExpired;
+    return isWithinBusinessHours && hasSameDayEnd && hasNotExpired;
   };
 
-  const handleStartChange = (nextStart: string) => {
+  const canUseDraftEndTime = (candidate: string) => {
+    const candidateMinutes = parseTimeValue(candidate);
+    return (
+      draftStartMinutes !== null &&
+      candidateMinutes !== null &&
+      candidateMinutes <= BUSINESS_CLOSE_MINUTES &&
+      candidateMinutes - draftStartMinutes >= minDurationMinutes
+    );
+  };
+
+  const handleDraftStartSelect = (nextStart: string) => {
     if (!nextStart) {
-      onChange(null, null);
+      setDraftStartTime(null);
+      setDraftEndTime(null);
       return;
     }
 
     const nextStartMinutes = parseTimeValue(nextStart);
-    const currentEndMinutes = parseTimeValue(endTime);
+    const currentEndMinutes = parseTimeValue(draftEndTime);
     const keepsEnd =
       nextStartMinutes !== null &&
       currentEndMinutes !== null &&
       currentEndMinutes - nextStartMinutes >= minDurationMinutes;
 
-    onChange(nextStart, keepsEnd ? endTime : null);
+    setDraftStartTime(nextStart);
+    setDraftEndTime(keepsEnd ? draftEndTime : null);
   };
+
+  const openPicker = () => {
+    if (disabled) return;
+    setDraftStartTime(startTime);
+    setDraftEndTime(endTime);
+    setOpen(true);
+  };
+
+  const clearDraft = () => {
+    setDraftStartTime(null);
+    setDraftEndTime(null);
+  };
+
+  const saveDraft = () => {
+    onChange(draftStartTime, draftEndTime);
+    setOpen(false);
+  };
+
+  const handleTimeSelect = (time: string) => {
+    if (!draftStartTime || draftEndTime) {
+      handleDraftStartSelect(time);
+      return;
+    }
+
+    if (canUseDraftEndTime(time)) {
+      setDraftEndTime(time);
+    }
+  };
+
+  const getChipMessage = ({
+    time,
+    selected,
+    isRangeInterior,
+    isEndSelection,
+  }: {
+    time: string;
+    selected: boolean;
+    isRangeInterior: boolean;
+    isEndSelection: boolean;
+  }) => {
+    const label = formatISTTime(time);
+    const candidateMinutes = parseTimeValue(time);
+
+    if (selected) return `${label} selected`;
+    if (isRangeInterior) return `${label} is included in your selected range`;
+
+    if (isEndSelection) {
+      if (!draftStartTime) return "Choose a start time first";
+      if (candidateMinutes !== null && candidateMinutes > BUSINESS_CLOSE_MINUTES) {
+        return `${label} is outside business hours`;
+      }
+      if (!canUseDraftEndTime(time)) {
+        return `${label} is unavailable because it is below the ${minDurationHours} ${
+          minDurationHours === 1 ? "hour" : "hours"
+        } minimum`;
+      }
+
+      return `${label} is available as an end time`;
+    }
+
+    if (isSelectedDateToday && candidateMinutes !== null && candidateMinutes <= nowISTMinutes) {
+      return `${label} is unavailable because it has already passed`;
+    }
+
+    if (
+      candidateMinutes !== null &&
+      candidateMinutes + minDurationMinutes > BUSINESS_CLOSE_MINUTES
+    ) {
+      return `${label} is unavailable because it cannot meet the minimum duration today`;
+    }
+
+    return `${label} is available as a start time`;
+  };
+  const visibleTimes = times.filter((time) => {
+    const candidateMinutes = parseTimeValue(time);
+    const isInBusinessWindow =
+      candidateMinutes !== null &&
+      candidateMinutes >= BUSINESS_OPEN_MINUTES &&
+      candidateMinutes <= BUSINESS_CLOSE_MINUTES;
+
+    if (isSelectingEndTime) {
+      return (
+        draftStartMinutes !== null &&
+        candidateMinutes !== null &&
+        candidateMinutes >= draftStartMinutes &&
+        candidateMinutes <= BUSINESS_CLOSE_MINUTES
+      );
+    }
+
+    return (
+      isInBusinessWindow &&
+      (canUseStartTime(time) ||
+        draftStartTime === time ||
+        draftEndTime === time ||
+        (draftStartMinutes !== null &&
+          parseTimeValue(draftEndTime) !== null &&
+          candidateMinutes !== null &&
+          candidateMinutes > draftStartMinutes &&
+          candidateMinutes < parseTimeValue(draftEndTime)!))
+    );
+  });
 
   return (
     <section
       aria-label="Choose booking time range"
-      className="border border-[#d7e4e1] bg-[#f8fbfa] p-3 sm:p-4"
+      className="border border-[#c6ddcf] bg-white p-4 text-[#0d3b24] transition duration-300 ease-out hover:border-[#9fbfba] sm:p-5"
     >
-      <div className="mb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#347f7c]">
-          Event Time
+      <div>
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#101828]">
+          Event Duration
         </p>
-        <p className="mt-1 text-sm text-[#475467]">
-          Pick a start time first. Minimum booking duration is {minDurationHours}{" "}
-          {minDurationHours === 1 ? "hour" : "hours"}.
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={openPicker}
+          className="group mt-4 flex min-h-[52px] w-full cursor-pointer items-center justify-between gap-4 bg-[#f2f3f3] px-4 py-3 text-left transition duration-300 ease-out hover:bg-[#ecefef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#f6f7f8] disabled:text-[#98a2b3]"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex shrink-0 items-center justify-center text-[#344054] transition duration-300 group-hover:text-[#245e5b]">
+              <Clock size={22} />
+            </span>
+            <span className="block min-w-0 truncate text-base font-semibold text-[#101828] sm:text-lg">
+              {durationHours
+                ? `${formatISTTime(startTime!)} - ${formatISTTime(endTime!)}`
+                : startTime
+                  ? `${formatISTTime(startTime)} - Add end time`
+                  : "Add time range"}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center justify-center text-[#344054] transition duration-300 group-hover:text-[#245e5b]">
+            <Edit size={18} />
+          </span>
+        </button>
+        <p className="mt-3 pl-4 text-sm italic text-[#245e5b]">
+          {disabled
+            ? "Choose an available date first."
+            : `${minDurationHours} ${
+                minDurationHours === 1 ? "hour" : "hours"
+              } minimum`}
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#475467]">
-            Start Time
-          </span>
-          <select
-            value={startTime ?? ""}
-            disabled={disabled}
-            onChange={(event) => handleStartChange(event.target.value)}
-            className="mt-1 h-12 w-full border border-[#d0d5dd] bg-white px-3 text-sm font-medium text-[#101828] outline-none transition focus:border-[#347f7c] disabled:cursor-not-allowed disabled:bg-[#f2f4f7] disabled:text-[#98a2b3]"
-          >
-            <option value="">Select start time</option>
-            {times.map((time) => {
-              return (
-                <option key={time} value={time} disabled={!canUseStartTime(time)}>
-                  {formatISTTime(time)}
-                </option>
-              );
-            })}
-          </select>
-        </label>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#101828]/45 px-3 py-3 backdrop-blur-[2px] sm:items-center sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Select booking time"
+        >
+          <div className="relative w-full max-w-[72rem] bg-white p-5 shadow-[0_28px_80px_rgba(16,24,40,0.28)] sm:p-7">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute right-2 top-2 flex size-8 items-center justify-center bg-[#edf3f1] text-[#245e5b] transition hover:bg-[#dcebe8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] sm:right-2 sm:top-2"
+              aria-label="Close time picker"
+            >
+              <X size={14} />
+            </button>
 
-        <label className="block">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#475467]">
-            End Time
-          </span>
-          <select
-            value={endTime ?? ""}
-            disabled={disabled || !startTime}
-            onChange={(event) => onChange(startTime, event.target.value || null)}
-            className="mt-1 h-12 w-full border border-[#d0d5dd] bg-white px-3 text-sm font-medium text-[#101828] outline-none transition focus:border-[#347f7c] disabled:cursor-not-allowed disabled:bg-[#f2f4f7] disabled:text-[#98a2b3]"
-          >
-            <option value="">
-              {startTime ? "Select end time" : "Choose start time first"}
-            </option>
-            {times.map((time) => (
-              <option key={time} value={time} disabled={!canUseEndTime(time)}>
-                {formatISTTime(time)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+            <div className="mb-4 mt-4 grid gap-5 xl:grid-cols-[minmax(150px,1fr)_minmax(420px,auto)] xl:items-start">
+              <div className="min-w-0 lg:pt-1">
+                <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#101828]">
+                  {draftDurationHours
+                    ? `${draftDurationHours} ${draftDurationHours === 1 ? "hour" : "hours"}`
+                    : isSelectingEndTime
+                      ? "Select end time"
+                      : "Select start time"}
+                </h2>
+                <p className="mt-1 text-sm text-[#667085]">
+                  {draftStartTime && draftEndTime
+                    ? `${formatISTTime(draftStartTime)} - ${formatISTTime(draftEndTime)}`
+                    : `${minDurationHours} ${minDurationHours === 1 ? "hour" : "hours"} booking minimum`}
+                </p>
+              </div>
 
-      <div
-        aria-live="polite"
-        className="mt-3 flex min-h-9 items-center border border-[#e4eeeb] bg-white px-3 text-xs text-[#475467]"
-      >
-        {disabled ? (
-          "Choose an available date to unlock time selection."
-        ) : durationHours ? (
-          <span className="font-semibold text-[#245e5b]">
-            {formatISTTime(startTime!)} - {formatISTTime(endTime!)} ·{" "}
-            {durationHours} {durationHours === 1 ? "hour" : "hours"}
-          </span>
-        ) : startTime ? (
-          `End times before ${minDurationHours} ${
-            minDurationHours === 1 ? "hour" : "hours"
-          } are disabled.`
-        ) : isSelectedDateToday ? (
-          "Past start times for today are disabled."
-        ) : (
-          "Time options are shown in 30-minute increments."
-        )}
-      </div>
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:w-[350px]">
+                <div
+                  className={`min-h-[58px] border bg-white px-5 py-3 text-left ${
+                    !draftStartTime || draftEndTime
+                      ? "border-[#347f7c] shadow-[inset_0_0_0_1px_#347f7c]"
+                      : "border-[#d0d5dd]"
+                  }`}
+                >
+                  <span className="block whitespace-nowrap text-xs font-semibold uppercase tracking-[0.12em] text-[#475467]">
+                    Start Time
+                  </span>
+                  <span className="mt-1.5 block text-sm font-medium text-[#101828]">
+                    {draftStartTime ? formatISTTime(draftStartTime) : "Add time"}
+                  </span>
+                </div>
+
+                <div
+                  className={`min-h-[58px] border bg-white px-5 py-3 text-left ${
+                    isSelectingEndTime
+                      ? "border-[#347f7c] shadow-[inset_0_0_0_1px_#347f7c]"
+                      : "border-[#d0d5dd]"
+                  }`}
+                >
+                  <span className="block whitespace-nowrap text-xs font-semibold uppercase tracking-[0.12em] text-[#475467]">
+                    End Time
+                  </span>
+                  <span className="mt-1.5 block text-sm font-medium text-[#101828]">
+                    {draftEndTime ? formatISTTime(draftEndTime) : "Add time"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid max-h-[42vh] grid-cols-3 gap-3 overflow-y-auto overflow-x-visible pr-1 sm:grid-cols-4 md:grid-cols-5 lg:max-h-none lg:grid-cols-7 lg:gap-3 lg:overflow-visible lg:pr-0">
+              {visibleTimes.map((time) => {
+                const selected =
+                  draftStartTime === time || draftEndTime === time;
+                const endMinutes = parseTimeValue(draftEndTime);
+                const timeMinutes = parseTimeValue(time);
+                const isShortEndOption =
+                  isSelectingEndTime &&
+                  draftStartMinutes !== null &&
+                  timeMinutes !== null &&
+                  timeMinutes > draftStartMinutes &&
+                  timeMinutes - draftStartMinutes < minDurationMinutes;
+                const durationHint =
+                  isSelectingEndTime &&
+                  draftStartMinutes !== null &&
+                  timeMinutes !== null &&
+                  timeMinutes > draftStartMinutes
+                    ? formatDurationHint(timeMinutes - draftStartMinutes)
+                    : null;
+                const isRangeInterior =
+                  draftStartMinutes !== null &&
+                  endMinutes !== null &&
+                  timeMinutes !== null &&
+                  timeMinutes > draftStartMinutes &&
+                  timeMinutes < endMinutes;
+                const unavailable = selected
+                  ? false
+                  : isSelectingEndTime
+                    ? !canUseDraftEndTime(time)
+                    : !canUseStartTime(time);
+                const chipMessage = getChipMessage({
+                  time,
+                  selected,
+                  isRangeInterior,
+                  isEndSelection: isSelectingEndTime,
+                });
+
+                return (
+                  <button
+                    key={time}
+                    type="button"
+                    title={chipMessage}
+                    aria-label={chipMessage}
+                    aria-pressed={selected}
+                    disabled={unavailable}
+                    onClick={() => handleTimeSelect(time)}
+                    className={`group relative min-h-[50px] w-full border px-2 py-1.5 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
+                      selected
+                        ? "border-[#347f7c] bg-[#347f7c] text-white shadow-[0_14px_28px_rgba(52,127,124,0.24)]"
+                      : isRangeInterior
+                          ? "border-[#e4eeeb] bg-[#edf3f1] text-[#245e5b]"
+                        : isShortEndOption
+                          ? "cursor-not-allowed border-transparent bg-transparent text-[#c0c6cf] line-through"
+                        : unavailable
+                          ? "cursor-not-allowed border-[#edf0f2] bg-[#f6f7f8] text-[#a8b0bb] line-through"
+                          : "border-[#cfd6df] bg-white text-[#101828] hover:border-[#98a2b3] hover:shadow-[0_6px_16px_rgba(16,24,40,0.08)]"
+                    }`}
+                  >
+                    <span className="block text-[13px] leading-none">
+                      {formatISTTime(time).replace(" AM", "").replace(" PM", "")}
+                    </span>
+                    <span className="mt-1 block text-[10px] font-normal">
+                      {formatISTTime(time).endsWith("AM") ? "AM" : "PM"}
+                    </span>
+                    {durationHint && !selected && !isShortEndOption && (
+                      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 translate-y-1 whitespace-nowrap bg-[#102f2d] px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_10px_24px_rgba(16,47,45,0.22)] transition duration-150 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+                        {durationHint} duration
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={clearDraft}
+                className="text-sm font-medium text-[#101828] transition hover:text-[#347f7c]"
+              >
+                Clear times
+              </button>
+
+              <div className="flex items-center gap-3">
+                {draftDurationHours && (
+                  <span className="hidden text-sm font-medium text-[#245e5b] sm:inline">
+                    {draftDurationHours} {draftDurationHours === 1 ? "hour" : "hours"}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={saveDraft}
+                  disabled={!draftStartTime || !draftEndTime}
+                  className="bg-[#347f7c] px-7 py-3 text-base font-medium text-white shadow-[0_12px_28px_rgba(52,127,124,0.25)] transition hover:-translate-y-0.5 hover:bg-[#245e5b] disabled:cursor-not-allowed disabled:bg-[#d0d5dd] disabled:shadow-none disabled:hover:translate-y-0"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

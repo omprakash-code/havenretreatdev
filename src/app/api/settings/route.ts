@@ -2,9 +2,12 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
+  DEFAULT_EXTRA_HOURLY_RATE,
   DEFAULT_MINIMUM_BOOKING_DURATION_HOURS,
+  EXTRA_HOURLY_RATE_KEY,
   MINIMUM_BOOKING_DURATION_HOURS_KEY,
   parseAdvancePaymentAmount,
+  parseExtraHourlyRate,
   parseMinimumBookingDurationHours,
 } from "@/lib/app-settings";
 
@@ -48,6 +51,20 @@ export async function GET() {
     map[MINIMUM_BOOKING_DURATION_HOURS_KEY] = String(
       configuredMinimumDuration
     );
+    const configuredExtraHourlyRate = parseExtraHourlyRate(
+      map[EXTRA_HOURLY_RATE_KEY] ?? DEFAULT_EXTRA_HOURLY_RATE
+    );
+    if (configuredExtraHourlyRate === null) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Extra hourly rate configuration is invalid.",
+        },
+        { status: 500 }
+      );
+    }
+
+    map[EXTRA_HOURLY_RATE_KEY] = String(configuredExtraHourlyRate);
 
     return NextResponse.json({
       success: true,

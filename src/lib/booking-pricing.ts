@@ -7,6 +7,9 @@ type CalculateBookingPricingInput = {
   theatreDecorationPrice: number;
   slotDecorationMandatory: boolean;
   decorationRequired: boolean;
+  durationHours?: number | null;
+  includedDurationHours?: number | null;
+  extraHourlyRate?: number | null;
   productsAmount?: number;
   discountAmount?: number;
   advancePaid?: number;
@@ -14,6 +17,10 @@ type CalculateBookingPricingInput = {
 
 export type BookingPricingBreakdown = {
   baseAmount: number;
+  packageBaseAmount: number;
+  extraDurationHours: number;
+  extraHourlyRate: number;
+  extraHoursAmount: number;
   extrasAmount: number;
   productsAmount: number;
   decorationAmount: number;
@@ -31,7 +38,20 @@ function toMoney(value: number | null | undefined) {
 export function calculateBookingPricing(
   input: CalculateBookingPricingInput
 ): BookingPricingBreakdown {
-  const baseAmount = toMoney(input.slotFinalPrice ?? input.slotBasePrice);
+  const packageBaseAmount = toMoney(input.slotFinalPrice ?? input.slotBasePrice);
+  const durationHours =
+    typeof input.durationHours === "number" && Number.isFinite(input.durationHours)
+      ? Math.max(0, input.durationHours)
+      : 0;
+  const includedDurationHours =
+    typeof input.includedDurationHours === "number" &&
+    Number.isFinite(input.includedDurationHours)
+      ? Math.max(0, input.includedDurationHours)
+      : 0;
+  const extraDurationHours = Math.max(durationHours - includedDurationHours, 0);
+  const extraHourlyRate = toMoney(input.extraHourlyRate ?? 0);
+  const extraHoursAmount = Math.round(extraDurationHours * extraHourlyRate);
+  const baseAmount = packageBaseAmount + extraHoursAmount;
   const guestCount = Math.max(0, Math.trunc(input.guestCount));
   const baseGuests = Math.max(0, Math.trunc(input.theatreBaseGuests));
   const extraGuestCount = Math.max(guestCount - baseGuests, 0);
@@ -52,6 +72,10 @@ export function calculateBookingPricing(
 
   return {
     baseAmount,
+    packageBaseAmount,
+    extraDurationHours,
+    extraHourlyRate,
+    extraHoursAmount,
     extrasAmount,
     productsAmount,
     decorationAmount,

@@ -94,15 +94,25 @@ export default function TheatreList() {
     <section className="bg-white px-3.5 py-8 pb-10 sm:px-4 sm:py-10 md:px-6 lg:py-14 lg:pb-20">
       <div className="max-w-7xl mx-auto">
         {/* Heading */}
-        <div className="mb-8 text-center sm:mb-10 lg:mb-14">
-          <h2 className="mb-2 text-2xl font-bold text-black sm:text-3xl lg:mb-3 lg:text-4xl">
-            Event Packages Designed Around Your Celebration
-          </h2>
-          <p className="mx-auto max-w-2xl text-sm text-gray-500 sm:text-base lg:text-lg">
-            Flexible options for intimate gatherings, styled celebrations, and personalized setups based on your event needs.
-          </p>
+        <div className="relative mb-8 overflow-hidden border border-[#d7e4e1] bg-[#f8fbfa] px-5 py-8 text-center shadow-[0_18px_55px_rgba(16,24,40,0.06)] sm:mb-10 sm:px-8 sm:py-10 lg:mb-14 lg:px-12 lg:py-12">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(52,127,124,0.14),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.82),rgba(232,242,239,0.42))]" />
+          <div className="pointer-events-none absolute left-0 top-0 h-20 w-20 bg-[#347f7c]/10 [clip-path:polygon(0_0,100%_0,0_100%)]" />
+          <div className="pointer-events-none absolute bottom-0 right-0 h-24 w-24 bg-[#d4b077]/18 [clip-path:polygon(100%_0,100%_100%,0_100%)]" />
+
+          <div className="relative">
+            <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-[0.32em] text-[#347f7c]">
+              Haven Retreat
+            </p>
+            <h2 className="font-playfair text-[2rem] font-semibold leading-none tracking-[-0.045em] text-[#101828] sm:text-[2.6rem] lg:text-[3.25rem]">
+              Premium Package Selection
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#667085] sm:text-base">
+              Choose the celebration experience that fits your guest count, setup style, and private retreat plans.
+            </p>
+          </div>
+
           {booking.startTime && booking.endTime && booking.durationHours && (
-            <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border border-[#d7e4e1] px-4 py-2.5 text-sm font-semibold text-[#347f7c]">
+            <div className="relative mt-6 inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border border-[#c6ddcf] bg-white px-5 py-3 text-sm font-semibold text-[#245e5b] shadow-[0_14px_34px_rgba(16,24,40,0.06)]">
               <span className="inline-flex items-center gap-2">
                 <Clock size={15} />
                 {formatISTTime(booking.startTime)} - {formatISTTime(booking.endTime)}

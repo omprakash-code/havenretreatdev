@@ -1084,6 +1084,10 @@ async function seedAppSettings() {
       value: "4",
     },
     {
+      key: "EXTRA_HOURLY_RATE",
+      value: "120",
+    },
+    {
       key: "SLOT_EXPIRY_MODE",
       value: "START_TIME",
     },

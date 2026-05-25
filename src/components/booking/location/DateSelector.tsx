@@ -1,0 +1,137 @@
+"use client";
+
+import { Calendar } from "@/components/icons";
+import { toDateKey } from "@/lib/date";
+import { formatISTDate } from "@/lib/formatters";
+
+type QuickDate = {
+  label: string | null;
+  offset: number;
+};
+
+type DateSelectorProps = {
+  datesLoading: boolean;
+  noSlotsForLocation: boolean | null;
+  hasLocation: boolean;
+  selectedDate: Date | null;
+  availableDates: string[];
+  quickDates: QuickDate[];
+  onQuickDateSelect: (offset: number) => void;
+  onOpenCalendar: () => void;
+  isQuickDate: (date: Date) => boolean;
+  isSameDay: (a: Date, b: Date) => boolean;
+  getWeekdayShort: (date: Date) => string;
+};
+
+export default function DateSelector({
+  datesLoading,
+  noSlotsForLocation,
+  hasLocation,
+  selectedDate,
+  availableDates,
+  quickDates,
+  onQuickDateSelect,
+  onOpenCalendar,
+  isQuickDate,
+  isSameDay,
+  getWeekdayShort,
+}: DateSelectorProps) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-[#101828]">
+          Select Date
+        </p>
+        <p className="text-xs font-semibold text-[#245e5b]">
+          Today
+        </p>
+      </div>
+
+      <div className="grid grid-cols-5 gap-3">
+        {datesLoading
+          ? Array.from({ length: quickDates.length }).map((_, i) => (
+              <DateSkeleton key={`date-skeleton-${i}`} />
+            ))
+          : quickDates.map((quickDate) => {
+              const date = new Date();
+              date.setHours(0, 0, 0, 0);
+              date.setDate(date.getDate() + quickDate.offset);
+
+              const label =
+                quickDate.offset <= 1 ? quickDate.label : getWeekdayShort(date);
+              const active = selectedDate && isSameDay(date, selectedDate);
+              const disabled =
+                datesLoading ||
+                !hasLocation ||
+                !availableDates.some(
+                  (availableDate) => toDateKey(availableDate) === toDateKey(date)
+                );
+
+              return (
+                <button
+                  key={`quick-${quickDate.offset}`}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onQuickDateSelect(quickDate.offset)}
+                  className={`min-h-[74px] px-2 py-2.5 text-center transition duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
+                    disabled
+                      ? "cursor-not-allowed bg-[#f6f8f7] text-[#98a2b3]"
+                      : active
+                        ? "bg-[#0d3b24] text-white shadow-[0_16px_30px_rgba(13,59,36,0.28)]"
+                        : "bg-white text-[#101828] hover:-translate-y-0.5 hover:bg-[#f8fbfa] hover:shadow-[0_10px_22px_rgba(16,24,40,0.07)] active:translate-y-0 active:scale-[0.99]"
+                  }`}
+                  title={
+                    noSlotsForLocation
+                      ? "No dates available for this location"
+                      : undefined
+                  }
+                >
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.04em] opacity-80">
+                    {label}
+                  </span>
+                  <span className="mt-1 block text-lg font-bold leading-none">
+                    {date.getDate()}
+                  </span>
+                  <span className="mt-1 block text-[11px] font-medium opacity-75">
+                    {date.toLocaleDateString("en-US", { month: "short" })}
+                  </span>
+                </button>
+              );
+            })}
+
+        {!datesLoading && (
+          <button
+            type="button"
+            disabled={!hasLocation}
+            onClick={onOpenCalendar}
+            className={`min-h-[74px] px-2 py-2.5 text-center transition duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
+              !hasLocation || noSlotsForLocation
+                ? "cursor-not-allowed bg-[#f6f8f7] text-[#98a2b3]"
+                : selectedDate && !isQuickDate(selectedDate)
+                  ? "bg-[#edf3f1] text-[#245e5b] shadow-[0_12px_24px_rgba(36,94,91,0.12)] ring-1 ring-[#9fbfba]"
+                  : "bg-white text-[#101828] shadow-[0_6px_18px_rgba(16,24,40,0.04)] ring-1 ring-[#d7e4e1] hover:-translate-y-0.5 hover:bg-[#fbfdfc] hover:shadow-[0_14px_28px_rgba(16,24,40,0.08)] hover:ring-[#9fbfba] active:translate-y-0 active:scale-[0.99]"
+            }`}
+          >
+            <span className="flex justify-center text-[#245e5b]">
+              <Calendar size={18} />
+            </span>
+            <span className="mt-1 block text-[12px] font-semibold leading-tight">
+              {selectedDate && !isQuickDate(selectedDate)
+                ? formatISTDate(selectedDate).replace(/ \d{4}$/, "")
+                : "Choose Date"}
+            </span>
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function DateSkeleton() {
+  return (
+    <div className="min-h-[64px] animate-pulse bg-[#f6f8f7] px-3 py-2.5 ring-1 ring-[#d7e4e1]">
+      <div className="mb-2 h-3 w-12 bg-[#d7e4e1]" />
+      <div className="h-5 w-16 bg-[#c5d6d2]" />
+    </div>
+  );
+}

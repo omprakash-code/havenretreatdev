@@ -9,9 +9,12 @@ import React, {
 } from "react";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
+  DEFAULT_EXTRA_HOURLY_RATE,
   DEFAULT_MINIMUM_BOOKING_DURATION_HOURS,
+  EXTRA_HOURLY_RATE_KEY,
   MINIMUM_BOOKING_DURATION_HOURS_KEY,
   parseAdvancePaymentAmount,
+  parseExtraHourlyRate,
   parseMinimumBookingDurationHours,
 } from "@/lib/app-settings";
 import { calculateDurationHours } from "@/lib/booking-time-range";
@@ -51,6 +54,10 @@ export type SelectedTheatre = {
 
 export type BookingPricing = {
   base: number;
+  packageBase: number;
+  extraDurationHours: number;
+  extraHourlyRate: number;
+  extraHours: number;
   extras: number;
   products: number;
   decoration: number;
@@ -189,6 +196,7 @@ type BookingContextType = {
   hydrated: boolean;
   itemsHydrated: boolean;
   minimumBookingDurationHours: number;
+  extraHourlyRate: number;
   refreshBooking: () => Promise<void>;
 
   // Temporary setters (will be removed later phase)
@@ -265,6 +273,8 @@ export function BookingProvider({
     useState<number | null>(null);
   const [minimumBookingDurationHours, setMinimumBookingDurationHours] =
     useState(DEFAULT_MINIMUM_BOOKING_DURATION_HOURS);
+  const [extraHourlyRate, setExtraHourlyRate] =
+    useState(DEFAULT_EXTRA_HOURLY_RATE);
   const [itemsHydrated, setItemsHydrated] =
     useState(false);
   const [openCalendar, setOpenCalendar] =
@@ -329,13 +339,21 @@ const loadBooking = async () => {
     const parsedMinimumDuration = parseMinimumBookingDurationHours(
       settingsJson?.data?.[MINIMUM_BOOKING_DURATION_HOURS_KEY]
     );
+    const parsedExtraHourlyRate = parseExtraHourlyRate(
+      settingsJson?.data?.[EXTRA_HOURLY_RATE_KEY]
+    );
 
-    if (parsedAdvance === null || parsedMinimumDuration === null) {
+    if (
+      parsedAdvance === null ||
+      parsedMinimumDuration === null ||
+      parsedExtraHourlyRate === null
+    ) {
       throw new Error("ADVANCE_PAYMENT_CONFIG_INVALID");
     }
 
     setConfiguredAdvanceAmount(parsedAdvance);
     setMinimumBookingDurationHours(parsedMinimumDuration);
+    setExtraHourlyRate(parsedExtraHourlyRate);
 
     const typeRes = await fetch("/api/session/type", {
       credentials: "include",
@@ -507,6 +525,12 @@ const loadBooking = async () => {
       return undefined;
 
     const base = booking.slot.basePrice;
+    const extraDurationHours = Math.max(
+      (booking.durationHours ?? minimumBookingDurationHours) -
+        minimumBookingDurationHours,
+      0
+    );
+    const extraHours = Math.round(extraDurationHours * extraHourlyRate);
 
     const extras =
       Math.max(
@@ -529,7 +553,7 @@ const loadBooking = async () => {
 
     const discount = Math.max(0, Number(booking.couponDiscount) || 0);
     const total = Math.max(
-      base + extras + decoration + products - discount,
+      base + extraHours + extras + decoration + products - discount,
       0
     );
 
@@ -540,6 +564,10 @@ const loadBooking = async () => {
 
     return {
       base,
+      packageBase: base,
+      extraDurationHours,
+      extraHourlyRate,
+      extraHours,
       extras,
       products,
       decoration,
@@ -547,7 +575,12 @@ const loadBooking = async () => {
       total,
       advancePay: resolvedAdvance,
     };
-  }, [booking, configuredAdvanceAmount]);
+  }, [
+    booking,
+    configuredAdvanceAmount,
+    extraHourlyRate,
+    minimumBookingDurationHours,
+  ]);
 
   /* -----------------------------
    Temporary Local Setters
@@ -701,6 +734,7 @@ const loadBooking = async () => {
         hydrated,
         itemsHydrated,
         minimumBookingDurationHours,
+        extraHourlyRate,
         refreshBooking: loadBooking,
 
         setLocation,
