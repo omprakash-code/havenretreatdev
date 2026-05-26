@@ -21,7 +21,7 @@ export default function SidebarHeader({
         className="flex items-center gap-3 min-w-[180px]"
       >
         {/* Logo */}
-       <Image src="/assets/logo.png" alt="Haven Retreat's Logo" width={44} height={44} className="bg-[#FFD700] rounded-full"/>
+       <Image src="/assets/logo.png" alt="Haven Retreat's Logo" width={44} height={44} />
         {/* Text (NO layout animation) */}
         <div
           className={`transition-all duration-300 ease-out

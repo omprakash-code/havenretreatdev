@@ -6,9 +6,11 @@ import { MapPin } from "@/components/icons";
 import BookingCalendar from "@/components/booking/location/BookingCalendar";
 import BookingHeroCard from "@/components/booking/location/BookingHeroCard";
 import DateSelector from "@/components/booking/location/DateSelector";
-import TimeRangePicker from "@/components/booking/time-range/TimeRangePicker";
+import TimeRangePicker, {
+  type UnavailableTimeRange,
+} from "@/components/booking/time-range/TimeRangePicker";
 import { useBooking } from "@/context/BookingContext";
-import { toDateKey } from "@/lib/date";
+import { toDateKey, toDateKeyString } from "@/lib/date";
 
 type Props = {
   onContinue: () => void;
@@ -50,6 +52,7 @@ export default function SelectLocationScreen({ onContinue }: Props) {
   ------------------------------ */
   const [locations, setLocations] = useState<Location[]>([]);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [unavailableRanges, setUnavailableRanges] = useState<UnavailableTimeRange[]>([]);
   const [datesLoading, setDatesLoading] = useState(false);
   const noSlotsForLocation = booking.location && !datesLoading && availableDates.length === 0;
 
@@ -145,6 +148,60 @@ export default function SelectLocationScreen({ onContinue }: Props) {
       cancelled = true;
     };
   }, [booking.location]);
+
+  /* -------------------------------------
+     Fetch unavailable ranges for selected date
+  --------------------------------------- */
+  useEffect(() => {
+    const locationId = booking.location?.id;
+    const date = booking.date;
+    if (!locationId || !date) {
+      setUnavailableRanges([]);
+      return;
+    }
+
+    let cancelled = false;
+    const selectedLocationId = locationId;
+    const dateKey = toDateKeyString(date);
+
+    async function fetchUnavailableRanges() {
+      try {
+        const res = await fetch(
+          `/api/availability/time-ranges?locationId=${encodeURIComponent(
+            selectedLocationId
+          )}&date=${encodeURIComponent(dateKey)}`,
+          { cache: "no-store" }
+        );
+        const json = await res.json();
+        if (!cancelled && json.success) {
+          setUnavailableRanges(json.data ?? []);
+        }
+      } catch {
+        if (!cancelled) setUnavailableRanges([]);
+      }
+    }
+
+    void fetchUnavailableRanges();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [booking.location, booking.date]);
+
+  useEffect(() => {
+    if (!booking.startTime || !booking.endTime || unavailableRanges.length === 0) {
+      return;
+    }
+
+    const overlapsUnavailable = unavailableRanges.some(
+      (range) =>
+        range.startTime < booking.endTime! && range.endTime > booking.startTime!
+    );
+
+    if (overlapsUnavailable) {
+      setTimeRange(null, null);
+    }
+  }, [booking.endTime, booking.startTime, setTimeRange, unavailableRanges]);
 
   /* -------------------------------------
    Auto Select first date on first loading
@@ -382,6 +439,7 @@ export default function SelectLocationScreen({ onContinue }: Props) {
             onChange={setTimeRange}
             disabled={!booking.date}
             selectedDate={booking.date}
+            unavailableRanges={unavailableRanges}
           />
         </div>
 

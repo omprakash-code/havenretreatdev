@@ -6,9 +6,9 @@ type AdminIdentity = {
 
 type AvatarSurface = "header" | "profile";
 
-const DEFAULT_HEADER_IMAGE = "/media/site/shared/arpan-mittal.webp";
-const DEFAULT_PROFILE_IMAGE = "/media/site/shared/arpan-mittal-profile.png";
-const VEDVART_IMAGE = "/media/site/shared/vedvart.png";
+const DEFAULT_HEADER_IMAGE = "/media/site/shared/jessika.png";
+const DEFAULT_PROFILE_IMAGE = "/media/site/shared/jessika.png";
+const VEDVART_IMAGE = "/media/site/shared/jessika.png";
 
 const VEDVART_EMAILS = new Set(["vedvarthooda@gmail.com"]);
 const VEDVART_PHONES = ["7011134959"];
@@ -56,4 +56,3 @@ export function resolveAdminProfileImage(
 
   return surface === "profile" ? DEFAULT_PROFILE_IMAGE : DEFAULT_HEADER_IMAGE;
 }
-

@@ -37,13 +37,14 @@ async function seedAdmin() {
   await prisma.user.upsert({
     where: { phone: "9999999999" },
     update: {
+      name: "Jessika Miranda",
       passwordHash: hashedPassword,
       role: UserRole.ADMIN,
       isActive: true,
       isGuest: false,
     },
     create: {
-      name: "Arpan Mittal",
+      name: "Jessika Miranda",
       email: adminEmail,
       phone: "9999999999",
       passwordHash: hashedPassword,

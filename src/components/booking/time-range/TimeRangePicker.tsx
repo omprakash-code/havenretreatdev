@@ -23,6 +23,13 @@ type TimeRangePickerProps = {
   disabled?: boolean;
   selectedDate?: Date | null;
   variant?: "event-card" | "admin-field";
+  unavailableRanges?: UnavailableTimeRange[];
+};
+
+export type UnavailableTimeRange = {
+  startTime: string;
+  endTime: string;
+  reason: "BOOKED" | "BLOCKED" | "LOCKED";
 };
 
 function getISTDateKey(date: Date) {
@@ -51,6 +58,18 @@ function formatDurationHint(minutes: number) {
   return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
 }
 
+function formatMinutesAsTime(minutes: number) {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function reasonLabel(reason: UnavailableTimeRange["reason"]) {
+  if (reason === "BLOCKED") return "blocked";
+  if (reason === "LOCKED") return "temporarily reserved";
+  return "booked";
+}
+
 export default function TimeRangePicker({
   startTime,
   endTime,
@@ -60,6 +79,7 @@ export default function TimeRangePicker({
   disabled = false,
   selectedDate = null,
   variant = "event-card",
+  unavailableRanges = [],
 }: TimeRangePickerProps) {
   const times = useMemo(() => buildTimeValues(incrementMinutes), [incrementMinutes]);
   const [nowISTMinutes, setNowISTMinutes] = useState(() => getNowISTMinutes());
@@ -103,7 +123,18 @@ export default function TimeRangePicker({
       !isSelectedDateToday ||
       (candidateMinutes !== null && candidateMinutes > nowISTMinutes);
 
-    return isWithinBusinessHours && hasSameDayEnd && hasNotExpired;
+    const minEndTime =
+      candidateMinutes !== null
+        ? formatMinutesAsTime(candidateMinutes + minDurationMinutes)
+        : null;
+
+    return (
+      isWithinBusinessHours &&
+      hasSameDayEnd &&
+      hasNotExpired &&
+      minEndTime !== null &&
+      !rangeOverlapsUnavailable(candidate, minEndTime)
+    );
   };
 
   const canUseDraftEndTime = (candidate: string) => {
@@ -112,7 +143,37 @@ export default function TimeRangePicker({
       draftStartMinutes !== null &&
       candidateMinutes !== null &&
       candidateMinutes <= BUSINESS_CLOSE_MINUTES &&
-      candidateMinutes - draftStartMinutes >= minDurationMinutes
+      candidateMinutes - draftStartMinutes >= minDurationMinutes &&
+      !rangeOverlapsUnavailable(draftStartTime!, candidate)
+    );
+  };
+
+  const rangeOverlapsUnavailable = (start: string, end: string) => {
+    const startMinutes = parseTimeValue(start);
+    const endMinutes = parseTimeValue(end);
+    if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+      return false;
+    }
+
+    return unavailableRanges.some((range) => {
+      const rangeStart = parseTimeValue(range.startTime);
+      const rangeEnd = parseTimeValue(range.endTime);
+      if (rangeStart === null || rangeEnd === null) return false;
+      return rangeStart < endMinutes && rangeEnd > startMinutes;
+    });
+  };
+
+  const findUnavailableRangeForTime = (time: string) => {
+    const minutes = parseTimeValue(time);
+    if (minutes === null) return null;
+
+    return (
+      unavailableRanges.find((range) => {
+        const rangeStart = parseTimeValue(range.startTime);
+        const rangeEnd = parseTimeValue(range.endTime);
+        if (rangeStart === null || rangeEnd === null) return false;
+        return minutes >= rangeStart && minutes < rangeEnd;
+      }) ?? null
     );
   };
 
@@ -179,12 +240,20 @@ export default function TimeRangePicker({
     if (selected) return `${label} selected`;
     if (isRangeInterior) return `${label} is included in your selected range`;
 
+    const unavailableRange = findUnavailableRangeForTime(time);
+    if (unavailableRange) {
+      return `${label} is ${reasonLabel(unavailableRange.reason)}.`;
+    }
+
     if (isEndSelection) {
       if (!draftStartTime) return "Choose a start time first";
       if (candidateMinutes !== null && candidateMinutes > BUSINESS_CLOSE_MINUTES) {
         return `${label} is outside business hours`;
       }
       if (!canUseDraftEndTime(time)) {
+        if (draftStartTime && rangeOverlapsUnavailable(draftStartTime, time)) {
+          return `${label} conflicts with an existing booked or blocked range`;
+        }
         return `${label} is unavailable because it is below the ${minDurationHours} ${
           minDurationHours === 1 ? "hour" : "hours"
         } minimum`;
@@ -202,6 +271,16 @@ export default function TimeRangePicker({
       candidateMinutes + minDurationMinutes > BUSINESS_CLOSE_MINUTES
     ) {
       return `${label} is unavailable because it cannot meet the minimum duration today`;
+    }
+
+    if (
+      candidateMinutes !== null &&
+      rangeOverlapsUnavailable(
+        time,
+        formatMinutesAsTime(candidateMinutes + minDurationMinutes)
+      )
+    ) {
+      return `${label} cannot start because the minimum booking range overlaps a booked or blocked time`;
     }
 
     return `${label} is available as a start time`;
@@ -222,17 +301,7 @@ export default function TimeRangePicker({
       );
     }
 
-    return (
-      isInBusinessWindow &&
-      (canUseStartTime(time) ||
-        draftStartTime === time ||
-        draftEndTime === time ||
-        (draftStartMinutes !== null &&
-          parseTimeValue(draftEndTime) !== null &&
-          candidateMinutes !== null &&
-          candidateMinutes > draftStartMinutes &&
-          candidateMinutes < parseTimeValue(draftEndTime)!))
-    );
+    return isInBusinessWindow;
   });
 
   return (
@@ -299,22 +368,22 @@ export default function TimeRangePicker({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-[#101828]/45 px-3 py-3 backdrop-blur-[2px] sm:items-center sm:p-6"
+          className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#101828]/60 p-0 sm:items-center backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label="Select booking time"
         >
-          <div className="relative w-full max-w-[72rem] bg-white p-5 shadow-[0_28px_80px_rgba(16,24,40,0.28)] sm:p-7">
+          <div className="relative max-h-[100dvh] w-full overflow-y-auto bg-white px-5 pb-5 pt-12 shadow-[0_28px_80px_rgba(16,24,40,0.28)] sm:max-h-[calc(100vh-2rem)] sm:px-8 sm:pb-6 sm:pt-12">
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="absolute right-2 top-2 flex size-8 items-center justify-center bg-[#edf3f1] text-[#245e5b] transition hover:bg-[#dcebe8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] sm:right-2 sm:top-2"
+              className="absolute right-4 top-4 flex size-8 items-center justify-center bg-[#edf3f1] text-[#245e5b] transition hover:bg-[#dcebe8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c]"
               aria-label="Close time picker"
             >
               <X size={14} />
             </button>
 
-            <div className="mb-4 mt-4 grid gap-5 xl:grid-cols-[minmax(150px,1fr)_minmax(420px,auto)] xl:items-start">
+            <div className="mb-4 grid gap-5 xl:grid-cols-[minmax(150px,1fr)_minmax(420px,auto)] xl:items-start">
               <div className="min-w-0 lg:pt-1">
                 <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#101828]">
                   {draftDurationHours
@@ -363,7 +432,7 @@ export default function TimeRangePicker({
               </div>
             </div>
 
-            <div className="grid max-h-[42vh] grid-cols-3 gap-3 overflow-y-auto overflow-x-visible pr-1 sm:grid-cols-4 md:grid-cols-5 lg:max-h-none lg:grid-cols-7 lg:gap-3 lg:overflow-visible lg:pr-0">
+            <div className="grid max-h-[42vh] grid-cols-3 gap-3 overflow-y-auto overflow-x-visible pr-1 sm:grid-cols-4 md:grid-cols-5 lg:max-h-[48vh] lg:grid-cols-7 lg:gap-2 lg:pr-0">
               {visibleTimes.map((time) => {
                 const selected =
                   draftStartTime === time || draftEndTime === time;
@@ -393,6 +462,7 @@ export default function TimeRangePicker({
                   : isSelectingEndTime
                     ? !canUseDraftEndTime(time)
                     : !canUseStartTime(time);
+                const unavailableRange = findUnavailableRangeForTime(time);
                 const chipMessage = getChipMessage({
                   time,
                   selected,
@@ -404,16 +474,17 @@ export default function TimeRangePicker({
                   <button
                     key={time}
                     type="button"
-                    title={chipMessage}
                     aria-label={chipMessage}
                     aria-pressed={selected}
                     disabled={unavailable}
                     onClick={() => handleTimeSelect(time)}
-                    className={`group relative min-h-[50px] w-full border px-2 py-1.5 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
+                    className={`group relative min-h-[50px] w-full border px-2 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
                       selected
                         ? "border-[#347f7c] bg-[#347f7c] text-white shadow-[0_14px_28px_rgba(52,127,124,0.24)]"
                       : isRangeInterior
                           ? "border-[#e4eeeb] bg-[#edf3f1] text-[#245e5b]"
+                        : unavailableRange
+                          ? "cursor-not-allowed border-[#ead7d7] bg-[#fff5f5] text-[#b42318] line-through"
                         : isShortEndOption
                           ? "cursor-not-allowed border-transparent bg-transparent text-[#c0c6cf] line-through"
                         : unavailable
@@ -437,7 +508,7 @@ export default function TimeRangePicker({
               })}
             </div>
 
-            <div className="mt-6 flex items-center justify-between gap-4">
+            <div className="mt-3 flex items-center justify-between gap-4">
               <button
                 type="button"
                 onClick={clearDraft}
@@ -460,6 +531,31 @@ export default function TimeRangePicker({
                 >
                   Save
                 </button>
+              </div>
+            </div>
+
+            <div className="mt-3 border-t border-[#eef2f1] pt-3">
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-medium text-[#667085]">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 border border-[#cfd6df] bg-white" />
+                  Available
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 border border-[#347f7c] bg-[#347f7c]" />
+                  Selected
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 border border-[#e4eeeb] bg-[#edf3f1]" />
+                  Selected range
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 border border-[#ead7d7] bg-[#fff5f5]" />
+                  Booked
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 border border-transparent bg-[#f6f7f8]" />
+                  Under minimum
+                </span>
               </div>
             </div>
           </div>
