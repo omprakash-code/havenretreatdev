@@ -12,4 +12,4 @@ execFileSync(
   { stdio: "inherit" }
 );
 
-execFileSync("node", [`${outDir}/seed.js`], { stdio: "inherit" });
+execFileSync("node", [join(outDir, "prisma", "seed.js")], { stdio: "inherit" });
