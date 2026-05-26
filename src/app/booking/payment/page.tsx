@@ -5,20 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useBooking } from "@/context/BookingContext";
 import { toast } from "sonner";
-import { openRazorpayCheckout } from "./razorpay/open-checkout";
-import { ensureRazorpayCheckoutLoaded } from "@/lib/razorpay/checkout-client";
 import { ShieldCheck } from "@/components/icons";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { handleBookingError } from "@/utils/handleBookingError";
 import {
   clearPaymentPageBlockedNotice,
   getPaymentPageBlockedNotice,
-  persistPaymentPageBlockedNotice,
 } from "@/lib/booking-session-expiry";
-import {
-  PAYMENT_CAPTURED_FAILURE_MODAL_MESSAGE,
-  PAYMENT_CAPTURED_FAILURE_MODAL_TITLE,
-} from "@/lib/payment-capture-failure";
 
 type ApiErrorResponse = {
   success?: boolean;
@@ -31,11 +24,11 @@ type ApiErrorResponse = {
   successToken?: string;
   bookingStatus?: string;
   slotStatus?: string;
-  orderId?: string;
   amount?: number;
   advancePayable?: number;
   totalAmount?: number;
   remainingPayable?: number;
+  checkoutUrl?: string;
 };
 
 function formatCurrency(amount: number) {
@@ -46,7 +39,7 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-export default function RazorpayPaymentPage() {
+export default function PaymentPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { booking, hydrated, resetBooking } = useBooking();
@@ -54,10 +47,6 @@ export default function RazorpayPaymentPage() {
   const pricing = booking.pricing;
   const bookingId = booking.bookingId;
 
-  const [razorReady, setRazorReady] = useState(
-    () =>
-      typeof window !== "undefined" && Boolean(window.Razorpay)
-  );
   const [retryVisible, setRetryVisible] = useState(false);
   const hasOpenedRef = useRef(false);
   const [processing, setProcessing] = useState(true);
@@ -86,23 +75,6 @@ export default function RazorpayPaymentPage() {
     setBlockedPaymentNotice(null);
     hasOpenedRef.current = false;
   }, [dismissPayToast, dismissVerifyToast]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void ensureRazorpayCheckoutLoaded().then((loaded) => {
-      if (cancelled) return;
-      setRazorReady(loaded);
-      if (!loaded) {
-        resetToRetryState();
-        toast.error("Razorpay is not ready. Please try again.");
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [resetToRetryState]);
 
   /* -----------------------------
      Guard (single source)
@@ -135,21 +107,11 @@ export default function RazorpayPaymentPage() {
     let checkoutOpened = false;
 
     try {
-      if (
-        !razorReady ||
-        typeof window === "undefined" ||
-        !window.Razorpay
-      ) {
-        toast.error("Razorpay is not ready. Please try again.");
-        resetToRetryState();
-        return;
-      }
-
       setProcessing(true);
       setRetryVisible(false);
 
       toast.loading("Preparing secure payment…", { id: "pay" });
-      const orderRes = await fetch("/api/payments/razorpay/create-order",
+      const orderRes = await fetch("/api/payments/square/create-checkout",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -184,13 +146,13 @@ export default function RazorpayPaymentPage() {
         handleBookingError(orderJson, router, {
           resetBooking,
           fallbackMessage:
-            orderJson?.message || "Unable to create payment order.",
+            orderJson?.message || "Unable to create Square checkout.",
         });
         return;
       }
 
-      if (!orderJson.orderId || !orderJson.amount) {
-        toast.error("Unable to create payment order", {
+      if (!orderJson.checkoutUrl || !orderJson.amount) {
+        toast.error("Unable to create Square checkout", {
           id: "pay",
         });
         resetToRetryState();
@@ -210,91 +172,10 @@ export default function RazorpayPaymentPage() {
         setPaymentLabel(isFullPayment ? "Full Payment" : "Advance");
       }
 
-      toast.success("Opening secure payment gateway…", { id: "pay", });
-
-      const opened = openRazorpayCheckout({
-        orderId: orderJson.orderId,
-        amountInPaise: orderJson.amount,
-        bookingId, // guaranteed string
-        contact: booking.contact,
-        onPaymentCancel: () => {
-          dismissPayToast();
-          dismissVerifyToast();
-          isCheckoutOpenRef.current = false;
-          setProcessing(false);
-          setRetryVisible(true);
-          hasOpenedRef.current = false;
-          toast.error("Payment cancelled. You can retry safely.");
-        },
-        onOpenFailed: () => {
-          resetToRetryState();
-          toast.error("Razorpay is not ready. Please try again.");
-        },
-        onVerificationError: (errorJson) => {
-          dismissPayToast();
-          dismissVerifyToast();
-          isCheckoutOpenRef.current = false;
-          const isDelayedRedirectCase =
-            errorJson?.code === "DUPLICATE_PAYMENT_ATTEMPT" ||
-            errorJson?.code === "BOOKING_FINALIZED";
-
-          if (isDelayedRedirectCase) {
-            setProcessing(false);
-            setRetryVisible(false);
-            hasOpenedRef.current = false;
-            return;
-          }
-
-          if (
-            errorJson?.code === "SLOT_ALREADY_BOOKED" ||
-            errorJson?.code === "SESSION_EXPIRED"
-          ) {
-            if (
-              errorJson?.bookingStatus === "PAID_EXPIRED" ||
-              errorJson?.paymentCaptured
-            ) {
-              const notice = {
-                bookingId,
-                title: PAYMENT_CAPTURED_FAILURE_MODAL_TITLE,
-                message: PAYMENT_CAPTURED_FAILURE_MODAL_MESSAGE,
-              };
-              persistPaymentPageBlockedNotice(notice);
-              setBlockedPaymentNotice({
-                title: notice.title,
-                message: notice.message,
-              });
-              setRetryVisible(false);
-            }
-            handleBookingError(errorJson, router, {
-              resetBooking,
-              suppressUnhandledToast: true,
-            });
-          } else {
-            const handled = handleBookingError(errorJson, router, {
-              resetBooking,
-              fallbackMessage: "Payment verification failed.",
-              suppressUnhandledToast: true,
-            });
-            if (!handled) {
-              toast.error(
-                errorJson?.message || "Payment verification failed.",
-                { id: "verify" }
-              );
-            }
-          }
-          setProcessing(false);
-          setRetryVisible(true);
-          hasOpenedRef.current = false;
-        },
-      });
-
-      if (!opened) {
-        resetToRetryState();
-        toast.error("Razorpay is not ready. Please try again.");
-        return;
-      }
+      toast.success("Redirecting to secure Square checkout…", { id: "pay" });
       isCheckoutOpenRef.current = true;
       checkoutOpened = true;
+      window.location.assign(orderJson.checkoutUrl);
     } catch (err) {
       toast.error(
         err instanceof Error
@@ -312,10 +193,8 @@ export default function RazorpayPaymentPage() {
     }
   }, [
     hydrated,
-    booking.contact,
     bookingId,
     pricing,
-    razorReady,
     resetBooking,
     resetToRetryState,
     dismissPayToast,
@@ -399,7 +278,7 @@ export default function RazorpayPaymentPage() {
   useEffect(() => {
     if (pathname !== BOOKING_ROUTES.PAYMENT) return;
     if (blockedPaymentNotice) return;
-    if (!razorReady || hasOpenedRef.current) return;
+    if (hasOpenedRef.current) return;
     if (!hydrated || !bookingId || !pricing) return;
 
     hasOpenedRef.current = true;
@@ -412,7 +291,6 @@ export default function RazorpayPaymentPage() {
     };
   }, [
     pathname,
-    razorReady,
     hydrated,
     bookingId,
     pricing,
@@ -477,7 +355,7 @@ export default function RazorpayPaymentPage() {
           {!blockedPaymentNotice ? (
             <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
             <ShieldCheck size={14} className="text-[#347f7c]" />
-            SSL Secured · Razorpay · PCI-DSS
+            SSL Secured · Square Hosted Checkout
             </div>
           ) : null}
 

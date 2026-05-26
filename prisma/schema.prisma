@@ -443,6 +443,13 @@ model Booking {
   razorpayPaymentId String?
   razorpaySignature String?
 
+  // Provider-neutral payment bridge fields used by Square and future gateways.
+  paymentProvider      String?
+  paymentOrderId       String?
+  paymentTransactionId String?
+  paymentSignature     String?
+  paymentCheckoutUrl   String?
+
   termsAcceptedAt DateTime?
 
   cancelledAt     DateTime?
@@ -475,6 +482,8 @@ model Booking {
   @@index([paymentStatus, createdAt])
   @@index([bookingStatus, createdAt])
   @@index([cancelledReason])
+  @@index([paymentProvider, paymentOrderId])
+  @@index([paymentProvider, paymentTransactionId])
   @@index([slotId])
   @@index([theatreId])
   @@index([venueId, packageId, eventDate])
