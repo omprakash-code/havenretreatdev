@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Clock, Edit, X } from "@/components/icons";
 import {
   buildTimeValues,
@@ -84,8 +84,14 @@ export default function TimeRangePicker({
   const times = useMemo(() => buildTimeValues(incrementMinutes), [incrementMinutes]);
   const [nowISTMinutes, setNowISTMinutes] = useState(() => getNowISTMinutes());
   const [open, setOpen] = useState(false);
+  const modalPanelRef = useRef<HTMLDivElement | null>(null);
   const [draftStartTime, setDraftStartTime] = useState<string | null>(startTime);
   const [draftEndTime, setDraftEndTime] = useState<string | null>(endTime);
+  const [durationTooltip, setDurationTooltip] = useState<{
+    label: string;
+    left: number;
+    top: number;
+  } | null>(null);
   const minDurationMinutes = Math.round(minDurationHours * 60);
   const startMinutes = parseTimeValue(startTime);
   const draftStartMinutes = parseTimeValue(draftStartTime);
@@ -221,6 +227,25 @@ export default function TimeRangePicker({
     if (canUseDraftEndTime(time)) {
       setDraftEndTime(time);
     }
+  };
+
+  const showDurationTooltip = (
+    event: React.MouseEvent<HTMLButtonElement> | React.FocusEvent<HTMLButtonElement>,
+    label: string
+  ) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const panelRect = modalPanelRef.current?.getBoundingClientRect();
+    if (!panelRect) return;
+
+    setDurationTooltip({
+      label,
+      left: rect.left - panelRect.left + rect.width / 2,
+      top: rect.bottom - panelRect.top + 8,
+    });
+  };
+
+  const hideDurationTooltip = () => {
+    setDurationTooltip(null);
   };
 
   const getChipMessage = ({
@@ -373,7 +398,10 @@ export default function TimeRangePicker({
           aria-modal="true"
           aria-label="Select booking time"
         >
-          <div className="relative max-h-[100dvh] w-full overflow-y-auto bg-white px-5 pb-5 pt-12 shadow-[0_28px_80px_rgba(16,24,40,0.28)] sm:max-h-[calc(100vh-2rem)] sm:px-8 sm:pb-6 sm:pt-12">
+          <div
+            ref={modalPanelRef}
+            className="relative max-h-[100dvh] w-full overflow-y-auto bg-white px-5 pb-5 pt-12 shadow-[0_28px_80px_rgba(16,24,40,0.28)] sm:max-h-[calc(100vh-2rem)] sm:px-8 sm:pb-6 sm:pt-12"
+          >
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -432,7 +460,10 @@ export default function TimeRangePicker({
               </div>
             </div>
 
-            <div className="grid max-h-[42vh] grid-cols-3 gap-3 overflow-y-auto overflow-x-visible pr-1 sm:grid-cols-4 md:grid-cols-5 lg:max-h-[48vh] lg:grid-cols-7 lg:gap-2 lg:pr-0">
+            <div
+              className="grid max-h-[42vh] grid-cols-3 gap-3 overflow-y-auto overflow-x-visible pr-1 sm:grid-cols-4 md:grid-cols-5 lg:max-h-[48vh] lg:grid-cols-7 lg:gap-3 lg:pr-0"
+              onScroll={hideDurationTooltip}
+            >
               {visibleTimes.map((time) => {
                 const selected =
                   draftStartTime === time || draftEndTime === time;
@@ -469,6 +500,11 @@ export default function TimeRangePicker({
                   isRangeInterior,
                   isEndSelection: isSelectingEndTime,
                 });
+                const showDurationHint =
+                  Boolean(durationHint) &&
+                  !selected &&
+                  !isShortEndOption &&
+                  !unavailable;
 
                 return (
                   <button
@@ -478,6 +514,18 @@ export default function TimeRangePicker({
                     aria-pressed={selected}
                     disabled={unavailable}
                     onClick={() => handleTimeSelect(time)}
+                    onMouseEnter={(event) => {
+                      if (showDurationHint && durationHint) {
+                        showDurationTooltip(event, `${durationHint} duration`);
+                      }
+                    }}
+                    onMouseLeave={hideDurationTooltip}
+                    onFocus={(event) => {
+                      if (showDurationHint && durationHint) {
+                        showDurationTooltip(event, `${durationHint} duration`);
+                      }
+                    }}
+                    onBlur={hideDurationTooltip}
                     className={`group relative min-h-[50px] w-full border px-2 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
                       selected
                         ? "border-[#347f7c] bg-[#347f7c] text-white shadow-[0_14px_28px_rgba(52,127,124,0.24)]"
@@ -498,11 +546,6 @@ export default function TimeRangePicker({
                     <span className="mt-1 block text-[10px] font-normal">
                       {formatISTTime(time).endsWith("AM") ? "AM" : "PM"}
                     </span>
-                    {durationHint && !selected && !isShortEndOption && (
-                      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 translate-y-1 whitespace-nowrap bg-[#102f2d] px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-[0_10px_24px_rgba(16,47,45,0.22)] transition duration-150 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
-                        {durationHint} duration
-                      </span>
-                    )}
                   </button>
                 );
               })}
@@ -558,6 +601,17 @@ export default function TimeRangePicker({
                 </span>
               </div>
             </div>
+            {durationTooltip && (
+              <div
+                className="pointer-events-none absolute z-[80] -translate-x-1/2 whitespace-nowrap bg-[#102f2d] px-2.5 py-1.5 text-[11px] font-medium leading-none text-white shadow-[0_10px_24px_rgba(16,47,45,0.22)]"
+                style={{
+                  left: durationTooltip.left,
+                  top: durationTooltip.top,
+                }}
+              >
+                {durationTooltip.label}
+              </div>
+            )}
           </div>
         </div>
       )}
