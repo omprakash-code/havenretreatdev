@@ -393,25 +393,25 @@ export default function TimeRangePicker({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#101828]/60 p-0 sm:items-center backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#101828]/60 px-0 py-4 backdrop-blur-sm sm:items-center sm:py-8"
           role="dialog"
           aria-modal="true"
           aria-label="Select booking time"
         >
           <div
             ref={modalPanelRef}
-            className="relative max-h-[100dvh] w-full overflow-y-auto bg-white px-5 pb-5 pt-12 shadow-[0_28px_80px_rgba(16,24,40,0.28)] sm:max-h-[calc(100vh-2rem)] sm:px-8 sm:pb-6 sm:pt-12"
+            className="relative flex h-full max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden bg-white px-5 pb-7 pt-14 shadow-[0_28px_80px_rgba(16,24,40,0.28)] transition-[height,transform,opacity] duration-300 ease-out sm:h-[min(36rem,calc(100dvh-4rem))] sm:px-8 sm:pb-8 sm:pt-14"
           >
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="absolute right-4 top-4 flex size-8 items-center justify-center bg-[#edf3f1] text-[#245e5b] transition hover:bg-[#dcebe8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c]"
+              className="absolute right-6 top-8 flex size-8 items-center justify-center bg-[#edf3f1] text-[#245e5b] transition hover:bg-[#dcebe8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c]"
               aria-label="Close time picker"
             >
               <X size={14} />
             </button>
 
-            <div className="mb-4 grid gap-5 xl:grid-cols-[minmax(150px,1fr)_minmax(420px,auto)] xl:items-start">
+            <div className="mb-4 shrink-0 grid gap-5 transition-all duration-300 ease-out xl:grid-cols-[minmax(150px,1fr)_minmax(420px,auto)] xl:items-start">
               <div className="min-w-0 lg:pt-1">
                 <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#101828]">
                   {draftDurationHours
@@ -461,7 +461,7 @@ export default function TimeRangePicker({
             </div>
 
             <div
-              className="grid max-h-[42vh] grid-cols-3 gap-3 overflow-y-auto overflow-x-visible pr-1 sm:grid-cols-4 md:grid-cols-5 lg:max-h-[48vh] lg:grid-cols-7 lg:gap-3 lg:pr-0"
+              className="grid min-h-0 flex-1 content-start grid-cols-3 gap-3 overflow-y-auto overflow-x-visible pr-1 transition-[opacity,transform] duration-200 ease-out sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 lg:gap-3 lg:pr-0"
               onScroll={hideDurationTooltip}
             >
               {visibleTimes.map((time) => {
@@ -551,7 +551,7 @@ export default function TimeRangePicker({
               })}
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-4">
+            <div className="mt-auto flex shrink-0 items-center justify-between gap-4 pt-4">
               <button
                 type="button"
                 onClick={clearDraft}
@@ -577,7 +577,7 @@ export default function TimeRangePicker({
               </div>
             </div>
 
-            <div className="mt-3 border-t border-[#eef2f1] pt-3">
+            <div className="mt-3 shrink-0 border-t border-[#eef2f1] pt-3">
               <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-medium text-[#667085]">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2.5 border border-[#cfd6df] bg-white" />
