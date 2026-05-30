@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { resolveTheatreCardContent } from "@/lib/theatre-card-content";
 import { trackMetaCtaClick } from "@/lib/meta/browser";
 import FeatureItemIcon from "@/components/packages/FeatureItemIcon";
+import { BOOKING_ROUTES } from "@/constants/routes";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
   resolvePackageIncludedGuestCount,
@@ -23,9 +24,22 @@ type Props = {
 const IST_TIMEZONE = "Asia/Kolkata";
 const DEFAULT_PACKAGE_CTA = "Continue with This Package";
 const PACKAGE_HERO_IMAGE = "/media/booking/success/pool-view.avif";
+const STALE_SELECTION_CODES = new Set([
+  "SESSION_EXPIRED",
+  "RESERVATION_EXPIRED",
+  "SLOT_NOT_AVAILABLE",
+  "SLOT_ALREADY_BOOKED",
+  "LOCK_IN_USE",
+]);
 
 export default function TheatreCard({ theatre }: Props) {
-  const { booking, setTheatreAndSlot, setBookingId, setSlotLockExpiresAt } = useBooking();
+  const {
+    booking,
+    setTheatreAndSlot,
+    setBookingId,
+    setSlotLockExpiresAt,
+    setTimeRange,
+  } = useBooking();
   const router = useRouter();
   const [locking, setLocking] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -70,17 +84,19 @@ export default function TheatreCard({ theatre }: Props) {
       if (!res.ok || !json.success || !json.data?.bookingId) {
         const code = json?.code as string | undefined;
 
-        if (code === "LOCK_IN_USE") {
-          toast.error("This slot is currently reserved.");
-        } else if (
-          code === "RESERVATION_EXPIRED" ||
-          code === "SLOT_NOT_AVAILABLE"
-        ) {
-          toast.error("Reservation expired, please try again.");
-        } else {
-          toast.error(json.message || "Slot not available");
+        if (code && STALE_SELECTION_CODES.has(code)) {
+          toast.error(
+            code === "SESSION_EXPIRED"
+              ? "Your booking session timed out. Please choose your date and time again."
+              : "Your selected time is no longer available. Please choose a new date and time."
+          );
+          setTimeRange(null, null);
+          setSlotLockExpiresAt(null);
+          router.replace(BOOKING_ROUTES.ROOT);
+          return;
         }
 
+        toast.error(json.message || "Unable to reserve this time range.");
         router.refresh();
         return;
       }

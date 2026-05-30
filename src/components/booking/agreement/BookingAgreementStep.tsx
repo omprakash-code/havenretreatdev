@@ -7,7 +7,7 @@ import StepIndicator from "@/components/booking/steps/StepIndicator";
 import MobileStickyAction from "@/components/booking/global/MobileStickyAction";
 import AgreementSection from "@/components/booking/agreement/AgreementSection";
 import SignaturePad from "@/components/shared/SignaturePad";
-import { Check } from "@/components/icons";
+import { Check, ChevronLeft } from "@/components/icons";
 import {
   HAVEN_AGREEMENT_ACKNOWLEDGMENT,
   HAVEN_AGREEMENT_DEFAULT_TITLE,
@@ -308,9 +308,20 @@ export default function BookingAgreementStep({
           <div className="lg:col-span-2 min-w-0">
             <StepIndicator currentStep={5} className="lg:hidden !px-2 !py-2" />
             <div className="border border-[#2f7e7a]/20 bg-white p-4 md:p-5">
-              <h2 className="mb-1 text-xl font-semibold text-[#1f2937]">
-                {template?.title || HAVEN_AGREEMENT_DEFAULT_TITLE}
-              </h2>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <h2 className="min-w-0 truncate text-2xl font-semibold text-[#1f2937]">
+                  {template?.title || HAVEN_AGREEMENT_DEFAULT_TITLE}
+                </h2>
+
+                <button
+                  type="button"
+                  onClick={() => router.push(BOOKING_ROUTES.EXTRAS("add-ons"))}
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
+                >
+                  <ChevronLeft size={14} />
+                  Back
+                </button>
+              </div>
               <p className="mb-5 text-sm text-gray-500">
                 Review the agreement, confirm the required acknowledgments, and sign before continuing to payment.
               </p>

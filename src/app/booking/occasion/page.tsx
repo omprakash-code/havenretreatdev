@@ -317,29 +317,35 @@ export default function OccasionPage() {
     <div className="min-h-screen w-full bg-[#f6f8f7]">
       <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-0 sm:pt-5 pb-5">
         <div className="grid grid-cols-1 gap-5 pt-4 lg:grid-cols-3 lg:items-stretch lg:gap-5">
-          <div className="lg:col-span-2 border border-[#2f7e7a]/20 bg-white p-4 md:p-5">
+          <div className="min-w-0 lg:col-span-2">
             <StepIndicator currentStep={3} className="lg:hidden !px-2 !py-2" />
-            <button
-              type="button"
-              onClick={() => router.push("/booking/contact")}
-              className="mb-4 inline-flex cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
-            >
-              <ChevronLeft size={14} />
-              Back
-            </button>
-            <h2 className="mb-1 text-xl font-semibold text-[#1f2937]">Select an occasion</h2>
-            <p className="mb-5 text-sm text-gray-500">
-              Pick one option and fill the details inline.
-            </p>
+            <div className="border border-[#2f7e7a]/20 bg-white p-4 md:p-5">
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <h2 className="min-w-0 truncate text-1xl font-semibold text-[#1f2937]">
+                  Select an occasion
+                </h2>
 
-            {loading && <p className="text-sm text-gray-400">Loading occasions…</p>}
+                <button
+                  type="button"
+                  onClick={() => router.push("/booking/contact")}
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
+                >
+                  <ChevronLeft size={14} />
+                  Back
+                </button>
+              </div>
+              <p className="mb-5 text-sm text-gray-500">
+                Pick one option and fill the details inline.
+              </p>
 
-            {!loading && occasions.length === 0 && (
-              <p className="text-sm text-red-500">No occasions available.</p>
-            )}
+              {loading && <p className="text-sm text-gray-400">Loading occasions…</p>}
 
-            {!loading && occasions.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+              {!loading && occasions.length === 0 && (
+                <p className="text-sm text-red-500">No occasions available.</p>
+              )}
+
+              {!loading && occasions.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                 {occasions.map((occasion, index) => {
                   const isSelected = selectedOccasion?.id === occasion.id;
                   const isExpanded = isSelected && !isDetailsCollapsed;
@@ -542,8 +548,9 @@ export default function OccasionPage() {
                     </div>
                   );
                 })}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="h-fit lg:sticky lg:top-28">

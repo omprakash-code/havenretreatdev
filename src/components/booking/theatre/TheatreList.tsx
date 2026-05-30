@@ -94,24 +94,26 @@ export default function TheatreList() {
     <section className="bg-white px-3.5 py-8 pb-10 sm:px-4 sm:py-10 md:px-6 lg:py-14 lg:pb-20">
       <div className="max-w-7xl mx-auto">
         {/* Heading */}
-        <div className="mb-8 px-5 py-4 text-center sm:mb-10 sm:px-8 lg:mb-14">
+        <div className="mb-8 px-3 py-4 text-center sm:mb-10 sm:px-8 lg:mb-14">
           <div>
             <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-[0.32em] text-[#347f7c]">
               Haven Retreat
             </p>
-            <h2 className="font-playfair text-[2rem] font-semibold leading-none tracking-[-0.045em] text-[#101828] sm:text-[2.6rem] lg:text-[3.25rem]">
+            <h2 className="font-playfair text-[1.4rem] font-semibold leading-none tracking-[-0.045em] text-[#101828] sm:text-[2.6rem] lg:text-[3.25rem]">
               Premium Package Selection
             </h2>
           </div>
 
           {booking.startTime && booking.endTime && booking.durationHours && (
-            <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border border-[#c6ddcf] bg-white px-5 py-3 text-sm font-semibold text-[#245e5b] shadow-[0_14px_34px_rgba(16,24,40,0.06)]">
-              <span className="inline-flex items-center gap-2">
-                <Clock size={15} />
+            <div className="mt-5 inline-flex max-w-full items-center justify-center gap-2 overflow-hidden border border-[#c6ddcf] bg-white px-3 py-2.5 text-xs font-semibold text-[#245e5b] shadow-[0_14px_34px_rgba(16,24,40,0.06)] sm:mt-6 sm:gap-4 sm:px-5 sm:py-3 sm:text-sm">
+              <span className="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap sm:gap-2">
+                <Clock size={14} className="shrink-0 sm:size-[15px]" />
                 {formatISTTime(booking.startTime)} - {formatISTTime(booking.endTime)}
               </span>
-              <span className="text-[#98a2b3]">|</span>
-              <span>{formatDuration(booking.durationHours * 60)}</span>
+              <span className="shrink-0 text-[#98a2b3]">|</span>
+              <span className="shrink-0 whitespace-nowrap">
+                {formatDuration(booking.durationHours * 60)}
+              </span>
             </div>
           )}
         </div>

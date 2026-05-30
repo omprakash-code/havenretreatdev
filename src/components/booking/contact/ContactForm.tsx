@@ -338,21 +338,23 @@ export default function ContactForm({
       onSubmit={onSubmit}
       className="h-auto w-full min-w-0 border border-[#2f7e7a]/30 bg-white p-4 shadow-sm sm:p-6 md:p-8 lg:h-full"
     >
-      <button
-        type="button"
-        onClick={() => router.push(BOOKING_ROUTES.PACKAGE)}
-        className="mb-4 inline-flex cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
-      >
-        <ChevronLeft size={14} />
-        Back
-      </button>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h2 className="flex min-w-0 items-center gap-2 text-1xl font-bold text-[#1f2937]">
+          <span className="shrink-0 border border-[#2f7e7a]/35 bg-[#edf3f1] p-1.5 text-[#347f7c]">
+            <User size={16} />
+          </span>
+          <span className="truncate">Contact Information</span>
+        </h2>
 
-      <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-[#1f2937] sm:text-2xl">
-        <span className="border border-[#2f7e7a]/35 bg-[#edf3f1] p-1.5 text-[#347f7c]">
-          <User size={18} />
-        </span>
-        Contact Information
-      </h2>
+        <button
+          type="button"
+          onClick={() => router.push(BOOKING_ROUTES.PACKAGE)}
+          className="inline-flex shrink-0 cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
+        >
+          <ChevronLeft size={14} />
+          Back
+        </button>
+      </div>
 
       <div className="mb-5 md:mb-6">
         <Field

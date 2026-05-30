@@ -168,9 +168,17 @@ export default function ProductCard({
       </div>
 
       <div className="mt-2 sm:mt-3 flex items-start justify-between gap-1.5 sm:gap-2 min-w-0">
-        <h4 className="min-w-0 text-xs sm:text-sm font-semibold text-gray-800 leading-snug line-clamp-2">
-          {product.name}
-        </h4>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <h4 className="min-w-0 text-xs sm:text-sm font-semibold text-gray-800 leading-snug line-clamp-2">
+            {product.name}
+          </h4>
+
+          {isPackageIncluded && (
+            <p className="inline-flex shrink-0 border border-[#d7e4e1] bg-[#edf3f1] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-[#245e5b] sm:px-2 sm:text-[10px]">
+              {includedQuantity} included
+            </p>
+          )}
+        </div>
 
         {isNumberDecoration && quantity > 0 && hasLedNumber && (
           <button
@@ -182,12 +190,6 @@ export default function ProductCard({
           </button>
         )}
       </div>
-
-      {isPackageIncluded && (
-        <p className="mt-1 inline-flex w-fit border border-[#d7e4e1] bg-[#edf3f1] px-2 py-0.5 text-[10px] font-semibold text-[#245e5b]">
-          {includedQuantity} included with package
-        </p>
-      )}
 
       {product.description && (
         <p className="hidden text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-2">
@@ -240,9 +242,9 @@ export default function ProductCard({
           </div>
           {outOfStock ? (
             <p className="mt-1 text-[10px] sm:text-xs text-gray-500">Out of stock</p>
-          ) : isPackageIncluded ? (
+          ) : isPackageIncluded && extraQuantity > 0 ? (
             <p className="mt-1 text-[10px] sm:text-xs text-gray-500">
-              {extraQuantity > 0 ? `${extraQuantity} extra charged` : "Included"}
+              {extraQuantity} extra charged
             </p>
           ) : null}
         </div>
