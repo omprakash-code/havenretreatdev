@@ -21,7 +21,7 @@ export default function BookingHeroCard({
 
       <div className="flex items-start justify-between gap-5 border-b border-[#e4eeeb] px-5 py-5 sm:px-8 sm:py-6">
         <div className="min-w-0">
-          <h1 className="font-playfair text-[2rem] font-semibold leading-none tracking-[-0.045em] text-[#101828] sm:text-[2.15rem]">
+          <h1 className="font-playfair text-[1.3rem] font-semibold leading-none tracking-[-0.045em] text-[#101828] sm:text-[2.15rem]">
             {title}
           </h1>
           <p className="mt-1 truncate text-sm font-semibold text-[#245e5b]">

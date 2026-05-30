@@ -362,14 +362,14 @@ export default function TimeRangePicker({
               className={
                 variant === "admin-field"
                   ? "block min-w-0 truncate text-sm font-medium text-slate-900"
-                  : "block min-w-0 truncate text-base font-semibold text-[#101828] sm:text-lg"
+                  : "block min-w-0 truncate text-[0.92rem] font-semibold text-[#101828] sm:text-lg"
               }
             >
               {durationHours
                 ? `${formatISTTime(startTime!)} - ${formatISTTime(endTime!)}`
                 : startTime
                   ? `${formatISTTime(startTime)} - Add end time`
-                  : "Add time range"}
+                  : "Select duration"}
             </span>
           </span>
           <span className="flex shrink-0 items-center justify-center text-[#344054] transition duration-300 group-hover:text-[#245e5b]">
@@ -393,67 +393,67 @@ export default function TimeRangePicker({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#101828]/60 px-0 py-4 backdrop-blur-sm sm:items-center sm:py-8"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/60 px-0 py-0 backdrop-blur-sm sm:px-3 sm:py-8"
           role="dialog"
           aria-modal="true"
           aria-label="Select booking time"
         >
           <div
             ref={modalPanelRef}
-            className="relative flex h-full max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden bg-white px-5 pb-7 pt-14 shadow-[0_28px_80px_rgba(16,24,40,0.28)] transition-[height,transform,opacity] duration-300 ease-out sm:h-[min(36rem,calc(100dvh-4rem))] sm:px-8 sm:pb-8 sm:pt-14"
+            className="relative flex h-[min(34rem,calc(100svh-7rem))] max-h-[calc(100svh-7rem)] w-full flex-col overflow-hidden bg-white px-4 pb-3 pt-10 shadow-[0_28px_80px_rgba(16,24,40,0.28)] transition-[height,transform,opacity] duration-300 ease-out sm:h-[min(36rem,calc(100dvh-4rem))] sm:max-h-[calc(100dvh-4rem)] sm:px-8 sm:pb-8 sm:pt-14"
           >
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="absolute right-6 top-8 flex size-8 items-center justify-center bg-[#edf3f1] text-[#245e5b] transition hover:bg-[#dcebe8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c]"
+              className="absolute right-3 top-3 z-10 flex size-8 items-center justify-center bg-[#edf3f1] text-[#245e5b] transition hover:bg-[#dcebe8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] sm:right-6 sm:top-8"
               aria-label="Close time picker"
             >
               <X size={14} />
             </button>
 
-            <div className="mb-4 shrink-0 grid gap-5 transition-all duration-300 ease-out xl:grid-cols-[minmax(150px,1fr)_minmax(420px,auto)] xl:items-start">
+            <div className="mb-2 shrink-0 grid gap-2 transition-all duration-300 ease-out sm:mb-4 sm:gap-3 xl:grid-cols-[minmax(150px,1fr)_minmax(420px,auto)] xl:items-start">
               <div className="min-w-0 lg:pt-1">
-                <h2 className="text-lg font-semibold tracking-[-0.02em] text-[#101828]">
+                <h2 className="text-[1rem] font-semibold tracking-[-0.02em] text-[#101828] sm:text-lg">
                   {draftDurationHours
                     ? `${draftDurationHours} ${draftDurationHours === 1 ? "hour" : "hours"}`
                     : isSelectingEndTime
                       ? "Select end time"
                       : "Select start time"}
                 </h2>
-                <p className="mt-1 text-sm text-[#667085]">
+                <p className="mt-0.5 text-xs text-[#667085] sm:mt-1 sm:text-sm">
                   {draftStartTime && draftEndTime
                     ? `${formatISTTime(draftStartTime)} - ${formatISTTime(draftEndTime)}`
                     : `${minDurationHours} ${minDurationHours === 1 ? "hour" : "hours"} booking minimum`}
                 </p>
               </div>
 
-              <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:w-[350px]">
+              <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 xl:w-[350px]">
                 <div
-                  className={`min-h-[58px] border bg-white px-5 py-3 text-left ${
+                  className={`min-h-[48px] border bg-white px-3 py-2 text-left sm:min-h-[58px] sm:px-5 sm:py-3 ${
                     !draftStartTime || draftEndTime
                       ? "border-[#347f7c] shadow-[inset_0_0_0_1px_#347f7c]"
                       : "border-[#d0d5dd]"
                   }`}
                 >
-                  <span className="block whitespace-nowrap text-xs font-semibold uppercase tracking-[0.12em] text-[#475467]">
+                  <span className="block whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-[#475467] sm:text-xs">
                     Start Time
                   </span>
-                  <span className="mt-1.5 block text-sm font-medium text-[#101828]">
+                  <span className="mt-0.5 block text-xs font-medium text-[#101828] sm:mt-1.5 sm:text-sm">
                     {draftStartTime ? formatISTTime(draftStartTime) : "Add time"}
                   </span>
                 </div>
 
                 <div
-                  className={`min-h-[58px] border bg-white px-5 py-3 text-left ${
+                  className={`min-h-[48px] border bg-white px-3 py-2 text-left sm:min-h-[58px] sm:px-5 sm:py-3 ${
                     isSelectingEndTime
                       ? "border-[#347f7c] shadow-[inset_0_0_0_1px_#347f7c]"
                       : "border-[#d0d5dd]"
                   }`}
                 >
-                  <span className="block whitespace-nowrap text-xs font-semibold uppercase tracking-[0.12em] text-[#475467]">
+                  <span className="block whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-[#475467] sm:text-xs">
                     End Time
                   </span>
-                  <span className="mt-1.5 block text-sm font-medium text-[#101828]">
+                  <span className="mt-0.5 block text-xs font-medium text-[#101828] sm:mt-1.5 sm:text-sm">
                     {draftEndTime ? formatISTTime(draftEndTime) : "Add time"}
                   </span>
                 </div>
@@ -461,7 +461,7 @@ export default function TimeRangePicker({
             </div>
 
             <div
-              className="grid min-h-0 flex-1 content-start grid-cols-3 gap-3 overflow-y-auto overflow-x-visible pr-1 transition-[opacity,transform] duration-200 ease-out sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 lg:gap-3 lg:pr-0"
+              className="grid min-h-0 flex-1 content-start grid-cols-4 gap-1.5 overflow-y-auto overflow-x-visible overscroll-contain px-0 pb-3 transition-[opacity,transform] duration-200 ease-out sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-7"
               onScroll={hideDurationTooltip}
             >
               {visibleTimes.map((time) => {
@@ -526,7 +526,7 @@ export default function TimeRangePicker({
                       }
                     }}
                     onBlur={hideDurationTooltip}
-                    className={`group relative min-h-[50px] w-full border px-2 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
+                    className={`group relative min-h-[38px] w-full border px-1 py-1 text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] sm:min-h-[50px] sm:px-2 ${
                       selected
                         ? "border-[#347f7c] bg-[#347f7c] text-white shadow-[0_14px_28px_rgba(52,127,124,0.24)]"
                       : isRangeInterior
@@ -540,10 +540,10 @@ export default function TimeRangePicker({
                           : "border-[#cfd6df] bg-white text-[#101828] hover:border-[#98a2b3] hover:shadow-[0_6px_16px_rgba(16,24,40,0.08)]"
                     }`}
                   >
-                    <span className="block text-[13px] leading-none">
+                    <span className="block text-[10px] leading-none sm:text-[13px]">
                       {formatISTTime(time).replace(" AM", "").replace(" PM", "")}
                     </span>
-                    <span className="mt-1 block text-[10px] font-normal">
+                    <span className="mt-0.5 block text-[8px] font-normal sm:mt-1 sm:text-[10px]">
                       {formatISTTime(time).endsWith("AM") ? "AM" : "PM"}
                     </span>
                   </button>
@@ -551,11 +551,11 @@ export default function TimeRangePicker({
               })}
             </div>
 
-            <div className="mt-auto flex shrink-0 items-center justify-between gap-4 pt-4">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-[#eef2f1] bg-white pt-2.5 sm:pt-4">
               <button
                 type="button"
                 onClick={clearDraft}
-                className="text-sm font-medium text-[#101828] transition hover:text-[#347f7c]"
+                className="text-xs font-medium text-[#101828] transition hover:text-[#347f7c] sm:text-sm"
               >
                 Clear times
               </button>
@@ -570,15 +570,15 @@ export default function TimeRangePicker({
                   type="button"
                   onClick={saveDraft}
                   disabled={!draftStartTime || !draftEndTime}
-                  className="bg-[#347f7c] px-7 py-3 text-base font-medium text-white shadow-[0_12px_28px_rgba(52,127,124,0.25)] transition hover:-translate-y-0.5 hover:bg-[#245e5b] disabled:cursor-not-allowed disabled:bg-[#d0d5dd] disabled:shadow-none disabled:hover:translate-y-0"
+                  className="bg-[#347f7c] px-6 py-2.5 text-sm font-medium text-white shadow-[0_12px_28px_rgba(52,127,124,0.25)] transition hover:-translate-y-0.5 hover:bg-[#245e5b] disabled:cursor-not-allowed disabled:bg-[#d0d5dd] disabled:shadow-none disabled:hover:translate-y-0 sm:px-7 sm:py-3 sm:text-base"
                 >
                   Save
                 </button>
               </div>
             </div>
 
-            <div className="mt-3 shrink-0 border-t border-[#eef2f1] pt-3">
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-medium text-[#667085]">
+            <div className="mt-2 shrink-0 bg-white pt-2 sm:mt-3 sm:pt-3">
+              <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[9px] font-medium text-[#667085] sm:gap-x-4 sm:gap-y-2 sm:text-[11px]">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2.5 border border-[#cfd6df] bg-white" />
                   Available

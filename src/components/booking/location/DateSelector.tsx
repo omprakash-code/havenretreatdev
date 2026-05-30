@@ -42,12 +42,12 @@ export default function DateSelector({
         <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-[#101828]">
           Select Date
         </p>
-        <p className="text-xs font-semibold text-[#245e5b]">
+        <p className="hidden text-xs font-semibold text-[#245e5b] sm:block">
           Today
         </p>
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-5 gap-2 sm:gap-3">
         {datesLoading
           ? Array.from({ length: quickDates.length }).map((_, i) => (
               <DateSkeleton key={`date-skeleton-${i}`} />
@@ -73,7 +73,7 @@ export default function DateSelector({
                   type="button"
                   disabled={disabled}
                   onClick={() => onQuickDateSelect(quickDate.offset)}
-                  className={`min-h-[74px] px-2 py-2.5 text-center transition duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
+                  className={`min-h-[68px] px-1.5 py-2 text-center transition duration-300 ease-out sm:min-h-[74px] sm:px-2 sm:py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
                     disabled
                       ? "cursor-not-allowed bg-[#f6f8f7] text-[#98a2b3]"
                       : active
@@ -86,10 +86,10 @@ export default function DateSelector({
                       : undefined
                   }
                 >
-                  <span className="block text-[11px] font-bold uppercase tracking-[0.04em] opacity-80">
+                  <span className="block truncate text-[9px] font-bold uppercase tracking-[0.03em] opacity-80 sm:text-[11px] sm:tracking-[0.04em]">
                     {label}
                   </span>
-                  <span className="mt-1 block text-lg font-bold leading-none">
+                  <span className="mt-1 block text-lg font-bold leading-none sm:text-lg">
                     {date.getDate()}
                   </span>
                   <span className="mt-1 block text-[11px] font-medium opacity-75">
@@ -104,7 +104,7 @@ export default function DateSelector({
             type="button"
             disabled={!hasLocation}
             onClick={onOpenCalendar}
-            className={`min-h-[74px] px-2 py-2.5 text-center transition duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
+            className={`flex min-h-[68px] flex-col items-center justify-center px-1.5 py-2 text-center transition duration-300 ease-out sm:min-h-[74px] sm:px-2 sm:py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c] ${
               !hasLocation || noSlotsForLocation
                 ? "cursor-not-allowed bg-[#f6f8f7] text-[#98a2b3]"
                 : selectedDate && !isQuickDate(selectedDate)
@@ -113,9 +113,9 @@ export default function DateSelector({
             }`}
           >
             <span className="flex justify-center text-[#245e5b]">
-              <Calendar size={18} />
+              <Calendar size={17} className="sm:size-[18px]" />
             </span>
-            <span className="mt-1 block text-[12px] font-semibold leading-tight">
+            <span className="mt-1 block text-[11px] font-semibold leading-tight sm:text-[12px]">
               {selectedDate && !isQuickDate(selectedDate)
                 ? formatISTDate(selectedDate).replace(/ \d{4}$/, "")
                 : "Choose Date"}
