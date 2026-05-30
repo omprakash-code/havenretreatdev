@@ -11,6 +11,10 @@ import { toast } from "sonner";
 import { resolveTheatreCardContent } from "@/lib/theatre-card-content";
 import { trackMetaCtaClick } from "@/lib/meta/browser";
 import FeatureItemIcon from "@/components/packages/FeatureItemIcon";
+import {
+  PACKAGE_EXTRA_PERSON_PRICE,
+  resolvePackageIncludedGuestCount,
+} from "@/lib/package-guest-pricing";
 
 type Props = {
   theatre: Theatre;
@@ -87,8 +91,8 @@ export default function TheatreCard({ theatre }: Props) {
           name: theatre.name,
           capacity: theatre.capacity,
           basePrice: compatibleSlot.finalPrice ?? compatibleSlot.basePrice,
-          baseGuests: theatre.baseGuests,
-          extraPersonPrice: theatre.extraPersonPrice,
+          baseGuests: resolvePackageIncludedGuestCount(theatre),
+          extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
           decorationPrice: theatre.decorationPrice,
         },
         {

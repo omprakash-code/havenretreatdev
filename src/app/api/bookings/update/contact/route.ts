@@ -16,6 +16,10 @@ import {
   resolveBookingDurationPricingConfig,
   resolveSlotDurationHours,
 } from "@/lib/booking-duration-pricing";
+import {
+  PACKAGE_EXTRA_PERSON_PRICE,
+  resolvePackageIncludedGuestCount,
+} from "@/lib/package-guest-pricing";
 
 const EDITABLE_BOOKING_STATUSES = [
   "INCOMPLETE",
@@ -79,7 +83,32 @@ export async function POST(req: Request) {
         throw new Error("SLOT_EXPIRED");
       }
 
-      const effectiveDecorationRequired = booking.slot.decorationMandatory
+      const theatre = booking.theatre;
+      const slot = booking.slot;
+      const includedGuestCount = resolvePackageIncludedGuestCount(theatre);
+      const locationMaxCapacity = await tx.theatre.aggregate({
+        where: {
+          locationId: theatre.locationId,
+          isActive: true,
+        },
+        _max: { capacity: true },
+      });
+      const guestLimit = Math.max(
+        includedGuestCount,
+        Number(locationMaxCapacity._max.capacity ?? includedGuestCount)
+      );
+      const parsedGuestCount = Number(guestCount);
+      const normalizedGuestCount = Math.min(
+        Math.max(
+          Number.isFinite(parsedGuestCount)
+            ? Math.trunc(parsedGuestCount)
+            : includedGuestCount,
+          includedGuestCount
+        ),
+        guestLimit
+      );
+
+      const effectiveDecorationRequired = slot.decorationMandatory
         ? true
         : Boolean(decorationRequired);
       const contextItems = booking.items.map((item) => ({
@@ -94,22 +123,22 @@ export async function POST(req: Request) {
       );
       const durationPricing = await resolveBookingDurationPricingConfig(tx);
       const durationHours = resolveSlotDurationHours({
-        startTime: booking.slot.startTime,
-        endTime: booking.slot.endTime,
-        durationMin: booking.slot.durationMin,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        durationMin: slot.durationMin,
       });
 
       const pricingBase = calculateBookingPricing({
-        slotBasePrice: booking.slot.basePrice,
-        slotFinalPrice: booking.slot.finalPrice,
+        slotBasePrice: slot.basePrice,
+        slotFinalPrice: slot.finalPrice,
         durationHours,
         includedDurationHours: durationPricing.includedDurationHours,
         extraHourlyRate: durationPricing.extraHourlyRate,
-        guestCount,
-        theatreBaseGuests: booking.theatre.baseGuests,
-        theatreExtraPersonPrice: booking.theatre.extraPersonPrice,
-        theatreDecorationPrice: booking.theatre.decorationPrice,
-        slotDecorationMandatory: booking.slot.decorationMandatory,
+        guestCount: normalizedGuestCount,
+        theatreBaseGuests: includedGuestCount,
+        theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
+        theatreDecorationPrice: theatre.decorationPrice,
+        slotDecorationMandatory: slot.decorationMandatory,
         decorationRequired: effectiveDecorationRequired,
         productsAmount: 0,
         discountAmount: 0,
@@ -127,14 +156,14 @@ export async function POST(req: Request) {
       });
       const context = buildBookingCouponContext({
         slot: {
-          id: booking.slot.id,
-          date: booking.slot.date,
-          startTime: booking.slot.startTime,
-          endTime: booking.slot.endTime,
-          durationMin: booking.slot.durationMin,
+          id: slot.id,
+          date: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          durationMin: slot.durationMin,
         },
-        theatreId: booking.theatreId,
-        locationId: booking.theatre.locationId,
+        theatreId: theatre.id,
+        locationId: theatre.locationId,
         userId: resolvedUserId,
         contactPhone: phone,
         decorationRequired: effectiveDecorationRequired,
@@ -166,7 +195,7 @@ export async function POST(req: Request) {
           contactName: name,
           contactPhone: phone,
           contactEmail: email ?? null,
-          guestCount,
+          guestCount: normalizedGuestCount,
           decorationRequired: effectiveDecorationRequired,
           baseAmount: pricingBase.baseAmount,
           extrasAmount: pricingBase.extrasAmount,

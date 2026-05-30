@@ -18,6 +18,7 @@ import {
   logBookingSafetyEvent,
   validateNoOverlappingActiveBooking,
 } from "@/services/booking/booking-safety.service";
+import { resolvePackageIncludedGuestCount } from "@/lib/package-guest-pricing";
 
 export const BOOKING_LOCK_MINUTES = DEFAULT_BOOKING_LOCK_MINUTES;
 const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
@@ -172,6 +173,12 @@ export async function lockBookingService({
     if (!slot || slot.theatreId !== theatreId) {
       throw new Error("SLOT_NOT_FOUND");
     }
+
+    const theatre = await tx.theatre.findUnique({
+      where: { id: theatreId },
+      select: { capacity: true },
+    });
+    const includedGuestCount = resolvePackageIncludedGuestCount(theatre);
 
     /* ---------------------------------
        4. Reconcile BOOKED status against active confirmed booking linkage
@@ -356,7 +363,7 @@ export async function lockBookingService({
         where: { id: existingBooking.id },
         data: {
           paymentStatus: null,
-          guestCount: 0,
+          guestCount: includedGuestCount,
           baseAmount: basePrice,
           extrasAmount: 0,
           decorationAmount: 0,
@@ -376,7 +383,7 @@ export async function lockBookingService({
           bookingStatus: "INCOMPLETE",
           paymentStatus: null,
 
-          guestCount: 1,
+          guestCount: includedGuestCount,
           baseAmount: basePrice,
           extrasAmount: 0,
           decorationAmount: 0,

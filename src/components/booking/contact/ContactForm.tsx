@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { User, Mail, Minus, Plus, Lock, Balloon, ChevronLeft } from "@/components/icons";
 import { useBooking } from "@/context/BookingContext";
 import { useRouter } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import type { Theatre } from "@/types/theatre";
+import {
+  PACKAGE_EXTRA_PERSON_PRICE,
+  resolvePackageGuestLimit,
+} from "@/lib/package-guest-pricing";
 
 const IST_TIMEZONE = "Asia/Kolkata";
 const DECORATION_FORCED_HINT = "Selected slots come with a decorated setup.";
@@ -297,6 +301,16 @@ export default function ContactForm({
     setShowForcedDecorationMobileHint(false);
   }, [booking.slot?.id]);
 
+  const venueGuestLimit = useMemo(
+    () => resolvePackageGuestLimit(theatre, largerTheatreOptions),
+    [largerTheatreOptions, theatre]
+  );
+
+  useEffect(() => {
+    if (!theatre || booking.guestCount >= theatre.baseGuests) return;
+    setGuestCount(theatre.baseGuests);
+  }, [booking.guestCount, setGuestCount, theatre]);
+
   /* -----------------------------
      Guarded render
   ------------------------------ */
@@ -304,15 +318,15 @@ export default function ContactForm({
     return null;
   }
 
-  const { capacity, baseGuests } = theatre;
+  const { baseGuests } = theatre;
 
   const guests = Math.min(
     Math.max(booking.guestCount, baseGuests),
-    capacity
+    venueGuestLimit
   );
 
   const canDecrease = guests > baseGuests;
-  const canIncrease = guests < capacity;
+  const canIncrease = guests < venueGuestLimit;
 
   /* -----------------------------
      Render
@@ -425,7 +439,7 @@ export default function ContactForm({
           </label>
 
           <p className="text-xs text-gray-500 mb-2">
-            {baseGuests} included · Max Capacity {capacity} 
+            {baseGuests} included with package · Extra people {formatCurrency(PACKAGE_EXTRA_PERSON_PRICE)}/person
           </p>
 
           <div className="flex h-12 items-center justify-between border border-[#d7e4e1] bg-[#f8fbfa] px-1 sm:px-2">
@@ -455,7 +469,7 @@ export default function ContactForm({
               {/* Tooltip */}
               {!canIncrease && (
                 <div className=" absolute left-1/2 -translate-x-1/2 top-full mt-2 whitespace-nowrap rounded-md bg-black text-white text-xs px-3 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-10">
-                  Max capacity reached
+                  Venue guest limit reached
                 </div>
               )}
             </div>

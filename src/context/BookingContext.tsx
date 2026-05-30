@@ -20,6 +20,10 @@ import {
 import { calculateDurationHours } from "@/lib/booking-time-range";
 import { formatSlotTime } from "@/lib/formatters";
 import {
+  PACKAGE_EXTRA_PERSON_PRICE,
+  resolvePackageIncludedGuestCount,
+} from "@/lib/package-guest-pricing";
+import {
   BOOKING_SESSION_EXPIRED_MODAL_MESSAGE,
   emitBookingSessionExpired,
 } from "@/lib/booking-session-expiry";
@@ -436,9 +440,8 @@ const loadBooking = async () => {
               name: data.theatre.name,
               capacity: data.theatre.capacity,
               basePrice: data.slot.basePrice,
-              baseGuests: data.theatre.baseGuests,
-              extraPersonPrice:
-                data.theatre.extraPersonPrice,
+              baseGuests: resolvePackageIncludedGuestCount(data.theatre),
+              extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
               decorationPrice:
                 data.theatre.decorationPrice,
             }
@@ -639,6 +642,7 @@ const loadBooking = async () => {
       ...p,
       theatre,
       slot,
+      guestCount: theatre.baseGuests,
       bookingId: undefined,
       advancePaidSnapshot: undefined,
       bookingItems: [],

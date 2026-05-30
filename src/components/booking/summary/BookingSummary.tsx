@@ -414,10 +414,11 @@ export default function BookingSummary({
   const remainingAtTheatre = Math.max(totalPrice - advancePay, 0);
   const subtotalBeforeDiscount =
     basePrice + extraHoursPrice + extrasPrice + decorationPrice + productsPrice;
-  const extraGuestCount = Math.max(
-    (booking.guestCount ?? theatre.baseGuests) - theatre.baseGuests,
-    0
+  const displayedGuestCount = Math.max(
+    booking.guestCount ?? theatre.baseGuests,
+    theatre.baseGuests
   );
+  const extraGuestCount = Math.max(displayedGuestCount - theatre.baseGuests, 0);
   const fallbackOccasionLabel = booking.occasion?.key
     ? booking.occasion.key
       .replace(/_/g, " ")
@@ -709,6 +710,28 @@ export default function BookingSummary({
                             : " selected"}
                         </span>
                       )}
+                    </span>
+                  </span>
+                }
+              />
+
+              <SummaryRow
+                label="People"
+                value={`${displayedGuestCount}`}
+                labelClassName="text-gray-500 text-sm font-normal"
+                customLabel={
+                  <span className="inline-flex items-start gap-1.5">
+                    <UserPlus size={14} className="mt-0.5 text-gray-400" />
+                    <span>
+                      <span className="block">People</span>
+                      <span className="mt-0.5 block text-xs font-normal text-gray-400">
+                        {theatre.baseGuests} included with package
+                        {extraGuestCount > 0
+                          ? ` · ${extraGuestCount} extra × ${formatCurrency(
+                              theatre.extraPersonPrice
+                            )}`
+                          : ""}
+                      </span>
                     </span>
                   </span>
                 }
