@@ -13,6 +13,14 @@ import {
   resolveBookingDurationPricingConfig,
   resolveSlotDurationHours,
 } from "@/lib/booking-duration-pricing";
+import {
+  PACKAGE_EXTRA_PERSON_PRICE,
+  resolvePackageIncludedGuestCount,
+} from "@/lib/package-guest-pricing";
+import {
+  getPackageIncludedProductExtraQuantity,
+  getPackageIncludedProductQuantity,
+} from "@/lib/package-included-products";
 
 const IST_TIMEZONE = "Asia/Kolkata";
 const DEFAULT_ADVANCE = 750;
@@ -47,6 +55,13 @@ export async function GET(req: Request) {
       include: {
         items: {
           orderBy: { createdAt: "asc" },
+          include: {
+            product: {
+              select: {
+                slug: true,
+              },
+            },
+          },
         },
         payment: {
           orderBy: { createdAt: "desc" },
@@ -151,16 +166,31 @@ export async function GET(req: Request) {
       durationHours !== null
         ? Math.max(durationHours - durationConfig.includedDurationHours, 0)
         : null;
+    const includedGuestCount = resolvePackageIncludedGuestCount(theatre);
+    const extraGuestCount = Math.max(booking.guestCount - includedGuestCount, 0);
 
     const items = assignNumberDecorationDetails(
       booking.items.map((item) => ({
         id: item.id,
         productName: item.productName,
+        productSlug: item.product?.slug ?? null,
         variantLabel: item.variantLabel,
         category: item.category,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
+        includedQuantity: getPackageIncludedProductQuantity(theatre, {
+          slug: item.product?.slug,
+          name: item.productName,
+        }),
+        extraQuantity: getPackageIncludedProductExtraQuantity(
+          theatre,
+          {
+            slug: item.product?.slug,
+            name: item.productName,
+          },
+          item.quantity
+        ),
         image: productImageMap.get(item.productId) ?? null,
       })),
       (booking.occasionData as Record<string, unknown> | null) ?? null
@@ -191,6 +221,9 @@ export async function GET(req: Request) {
         (booking.occasionData as Record<string, unknown> | null) ?? null
       ),
       guestCount: booking.guestCount,
+      includedGuestCount,
+      extraGuestCount,
+      extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
       decorationRequired: booking.decorationRequired,
       totalAmount: booking.totalAmount,
       discountAmount: booking.discountAmount,

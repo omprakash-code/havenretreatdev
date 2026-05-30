@@ -1,11 +1,14 @@
 export type BookingSuccessItem = {
   id: string;
   productName: string;
+  productSlug?: string | null;
   variantLabel: string;
   category: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  includedQuantity?: number | null;
+  extraQuantity?: number | null;
   image?: string | null;
   numberLabel?: string | null;
   numberValue?: string | null;
@@ -46,6 +49,9 @@ export type BookingSuccessData = {
   occasionLabel?: string;
   occasionDetails: BookingSuccessDetail[];
   guestCount: number;
+  includedGuestCount?: number | null;
+  extraGuestCount?: number | null;
+  extraPersonPrice?: number | null;
   decorationRequired?: boolean;
   totalAmount: number;
   advancePaid: number;

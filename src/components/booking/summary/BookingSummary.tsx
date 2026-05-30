@@ -411,7 +411,7 @@ export default function BookingSummary({
   const extraDurationHours = Number(pricing.extraDurationHours) || 0;
   const extraHourlyRate = Number(pricing.extraHourlyRate) || 0;
   const rentalDurationHours = Number(booking.durationHours) || 0;
-  const rentalAmount = basePrice + extraHoursPrice;
+  const includedRentalHours = Math.max(rentalDurationHours - extraDurationHours, 0);
   const extrasPrice = Number(pricing.extras) || 0;
   const decorationPrice = Number(pricing.decoration) || 0;
   const productsPrice = Number(pricing?.products ?? 0);
@@ -684,6 +684,17 @@ export default function BookingSummary({
                 value={theatre.name}
                 labelClassName="text-gray-500 text-sm font-normal"
                 icon={Ticket}
+                customLabel={
+                  <span className="inline-flex items-start gap-1.5">
+                    <Ticket size={14} className="mt-0.5 text-gray-400" />
+                    <span>
+                      <span className="block">Package</span>
+                      <span className="mt-0.5 block text-xs font-normal text-gray-400">
+                        {formatCurrency(basePrice)} · {formatDurationHours(includedRentalHours * 60)} included
+                      </span>
+                    </span>
+                  </span>
+                }
               />
 
               <SummaryRow
@@ -697,30 +708,26 @@ export default function BookingSummary({
                 }
               />
 
-              <SummaryRow
-                label="Event Rental"
-                value={formatCurrency(rentalAmount)}
-                labelClassName="text-gray-500 text-sm font-normal"
-                icon={DollarSign}
-                customLabel={
-                  <span className="inline-flex items-start gap-1.5">
-                    <DollarSign size={14} className="mt-0.5 text-gray-400" />
-                    <span>
-                      <span className="block">Event Rental</span>
-                      {rentalDurationHours > 0 && (
-                        <span className="mt-0.5 block text-xs font-normal text-gray-400">
-                          {formatDurationHours(rentalDurationHours * 60)}
-                          {extraHoursPrice > 0
-                            ? ` selected · ${formatDurationHours(
-                                extraDurationHours * 60
-                              )} × ${formatCurrency(extraHourlyRate)}/hr added`
-                            : " selected"}
+              {extraHoursPrice > 0 && (
+                <SummaryRow
+                  label={`Extra Hours (${formatDurationHours(extraDurationHours * 60)})`}
+                  value={formatCurrency(extraHoursPrice)}
+                  labelClassName="text-gray-500 text-sm font-normal"
+                  customLabel={
+                    <span className="inline-flex items-start gap-1.5">
+                      <DollarSign size={14} className="mt-0.5 text-gray-400" />
+                      <span>
+                        <span className="block">
+                          Extra Hours ({formatDurationHours(extraDurationHours * 60)})
                         </span>
-                      )}
+                        <span className="mt-0.5 block text-xs font-normal text-gray-400">
+                          {formatDurationHours(extraDurationHours * 60)} × {formatCurrency(extraHourlyRate)}/hr
+                        </span>
+                      </span>
                     </span>
-                  </span>
-                }
-              />
+                  }
+                />
+              )}
 
               <SummaryRow
                 label="People"

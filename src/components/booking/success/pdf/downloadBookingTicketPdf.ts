@@ -28,7 +28,6 @@ type SectionRow = {
 const COLORS = {
   paper: [255, 255, 255] as const,
   headerBg: [255, 255, 255] as const,
-  brandCircle: [250, 204, 21] as const,
   sectionBg: [248, 250, 252] as const,
   sectionHeadBg: [241, 245, 249] as const,
   border: [226, 232, 240] as const,
@@ -37,6 +36,8 @@ const COLORS = {
   textMuted: [100, 116, 139] as const,
   textSuccess: [5, 150, 105] as const,
 };
+
+const SUCCESS_VENUE_IMAGE = "/media/booking/success/pool-view.avif";
 
 function slotRangeLabel(input: string) {
   const raw = String(input || "").trim();
@@ -49,6 +50,24 @@ function slotRangeLabel(input: string) {
     return raw;
   }
   return formatSlotTime(startTime, endTime);
+}
+
+function formatHourValue(hours: number) {
+  return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+}
+
+function formatDurationLabel(data: BookingSuccessData) {
+  const durationHours = data.durationHours ?? null;
+  if (durationHours === null || !Number.isFinite(durationHours)) return "—";
+
+  const included = data.includedDurationHours ?? 4;
+  const extra = data.extraDurationHours ?? Math.max(durationHours - included, 0);
+
+  if (extra > 0) {
+    return `${formatHourValue(durationHours)} (${formatHourValue(included)} included + ${formatHourValue(extra)} extra)`;
+  }
+
+  return `${formatHourValue(durationHours)} included`;
 }
 
 export async function buildBookingTicketPdf(
@@ -78,36 +97,36 @@ export async function buildBookingTicketPdf(
   );
 
   const logoPromise = loadProcessedImage("/assets/logo.png", {
-    width: 220,
-    height: 220,
-    radius: 110,
-    mode: "cover",
+    width: 286,
+    height: 286,
+    radius: 0,
+    mode: "contain",
   });
-  const theatreImagePromise = loadProcessedImage(data.theatreImage ?? null, {
+  const venueImagePromise = loadProcessedImage(SUCCESS_VENUE_IMAGE, {
     width: 640,
     height: 420,
-    radius: 28,
+    radius: 0,
     mode: "cover",
   });
   const productImagePromises = items.map(async (item) => {
     const image = await loadProcessedImage(item.image ?? null, {
       width: 140,
       height: 140,
-      radius: 24,
+      radius: 0,
       mode: "cover",
     });
     return [item.id, image] as const;
   });
 
-  const [logoImage, theatreImage, ...productPairs] = await Promise.all([
+  const [logoImage, venueImage, ...productPairs] = await Promise.all([
     logoPromise,
-    theatreImagePromise,
+    venueImagePromise,
     ...productImagePromises,
   ]);
   const productImageMap = new Map<string, PdfImage | null>(productPairs);
 
   drawHeader(layout, data, logoImage);
-  drawTheatreHero(layout, data, theatreImage);
+  drawVenueHero(layout, data, venueImage);
 
   const celebrationRows = buildCelebrationRows(data);
   if (celebrationRows.length > 0) {
@@ -125,7 +144,12 @@ export async function buildBookingTicketPdf(
     { label: "Status", value: "Your booking is confirmed.", tone: "strong" },
     {
       label: "Entry",
-      value: "Please show this ticket at the venue on arrival.",
+      value: "Please show this receipt at the venue on arrival.",
+      tone: "muted",
+    },
+    {
+      label: "Support",
+      value: "For help, message us on WhatsApp with your booking reference.",
       tone: "muted",
     },
   ]);
@@ -167,27 +191,52 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
       : data.payment?.provider === "RAZORPAY"
         ? "Online"
         : null;
+  const extraGuestCount =
+    data.extraGuestCount ??
+    Math.max(data.guestCount - (data.includedGuestCount ?? data.guestCount), 0);
+  const extraPersonPrice = data.extraPersonPrice ?? 0;
+  const extraGuestAmount = extraGuestCount * extraPersonPrice;
 
   const rows: SectionRow[] = [];
 
   if (showDiscountBreakdown) {
     rows.push({
       label: "Subtotal (Before Discount)",
-      value: `Rs ${formatMoney(subtotalBeforeDiscount)}`,
+      value: formatCurrency(subtotalBeforeDiscount),
     });
 
     rows.push({
       label: "Discount",
-      value: `-Rs ${formatMoney(discountAmount)}`,
+      value: `-${formatCurrency(discountAmount)}`,
       tone: "success",
     });
   }
+
+  if (extraGuestAmount > 0) {
+    rows.push({
+      label: `Extra Guests (${extraGuestCount} x ${formatCurrency(extraPersonPrice)})`,
+      value: formatCurrency(extraGuestAmount),
+    });
+  }
+
+  data.items
+    .filter((item) => item.totalPrice > 0)
+    .forEach((item) => {
+      const chargedQuantity =
+        item.extraQuantity ??
+        (item.unitPrice > 0 ? Math.max(Math.round(item.totalPrice / item.unitPrice), 1) : item.quantity);
+
+      rows.push({
+        label: `${sanitizeDisplayText(item.productName)} (${chargedQuantity} x ${formatCurrency(item.unitPrice)})`,
+        value: formatCurrency(item.totalPrice),
+      });
+    });
 
   rows.push({
     label: showDiscountBreakdown
       ? "Final Total (After Discount)"
       : "Total Amount",
-    value: `Rs ${formatMoney(data.totalAmount)}`,
+    value: formatCurrency(data.totalAmount),
     tone: "strong",
   });
 
@@ -198,7 +247,7 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
         : data.createdByRole === "ADMIN"
           ? "Amount Paid"
           : "Paid Online",
-    value: `Rs ${formatMoney(data.advancePaid)}`,
+    value: formatCurrency(data.advancePaid),
     tone: "success",
   });
 
@@ -227,7 +276,7 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
   if (showRemainingRow) {
     rows.push({
       label: remainingLabel,
-      value: `Rs ${formatMoney(data.remainingPayable)}`,
+      value: formatCurrency(data.remainingPayable),
       tone: "strong",
     });
     rows.push({
@@ -243,34 +292,31 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
 
 function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage | null) {
   const { doc, marginX, contentWidth } = layout;
-  const h = 22;
+  const h = 34;
 
   ensureSpace(layout, h + 2);
 
   setFill(doc, COLORS.headerBg);
   setDraw(doc, COLORS.border);
-  doc.roundedRect(marginX, layout.y, contentWidth, h, 3, 3, "FD");
+  doc.rect(marginX, layout.y, contentWidth, h, "FD");
 
-  const circleSize = 13.5;
+  const logoSize = 29.8;
   const innerAlignX = marginX + 2.6;
   const innerAlignRight = marginX + contentWidth - 2.6;
-  const circleX = innerAlignX;
-  const circleY = layout.y + (h - circleSize) / 2;
-
-  setFill(doc, COLORS.brandCircle);
-  doc.circle(circleX + circleSize / 2, circleY + circleSize / 2, circleSize / 2, "F");
+  const logoX = innerAlignX;
+  const logoY = layout.y + (h - logoSize) / 2;
 
   if (logo) {
-    doc.addImage(logo.dataUrl, logo.format, circleX + 1.1, circleY + 1.1, circleSize - 2.2, circleSize - 2.2);
+    doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoSize, logoSize);
   }
 
-  const textX = circleX + circleSize + 2.4;
+  const textX = logoX + logoSize + 2.4;
   doc.setFont("helvetica", "bold");
   setText(doc, COLORS.textStrong);
   doc.setFontSize(13.6);
-  doc.text("HAVEN RETREAT", textX, layout.y + 9.8);
+  doc.text("HAVEN RETREAT", textX, layout.y + 14.6);
   doc.setFontSize(10.6);
-  doc.text("Booking Ticket", textX, layout.y + 15.6);
+  doc.text("Booking Receipt", textX, layout.y + 20.4);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.8);
@@ -278,23 +324,23 @@ function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage 
   doc.text(
     `Booking ID: ${sanitizeDisplayText(data.bookingRef)}`,
     innerAlignRight,
-    layout.y + 9.8,
+    layout.y + 14.6,
     { align: "right" }
   );
   doc.text(
     `Issued: ${formatISTDateTime(new Date())}`,
     innerAlignRight,
-    layout.y + 15.6,
+    layout.y + 20.4,
     { align: "right" }
   );
 
   layout.y += h + 2.4;
 }
 
-function drawTheatreHero(
+function drawVenueHero(
   layout: PdfLayout,
   data: BookingSuccessData,
-  theatreImage: PdfImage | null
+  venueImage: PdfImage | null
 ) {
   const { doc, marginX, contentWidth } = layout;
   const pad = 3;
@@ -305,6 +351,7 @@ function drawTheatreHero(
     `Location: ${sanitizeDisplayText(data.locationName)}`,
     `Date: ${sanitizeDisplayText(data.date)}`,
     `Time: ${sanitizeDisplayText(slotRangeLabel(data.timeSlot))}`,
+    `Duration: ${sanitizeDisplayText(formatDurationLabel(data))}`,
     `Guests: ${data.guestCount} People`,
     `Name: ${sanitizeDisplayText(data.contact.name)}`,
     `Phone: ${sanitizeDisplayText(data.contact.phone)}`,
@@ -320,21 +367,21 @@ function drawTheatreHero(
 
   setFill(doc, COLORS.sectionBg);
   setDraw(doc, COLORS.border);
-  doc.roundedRect(marginX, layout.y, contentWidth, cardH, 2.8, 2.8, "FD");
+  doc.rect(marginX, layout.y, contentWidth, cardH, "FD");
 
   const imageX = marginX + pad;
   const imageY = layout.y + pad;
   const imageH = cardH - pad * 2;
 
-  if (theatreImage) {
-    doc.addImage(theatreImage.dataUrl, theatreImage.format, imageX, imageY, imageW, imageH);
+  if (venueImage) {
+    doc.addImage(venueImage.dataUrl, venueImage.format, imageX, imageY, imageW, imageH);
   } else {
     setFill(doc, COLORS.sectionHeadBg);
-    doc.roundedRect(imageX, imageY, imageW, imageH, 2.2, 2.2, "F");
+    doc.rect(imageX, imageY, imageW, imageH, "F");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.8);
     doc.setTextColor(...COLORS.textMuted);
-    doc.text("Theatre Image", imageX + imageW / 2, imageY + imageH / 2, {
+    doc.text("Venue Image", imageX + imageW / 2, imageY + imageH / 2, {
       align: "center",
     });
   }
@@ -345,7 +392,7 @@ function drawTheatreHero(
 
   setFill(doc, COLORS.paper);
   setDraw(doc, COLORS.border);
-  doc.roundedRect(infoX, imageY, infoW, imageH, 2.2, 2.2, "FD");
+  doc.rect(infoX, imageY, infoW, imageH, "FD");
 
   // Vertical positions for the right-side content stack.
   // `sectionHeaderY`: top offset for the BOOKING DETAILS pill.
@@ -359,7 +406,7 @@ function drawTheatreHero(
 
   // Match the other section headers instead of the muted grey treatment.
   setFill(doc, COLORS.sectionBg);
-  doc.roundedRect(infoX + 2, sectionHeaderY, infoW - 4, sectionHeaderH, 1.6, 1.6, "F");
+  doc.rect(infoX + 2, sectionHeaderY, infoW - 4, sectionHeaderH, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.6);
   doc.setTextColor(...COLORS.textStrong);
@@ -411,10 +458,10 @@ function drawSectionCardAt(
 
   setFill(doc, COLORS.sectionBg);
   setDraw(doc, COLORS.border);
-  doc.roundedRect(x, y, w, h, 2.6, 2.6, "FD");
+  doc.rect(x, y, w, h, "FD");
 
   setFill(doc, COLORS.sectionHeadBg);
-  doc.roundedRect(x + 1.4, y + 1.2, w - 2.8, titleH, 1.8, 1.8, "F");
+  doc.rect(x + 1.4, y + 1.2, w - 2.8, titleH, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.3);
@@ -539,10 +586,10 @@ function drawPaymentTable(layout: PdfLayout, rows: SectionRow[]) {
 
   setFill(doc, COLORS.sectionBg);
   setDraw(doc, COLORS.border);
-  doc.roundedRect(marginX, layout.y, contentWidth, cardH, 2.6, 2.6, "FD");
+  doc.rect(marginX, layout.y, contentWidth, cardH, "FD");
 
   setFill(doc, COLORS.sectionHeadBg);
-  doc.roundedRect(marginX + 1.4, layout.y + 1.2, contentWidth - 2.8, titleH, 1.8, 1.8, "F");
+  doc.rect(marginX + 1.4, layout.y + 1.2, contentWidth - 2.8, titleH, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.3);
@@ -613,7 +660,7 @@ function drawProductsGrid(
   const innerX = marginX + contentPadX;
   const innerWidth = contentWidth - contentPadX * 2;
   const colW = (innerWidth - gap * 2) / 3;
-  const cardH = 18.5;
+  const cardH = 22.4;
   const rowCount = Math.ceil(items.length / 3);
   const sectionH = 10.4 + rowCount * (cardH + 1.8) + 0.6;
   const sectionY = layout.y;
@@ -621,14 +668,14 @@ function drawProductsGrid(
   ensureSpace(layout, sectionH + 2);
   setFill(doc, COLORS.sectionBg);
   setDraw(doc, COLORS.border);
-  doc.roundedRect(marginX, sectionY, contentWidth, sectionH, 2.6, 2.6, "FD");
+  doc.rect(marginX, sectionY, contentWidth, sectionH, "FD");
 
   setFill(doc, COLORS.sectionHeadBg);
-  doc.roundedRect(marginX + 1.4, sectionY + 1.2, contentWidth - 2.8, 6.2, 1.8, 1.8, "F");
+  doc.rect(marginX + 1.4, sectionY + 1.2, contentWidth - 2.8, 6.2, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.3);
   doc.setTextColor(...COLORS.textStrong);
-  doc.text("Selected Add-ons", marginX + 2.6, sectionY + 5.7);
+  doc.text("Package Inclusions & Add-ons", marginX + 2.6, sectionY + 5.7);
   layout.y = sectionY + 10.4;
 
   for (let i = 0; i < items.length; i += 3) {
@@ -664,16 +711,20 @@ function drawProductCard(
   const productTitle = rawProductName
     .replace(/\s*\bNo:\s*[A-Za-z0-9]*\s*$/i, "")
     .trim();
+  const includedQuantity = Math.max(Number(item.includedQuantity ?? 0), 0);
+  const extraQuantity =
+    item.extraQuantity ??
+    (item.unitPrice > 0 ? Math.max(Math.round(item.totalPrice / item.unitPrice), 0) : 0);
 
   setFill(doc, COLORS.paper);
   setDraw(doc, COLORS.border);
-  doc.roundedRect(x, y, w, h, 2.2, 2.2, "FD");
+  doc.rect(x, y, w, h, "FD");
 
   if (image) {
     doc.addImage(image.dataUrl, image.format, x + 2, y + 2, imageSize, imageSize);
   } else {
     setFill(doc, COLORS.sectionHeadBg);
-    doc.roundedRect(x + 2, y + 2, imageSize, imageSize, 1.8, 1.8, "F");
+    doc.rect(x + 2, y + 2, imageSize, imageSize, "F");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.6);
     doc.setTextColor(...COLORS.textMuted);
@@ -710,12 +761,58 @@ function drawProductCard(
     doc.text(`No: ${numberValue}`, textX, y + 13.1);
   }
 
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.9);
+  doc.setTextColor(...COLORS.textMuted);
+  doc.text(
+    getProductBreakdownLabel({
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      includedQuantity,
+      extraQuantity,
+      totalPrice: item.totalPrice,
+    }),
+    textX,
+    y + 16.4
+  );
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.6);
-  doc.setTextColor(...COLORS.textStrong);
-  doc.text(`Rs ${formatMoney(item.totalPrice)}`, x + w - 2, y + h - 2.2, {
-    align: "right",
-  });
+  doc.setTextColor(...(item.totalPrice <= 0 ? COLORS.textMuted : COLORS.textStrong));
+  doc.text(
+    item.totalPrice <= 0 ? "Included" : formatCurrency(item.totalPrice),
+    x + w - 2,
+    y + h - 2.2,
+    { align: "right" }
+  );
+}
+
+function getProductBreakdownLabel({
+  quantity,
+  unitPrice,
+  includedQuantity,
+  extraQuantity,
+  totalPrice,
+}: {
+  quantity: number;
+  unitPrice: number;
+  includedQuantity: number;
+  extraQuantity: number;
+  totalPrice: number;
+}) {
+  if (includedQuantity > 0 && extraQuantity > 0) {
+    return `${includedQuantity} included + ${extraQuantity} extra x ${formatCurrency(unitPrice)}`;
+  }
+
+  if (includedQuantity > 0 && totalPrice <= 0) {
+    return `${includedQuantity} included with package`;
+  }
+
+  if (totalPrice <= 0) {
+    return `${quantity} included with package`;
+  }
+
+  return `${quantity} x ${formatCurrency(unitPrice)}`;
 }
 
 function drawFooter(layout: PdfLayout) {
@@ -877,6 +974,10 @@ function drawImageFit(
 
 function formatMoney(value: number): string {
   return Number(value || 0).toLocaleString("en-IN");
+}
+
+function formatCurrency(value: number): string {
+  return `$${formatMoney(value)}`;
 }
 
 function sanitizeDisplayText(value: string): string {
