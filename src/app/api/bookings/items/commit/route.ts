@@ -37,6 +37,10 @@ import {
   PACKAGE_EXTRA_PERSON_PRICE,
   resolvePackageIncludedGuestCount,
 } from "@/lib/package-guest-pricing";
+import {
+  getPackageIncludedProductTotalPrice,
+  resolvePackageIncludedProducts,
+} from "@/lib/package-included-products";
 
 function isEditableBookingStatus(status: string) {
   return (
@@ -137,8 +141,6 @@ export async function POST(req: Request) {
       });
     });
 
-    const normalizedItems = Array.from(normalizedItemsMap.values());
-
     await prisma.$transaction(async (tx) => {
       // Serialize item commits per booking so overlapping requests cannot
       // interleave delete/recreate cycles and trip the unique (bookingId, variantId) key.
@@ -176,8 +178,49 @@ export async function POST(req: Request) {
 
       const slot = booking.slot;
       const theatre = booking.theatre;
+      const effectiveItemsMap = new Map(normalizedItemsMap);
+      const packageIncludedProducts = resolvePackageIncludedProducts(theatre);
+      const packageIncludedProductSlugs = Object.keys(packageIncludedProducts);
 
-      const variantIds = [...new Set(normalizedItems.map((item) => item.variantId))];
+      if (packageIncludedProductSlugs.length > 0) {
+        const packageProducts = await tx.product.findMany({
+          where: {
+            slug: { in: packageIncludedProductSlugs },
+            isActive: true,
+            bookingCategorySlug: "add-ons",
+            OR: [
+              { locationId: theatre.locationId },
+              { locationId: null },
+            ],
+          },
+          include: {
+            variants: {
+              where: { isActive: true },
+              orderBy: { sortOrder: "asc" },
+            },
+          },
+        });
+
+        packageProducts.forEach((product) => {
+          const includedQuantity = packageIncludedProducts[product.slug] ?? 0;
+          const variant =
+            product.variants.find((item) => item.isDefault) ??
+            product.variants[0];
+          if (includedQuantity <= 0 || !variant) return;
+
+          const key = `${product.id}:${variant.id}`;
+          const existing = effectiveItemsMap.get(key);
+          effectiveItemsMap.set(key, {
+            productId: product.id,
+            variantId: variant.id,
+            quantity: Math.max(existing?.quantity ?? 0, includedQuantity),
+            ledNumber: existing?.ledNumber ?? "",
+          });
+        });
+      }
+
+      const effectiveItems = Array.from(effectiveItemsMap.values());
+      const variantIds = [...new Set(effectiveItems.map((item) => item.variantId))];
       const variants =
         variantIds.length > 0
           ? await tx.productVariant.findMany({
@@ -210,7 +253,7 @@ export async function POST(req: Request) {
         throw new Error("INVALID_PRODUCT_SELECTION");
       }
 
-      const validatedItems = normalizedItems.map((item) => {
+      const validatedItems = effectiveItems.map((item) => {
         const variant = variantMap.get(item.variantId);
         if (!variant || variant.productId !== item.productId) {
           throw new Error("INVALID_PRODUCT_SELECTION");
@@ -227,6 +270,15 @@ export async function POST(req: Request) {
         }
 
         const unitPrice = getVariantUnitPrice(variant);
+        const totalPrice = getPackageIncludedProductTotalPrice({
+          source: theatre,
+          product: {
+            slug: variant.product.slug,
+            name: variant.product.name,
+          },
+          quantity: item.quantity,
+          unitPrice,
+        });
         return {
           productId: variant.productId,
           variantId: variant.id,
@@ -234,7 +286,7 @@ export async function POST(req: Request) {
           variantLabel: variant.label,
           unitPrice,
           quantity: item.quantity,
-          totalPrice: unitPrice * item.quantity,
+          totalPrice,
           category: variant.product.category,
           ledNumber: item.ledNumber,
           productSlug: variant.product.slug,

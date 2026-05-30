@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ProductCard from "./ProductCard";
 import type { Product } from "./types";
 import type { BookingItemSnapshot } from "@/context/BookingContext";
 import { useBooking } from "@/context/BookingContext";
+import { ensurePackageIncludedProducts } from "@/lib/package-included-products";
 
 type Props = {
   bookingCategorySlug: string;
@@ -15,10 +16,21 @@ export default function ProductList({
   bookingCategorySlug,
   selectedProducts,
 }: Props) {
-  const { booking } = useBooking();
+  const { booking, setBookingItems } = useBooking();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const locationId = booking.location?.id ?? "";
+  const selectedPackage = booking.theatre;
+  const selectedPackageKey = selectedPackage
+    ? `${selectedPackage.id}:${selectedPackage.capacity}:${selectedPackage.name}`
+    : "";
+  const selectedPackageRef = useRef(selectedPackage);
+  const setBookingItemsRef = useRef(setBookingItems);
+
+  useEffect(() => {
+    selectedPackageRef.current = selectedPackage;
+    setBookingItemsRef.current = setBookingItems;
+  }, [selectedPackage, setBookingItems]);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,7 +54,18 @@ export default function ProductList({
         const json = await res.json();
 
         if (!cancelled && json.success) {
-          setProducts(json.data ?? []);
+          const nextProducts = json.data ?? [];
+          setProducts(nextProducts);
+
+          if (bookingCategorySlug === "add-ons") {
+            setBookingItemsRef.current((currentItems) =>
+              ensurePackageIncludedProducts({
+                currentItems,
+                products: nextProducts,
+                selectedPackage: selectedPackageRef.current,
+              })
+            );
+          }
         }
       } catch {
         if (!cancelled) setProducts([]);
@@ -55,7 +78,7 @@ export default function ProductList({
     return () => {
       cancelled = true;
     };
-  }, [bookingCategorySlug, locationId]);
+  }, [bookingCategorySlug, locationId, selectedPackageKey]);
 
   if (loading) {
     return <p className="text-sm text-gray-400">Loading add-ons…</p>;

@@ -1,5 +1,4 @@
 "use client";
-
 import Image from "next/image";
 import {
   BadgeCheck,
@@ -18,7 +17,11 @@ import {
 import { WhatsAppIcon } from "@/components/icons/WhatsApp";
 import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useBooking } from "@/context/BookingContext";
+import {
+  useBooking,
+  type BookingItemSnapshot,
+  type SelectedTheatre,
+} from "@/context/BookingContext";
 import StepIndicator from "@/components/booking/steps/StepIndicator";
 import type { BookingSummaryProps } from "./types";
 import { formatISTDate } from "@/lib/formatters";
@@ -33,6 +36,10 @@ import {
 } from "@/lib/booking-session-expiry";
 import { trackMetaCtaClick } from "@/lib/meta/browser";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
+import {
+  getPackageIncludedProductQuantity,
+  getPackageIncludedProductExtraQuantity,
+} from "@/lib/package-included-products";
 
 const APPLY_ERROR_MAP: Record<string, string> = {
   COUPON_INACTIVE: "This coupon is disabled.",
@@ -789,54 +796,12 @@ export default function BookingSummary({
 
                 <div className="space-y-2">
                   {products.map((item) => (
-                    <div
+                    <SummaryProductRow
                       key={item.id}
-                      className="flex items-start justify-between gap-2 text-sm"
-                    >
-                      <div className="flex min-w-0 flex-1 items-start gap-2">
-                        {item.productImage && (
-                          <div className="relative h-9 w-9 shrink-0 overflow-hidden border border-[#d7e4e1] bg-white">
-                            <Image
-                              src={item.productImage}
-                              alt={item.productName}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate pr-2 font-semibold text-gray-900">
-                            {item.productName}
-                          </p>
-                          <p className="text-xs font-medium text-gray-600">
-                            {item.variantLabel} × {item.quantity}
-                          </p>
-                          {item.ledNumber ? (
-                            <p className="text-[11px] text-gray-500">
-                              {getNumberDecorationLabel({
-                                slug: item.productSlug,
-                                name: item.productName,
-                              })}
-                              : {item.ledNumber}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-2 pl-2">
-                        <span className="font-bold text-gray-900">
-                          {formatCurrency(item.totalPrice)}
-                        </span>
-                        {onRemoveItem && (
-                          <button
-                            onClick={() => onRemoveItem(item.id)}
-                            className="cursor-pointer text-gray-400 hover:text-red-500"
-                          >
-                            <X size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                      item={item}
+                      theatre={theatre}
+                      onRemoveItem={onRemoveItem}
+                    />
                   ))}
                 </div>
 
@@ -1231,6 +1196,89 @@ export default function BookingSummary({
 /* -----------------------------
    Small helper
 ------------------------------ */
+function SummaryProductRow({
+  item,
+  theatre,
+  onRemoveItem,
+}: {
+  item: BookingItemSnapshot;
+  theatre: SelectedTheatre | null;
+  onRemoveItem?: (id: string) => void;
+}) {
+  const includedQuantity = getPackageIncludedProductQuantity(theatre, {
+    productSlug: item.productSlug,
+    name: item.productName,
+  });
+  const extraQuantity = getPackageIncludedProductExtraQuantity(
+    theatre,
+    {
+      productSlug: item.productSlug,
+      name: item.productName,
+    },
+    item.quantity
+  );
+  const isPackageIncluded = includedQuantity > 0;
+  const canRemove = Boolean(onRemoveItem) && !isPackageIncluded;
+  const lineItems = [`${item.variantLabel} x ${item.quantity}`];
+
+  if (isPackageIncluded) {
+    lineItems.push(`${includedQuantity} included`);
+  }
+
+  if (extraQuantity > 0) {
+    lineItems.push(`${extraQuantity} extra charged`);
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-3 text-sm">
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        {item.productImage && (
+          <div className="relative h-9 w-9 shrink-0 overflow-hidden border border-[#d7e4e1] bg-white">
+            <Image
+              src={item.productImage}
+              alt={item.productName}
+              fill
+              className="object-cover"
+            />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate pr-2 font-semibold text-gray-900">
+            {item.productName}
+          </p>
+          <p className="text-xs font-medium text-gray-600">
+            {lineItems.join(" • ")}
+          </p>
+          {item.ledNumber ? (
+            <p className="text-[11px] text-gray-500">
+              {getNumberDecorationLabel({
+                slug: item.productSlug,
+                name: item.productName,
+              })}
+              : {item.ledNumber}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 pl-2">
+        <p className="font-bold text-gray-900">
+          {item.totalPrice > 0 ? formatCurrency(item.totalPrice) : "Included"}
+        </p>
+        {canRemove && (
+          <button
+            type="button"
+            onClick={() => onRemoveItem?.(item.id)}
+            className="cursor-pointer text-gray-400 transition hover:text-red-500"
+            aria-label={`Remove ${item.productName}`}
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SummaryRow({
   label,
   value,

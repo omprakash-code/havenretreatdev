@@ -15,6 +15,10 @@ import {
   getNumberDecorationLabel,
   isNumberDecorationProduct,
 } from "@/lib/product-numbering";
+import {
+  getPackageIncludedProductQuantity,
+  getPackageIncludedProductTotalPrice,
+} from "@/lib/package-included-products";
 
 type Props = {
   product: Product;
@@ -33,7 +37,7 @@ export default function ProductCard({
   product,
   selectedProducts,
 }: Props) {
-  const { setBookingItems } = useBooking();
+  const { booking, setBookingItems } = useBooking();
   const isNumberDecoration = isNumberDecorationProduct({
     slug: product.slug,
     name: product.name,
@@ -68,6 +72,12 @@ export default function ProductCard({
 
   const quantity = existing?.quantity ?? 0;
   const hasLedNumber = Boolean(existing?.ledNumber?.trim());
+  const includedQuantity = getPackageIncludedProductQuantity(
+    booking.theatre,
+    product
+  );
+  const isPackageIncluded = includedQuantity > 0;
+  const extraQuantity = Math.max(quantity - includedQuantity, 0);
 
   /* -----------------------------
      Local-only update (NO API)
@@ -81,6 +91,8 @@ export default function ProductCard({
         product,
         variant: activeVariant,
         quantity: nextQty,
+        minimumQuantity: includedQuantity,
+        selectedPackage: booking.theatre,
       })
     );
   };
@@ -109,9 +121,9 @@ export default function ProductCard({
 
     updateQuantity(isSingleSelect ? 1 : quantity + 1);
   };
-  const decrement = () => updateQuantity(Math.max(quantity - 1, 0));
+  const decrement = () => updateQuantity(Math.max(quantity - 1, includedQuantity));
   const toggleDecoration = () =>
-    updateQuantity(quantity > 0 ? 0 : 1);
+    updateQuantity(quantity > includedQuantity ? includedQuantity : Math.max(1, includedQuantity));
   const handleAdd = () => {
     increment();
     if (isNumberDecoration) {
@@ -171,6 +183,12 @@ export default function ProductCard({
         )}
       </div>
 
+      {isPackageIncluded && (
+        <p className="mt-1 inline-flex w-fit border border-[#d7e4e1] bg-[#edf3f1] px-2 py-0.5 text-[10px] font-semibold text-[#245e5b]">
+          {includedQuantity} included with package
+        </p>
+      )}
+
       {product.description && (
         <p className="hidden text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-2">
           {product.description}
@@ -222,6 +240,10 @@ export default function ProductCard({
           </div>
           {outOfStock ? (
             <p className="mt-1 text-[10px] sm:text-xs text-gray-500">Out of stock</p>
+          ) : isPackageIncluded ? (
+            <p className="mt-1 text-[10px] sm:text-xs text-gray-500">
+              {extraQuantity > 0 ? `${extraQuantity} extra charged` : "Included"}
+            </p>
           ) : null}
         </div>
 
@@ -251,8 +273,8 @@ export default function ProductCard({
                 key="added"
                 type="button"
                 onClick={toggleDecoration}
-                title="Remove item"
-                aria-label="Remove item"
+                title={isPackageIncluded ? "Included with package" : "Remove item"}
+                aria-label={isPackageIncluded ? "Included with package" : "Remove item"}
                 disabled={outOfStock && quantity === 0}
                 initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -261,7 +283,7 @@ export default function ProductCard({
                 className="absolute inset-0 flex h-full w-full items-center justify-center gap-0.5 border border-[#2f7e7a]/25 bg-[#edf3f1] text-xs font-semibold text-[#245e5b] cursor-pointer select-none transition-colors hover:bg-[#e3efec] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
               >
                 <CheckCircle2 size={12} className="text-[#347f7c]" />
-                Added
+                {isPackageIncluded ? "Included" : "Added"}
               </motion.button>
             ) : (
               <motion.div
@@ -277,7 +299,8 @@ export default function ProductCard({
                   onClick={decrement}
                   title="Decrease quantity"
                   aria-label="Decrease quantity"
-                  className="flex aspect-square h-5 w-5 items-center justify-center border border-[#d7e4e1] bg-white leading-none cursor-pointer text-[#245e5b] hover:bg-[#edf3f1] active:scale-[0.97] transition sm:h-6 sm:w-6"
+                  disabled={quantity <= includedQuantity}
+                  className="flex aspect-square h-5 w-5 items-center justify-center border border-[#d7e4e1] bg-white leading-none cursor-pointer text-[#245e5b] hover:bg-[#edf3f1] active:scale-[0.97] transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-6 sm:w-6"
                 >
                   <Minus size={10} />
                 </button>
@@ -375,15 +398,20 @@ function upsertItem({
   product,
   variant,
   quantity,
+  minimumQuantity = 0,
+  selectedPackage,
 }: {
   prev: BookingItemSnapshot[];
   product: Product;
   variant: Variant;
   quantity: number;
+  minimumQuantity?: number;
+  selectedPackage?: { name?: string | null; capacity?: number | null } | null;
 }): BookingItemSnapshot[] {
   const items = [...prev];
   const priceMeta = getVariantPriceMeta(variant);
   const unitPrice = priceMeta.displayPrice;
+  const resolvedQuantity = Math.max(quantity, minimumQuantity);
 
   const index = items.findIndex(
     (i) =>
@@ -391,17 +419,23 @@ function upsertItem({
       i.variantId === variant.id
   );
 
-  if (quantity === 0) {
+  if (resolvedQuantity === 0) {
     if (index !== -1) items.splice(index, 1);
     return items;
   }
 
-  const totalPrice = unitPrice * quantity;
+  const totalPrice = getPackageIncludedProductTotalPrice({
+    source: selectedPackage,
+    product,
+    quantity: resolvedQuantity,
+    unitPrice,
+  });
 
   if (index !== -1) {
     items[index] = {
       ...items[index],
-      quantity,
+      quantity: resolvedQuantity,
+      unitPrice,
       totalPrice,
     };
   } else {
@@ -415,7 +449,7 @@ function upsertItem({
       variantLabel: variant.label,
       category: product.category,
       unitPrice,
-      quantity,
+      quantity: resolvedQuantity,
       totalPrice,
     });
   }
