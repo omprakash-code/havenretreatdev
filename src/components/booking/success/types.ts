@@ -38,6 +38,9 @@ export type BookingSuccessData = {
   theatreImage?: string | null;
   date: string;
   timeSlot: string;
+  durationHours?: number | null;
+  includedDurationHours?: number | null;
+  extraDurationHours?: number | null;
   locationName: string;
   dateTime: string;
   occasionLabel?: string;

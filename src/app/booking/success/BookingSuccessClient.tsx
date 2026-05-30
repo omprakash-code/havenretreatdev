@@ -226,7 +226,7 @@ export default function BookingSuccessClient() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 xl:pt-0">
                   <AnimatedTicketCard data={data} embedded />
                 </div>
               </div>

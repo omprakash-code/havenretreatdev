@@ -9,6 +9,10 @@ import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { formatSlotTime } from "@/lib/formatters";
 import { timeToMinutes } from "@/lib/time";
 import { verifySuccessToken } from "@/services/booking/successToken.server";
+import {
+  resolveBookingDurationPricingConfig,
+  resolveSlotDurationHours,
+} from "@/lib/booking-duration-pricing";
 
 const IST_TIMEZONE = "Asia/Kolkata";
 const DEFAULT_ADVANCE = 750;
@@ -137,6 +141,16 @@ export async function GET(req: Request) {
     const advance =
       booking.advancePaid !== null ? booking.advancePaid : DEFAULT_ADVANCE;
     const latestPayment = booking.payment[0] ?? null;
+    const durationConfig = await resolveBookingDurationPricingConfig(prisma);
+    const durationHours = resolveSlotDurationHours({
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      durationMin: slot.durationMin,
+    });
+    const extraDurationHours =
+      durationHours !== null
+        ? Math.max(durationHours - durationConfig.includedDurationHours, 0)
+        : null;
 
     const items = assignNumberDecorationDetails(
       booking.items.map((item) => ({
@@ -167,6 +181,9 @@ export async function GET(req: Request) {
       theatreImage: theatre.images?.[0] ?? null,
       date: formattedDate,
       timeSlot: formatSlotTime(slot.startTime, slot.endTime),
+      durationHours,
+      includedDurationHours: durationConfig.includedDurationHours,
+      extraDurationHours,
       locationName: location?.name ?? "—",
       dateTime: `${formattedDate}, ${formatSlotTime(slot.startTime, slot.endTime)}`,
       occasionLabel: booking.occasionLabel ?? undefined,

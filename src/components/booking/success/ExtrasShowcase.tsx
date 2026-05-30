@@ -43,7 +43,9 @@ export default function ExtrasShowcase({
           : "space-y-3 border border-zinc-200 bg-white p-3 shadow-sm"
       }
     >
-      <h3 className="text-base font-semibold text-slate-900 text-left">Selected Add-ons</h3>
+      <h3 className="text-base font-semibold text-slate-900 text-left">
+        Package Inclusions & Add-ons
+      </h3>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {items.map((item, index) => (
@@ -92,8 +94,8 @@ export default function ExtrasShowcase({
               </div>
 
               <div className="text-right shrink-0">
-                <p className="text-sm font-bold text-zinc-900/60">
-                  {formatCurrency(item.totalPrice)}
+                <p className="text-xs font-semibold text-zinc-900/60">
+                  {item.totalPrice <= 0 ? "Included" : formatCurrency(item.totalPrice)}
                 </p>
               </div>
             </div>

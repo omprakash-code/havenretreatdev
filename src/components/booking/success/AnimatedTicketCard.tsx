@@ -14,6 +14,10 @@ import {
   WhatsAppIcon,
   Download,
   Copy,
+  CheckCircle,
+  Phone,
+  Mail,
+  ShieldCheck,
 } from "@/components/icons";
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { downloadBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
@@ -23,7 +27,7 @@ type AnimatedTicketCardProps = {
   embedded?: boolean;
 };
 
-const SHOW_DOWNLOAD_TICKET_ACTION = false;
+const SHOW_DOWNLOAD_TICKET_ACTION = true;
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-US", {
@@ -31,6 +35,24 @@ function formatCurrency(amount: number) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function formatHourValue(hours: number) {
+  return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+}
+
+function formatDurationLabel(data: BookingSuccessData) {
+  const durationHours = data.durationHours ?? null;
+  if (durationHours === null || !Number.isFinite(durationHours)) return "—";
+
+  const included = data.includedDurationHours ?? 4;
+  const extra = data.extraDurationHours ?? Math.max(durationHours - included, 0);
+
+  if (extra > 0) {
+    return `${formatHourValue(durationHours)} (${formatHourValue(included)} included + ${formatHourValue(extra)} extra)`;
+  }
+
+  return `${formatHourValue(durationHours)} included`;
 }
 
 export default function AnimatedTicketCard({
@@ -180,14 +202,16 @@ ${shareUrl}`;
             : "relative overflow-hidden border border-[#2f7e7a]/20 bg-white shadow-xl shadow-[#cfdedb]/60"
         }
       >
-        <div className="space-y-3.5 px-0 py-3 sm:space-y-4 sm:px-4 sm:py-4 md:px-5">
-          <div className="flex flex-col gap-2 lg:flex-row lg:justify-between">
+        <div className="space-y-3.5 px-0 pb-3 sm:space-y-4 sm:px-4 sm:pb-4 md:px-5">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0 text-center sm:text-left lg:flex lg:max-w-[74%] lg:flex-col lg:justify-start lg:gap-[5px]">
-              <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
-                Booking Reference
-              </p>
+              <div className="inline-flex max-w-full flex-nowrap items-center justify-center gap-2 sm:justify-start">
+                <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
+                  Booking Reference
+                </p>
+              </div>
               <div className="relative inline-flex max-w-full items-center justify-center gap-1.5 sm:justify-start">
-                <code className="relative z-10 break-all border border-[#d7e4e1] bg-[#f8fbfa] px-2.5 py-1 text-sm font-bold tracking-wider text-zinc-900 sm:text-[17.5px]">
+                <code className="relative z-10 whitespace-nowrap border border-[#d7e4e1] bg-[#f8fbfa] px-2.5 py-1 text-xs font-bold tracking-wider text-zinc-900 sm:text-sm">
                   {data.bookingRef}
                 </code>
                 <button
@@ -205,10 +229,10 @@ ${shareUrl}`;
               </div>
             </div>
 
-            <div className="hidden lg:flex lg:shrink-0 lg:items-center lg:justify-end lg:gap-3">
+            <div className="hidden lg:flex lg:shrink-0 lg:items-center lg:justify-end lg:gap-3 lg:pt-5">
               {SHOW_DOWNLOAD_TICKET_ACTION && (
                 <MiniActionButton
-                  label={isDownloadingPdf ? "Downloading..." : "Download"}
+                  label={isDownloadingPdf ? "Downloading..." : "Download Receipt"}
                   icon={<Download size={14} />}
                   onClick={handleDownload}
                   variant="primary"
@@ -237,6 +261,18 @@ ${shareUrl}`;
               value={data.contact.name}
             />
             <DetailItem
+              icon={<Phone size={16} />}
+              label="Phone"
+              value={data.contact.phone}
+            />
+            {data.contact.email ? (
+              <DetailItem
+                icon={<Mail size={16} />}
+                label="Email"
+                value={data.contact.email}
+              />
+            ) : null}
+            <DetailItem
               icon={<Ticket size={16} />}
               label="Package"
               value={data.theatreName}
@@ -250,6 +286,11 @@ ${shareUrl}`;
               icon={<Clock size={16} />}
               label="Time"
               value={data.timeSlot}
+            />
+            <DetailItem
+              icon={<Clock size={16} />}
+              label="Duration"
+              value={formatDurationLabel(data)}
             />
             <DetailItem
               icon={<MapPin size={16} />}
@@ -300,8 +341,9 @@ ${shareUrl}`;
                   bold
                 />
                 <p className="text-[11px] leading-relaxed text-slate-500 sm:text-xs">
-                  Please arrive 15 minutes before your slot. You can pay the
-                  remaining balance at the venue via UPI, Card, or Cash.
+                  Balance due on arrival. Please arrive 15 minutes before your
+                  slot and keep your booking reference handy. Accepted at venue:
+                  UPI, Card, or Cash.
                 </p>
               </div>
             )}
@@ -326,10 +368,20 @@ ${shareUrl}`;
             )}
           </div>
 
+          <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-relaxed text-slate-600 sm:p-3 sm:text-xs">
+            <div className="flex items-start gap-2">
+              <ShieldCheck size={15} className="mt-0.5 shrink-0 text-[#347f7c]" />
+              <p>
+                Need help with your booking? Message us on WhatsApp with your
+                booking reference and we will help you quickly.
+              </p>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-4 lg:hidden">
             {SHOW_DOWNLOAD_TICKET_ACTION && (
               <MiniActionButton
-                label={isDownloadingPdf ? "Downloading..." : "Download"}
+                label={isDownloadingPdf ? "Downloading..." : "Download Receipt"}
                 icon={<Download size={14} />}
                 onClick={handleDownload}
                 variant="primary"
