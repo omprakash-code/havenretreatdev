@@ -393,7 +393,7 @@ export default function TimeRangePicker({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/60 px-0 py-0 backdrop-blur-sm sm:px-3 sm:py-8"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#101828]/60 px-0 py-0 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label="Select booking time"
