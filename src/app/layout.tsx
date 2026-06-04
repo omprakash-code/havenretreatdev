@@ -18,7 +18,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Haven Reteat - Private Desined Vanue Experiences",
+  title: "Haven Reteat - Private Designed Venue Experiences",
   description: "Book private venue experiences for birthdays, anniversaries, date nights, proposals & more. Unforgettable moments in a haven retreat.",
 };
 
