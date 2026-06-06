@@ -217,10 +217,13 @@ model Theatre {
   updatedAt DateTime @updatedAt
 
   // Relations
-  location      Location       @relation(fields: [locationId], references: [id])
-  slotTemplates SlotTemplate[]
-  slots         Slot[]
-  bookings      Booking[]
+  location           Location            @relation(fields: [locationId], references: [id])
+  slotTemplates      SlotTemplate[]
+  slots              Slot[]
+  bookings           Booking[]
+  bookingLocks       BookingLock[]
+  availabilityBlocks AvailabilityBlock[]
+  bookingSettings    BookingSettings?
 
   //Prevent duplicate theatre names per location
   @@unique([name, locationId])
@@ -422,7 +425,12 @@ model Booking {
   occasionKey        String? // BIRTHDAY
   occasionLabel      String? // Birthday
   occasionData       Json? //Nstores dynamic occasion form data
+  packageSnapshot    Json?
   pricingSnapshot    Json?
+  startsAtUtc        DateTime? @db.Timestamptz(3)
+  endsAtUtc          DateTime? @db.Timestamptz(3)
+  occupiedUntilUtc   DateTime? @db.Timestamptz(3)
+  bufferMinutes      Int? // booking-owned snapshot; required for new range bookings after backfill
   guestCount         Int // shared across legacy theatre and venue event flows
   decorationRequired Boolean @default(false)
 
@@ -465,6 +473,7 @@ model Booking {
   couponUsages CouponUsage[]
   signedAgreements SignedAgreement[]
   bookingAddons   BookingAddon[]
+  bookingLock     BookingLock?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -487,6 +496,75 @@ model Booking {
   @@index([slotId])
   @@index([theatreId])
   @@index([venueId, packageId, eventDate])
+}
+
+enum BookingLockStatus {
+  ACTIVE
+  EXPIRED
+  RELEASED
+  CONSUMED
+}
+
+model BookingLock {
+  id               String            @id @default(cuid())
+  bookingId        String            @unique
+  theatreId        String
+  eventDate        DateTime          @db.Date
+  startTime        String
+  endTime          String
+  startsAtUtc      DateTime          @db.Timestamptz(3)
+  endsAtUtc        DateTime          @db.Timestamptz(3)
+  occupiedUntilUtc DateTime          @db.Timestamptz(3)
+  expiresAt        DateTime          @db.Timestamptz(3)
+  status           BookingLockStatus @default(ACTIVE)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  theatre Theatre @relation(fields: [theatreId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([theatreId, eventDate])
+  @@index([theatreId, startsAtUtc, occupiedUntilUtc])
+  @@index([status, expiresAt])
+}
+
+model AvailabilityBlock {
+  id               String    @id @default(cuid())
+  theatreId        String
+  eventDate        DateTime  @db.Date
+  isFullDay        Boolean   @default(false)
+  startTime        String?
+  endTime          String?
+  startsAtUtc      DateTime? @db.Timestamptz(3)
+  endsAtUtc        DateTime? @db.Timestamptz(3)
+  internalNote     String?
+  isActive         Boolean   @default(true)
+  createdByAdminId String?
+
+  theatre Theatre @relation(fields: [theatreId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([theatreId, eventDate, isActive])
+  @@index([theatreId, startsAtUtc, endsAtUtc])
+}
+
+model BookingSettings {
+  id                     String @id @default(cuid())
+  theatreId              String @unique
+  businessOpenTime       String @default("09:00")
+  businessCloseTime      String @default("23:00")
+  minimumDurationMinutes Int    @default(240)
+  bufferMinutes          Int    @default(60)
+  lockDurationMinutes    Int    @default(10)
+  maximumGuests          Int    @default(50)
+
+  theatre Theatre @relation(fields: [theatreId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum BookingStatus {
