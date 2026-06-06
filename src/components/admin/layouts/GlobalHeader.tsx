@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Menu, Search, Bell, User, LogOut, ChevronDown } from "@/components/icons";
 import Image from "next/image";
+import Link from "next/link";
+import { isAdminFeatureEnabled } from "@/config/admin-features";
 import { resolveAdminProfileImage } from "@/lib/admin-profile-image";
 
 interface GlobalHeaderProps {
@@ -17,7 +18,6 @@ type AdminProfilePayload = {
 };
 
 export default function GlobalHeader({ onToggleSidebar }: GlobalHeaderProps) {
-  const router = useRouter();
   const [visible, setVisible] = useState(true);
   const lastScrollTop = useRef(0);
   const [imageError, setImageError] = useState(false);
@@ -120,11 +120,6 @@ export default function GlobalHeader({ onToggleSidebar }: GlobalHeaderProps) {
     }
   };
 
-  const handleGoToProfile = () => {
-    setProfileMenuOpen(false);
-    router.push("/admin/profile");
-  };
-
   const toggleProfileMenu = () => {
     setProfileMenuOpen((prev) => !prev);
   };
@@ -219,15 +214,20 @@ export default function GlobalHeader({ onToggleSidebar }: GlobalHeaderProps) {
                 </p>
               </div>
 
-              <button
-                onClick={handleGoToProfile}
-                className="w-full flex cursor-pointer items-center gap-2 px-3.5 py-2.5 text-sm text-neutral-700 transition hover:bg-neutral-50 hover:text-black"
-              >
-                <User size={16} className="text-neutral-500" />
-                Profile
-              </button>
+              {isAdminFeatureEnabled("profile") && (
+                <>
+                  <Link
+                    href="/admin/profile"
+                    onClick={() => setProfileMenuOpen(false)}
+                    className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-2.5 text-sm text-neutral-700 transition hover:bg-neutral-50 hover:text-black"
+                  >
+                    <User size={16} className="text-neutral-500" />
+                    Profile
+                  </Link>
+                  <div className="h-px bg-neutral-100" />
+                </>
+              )}
 
-              <div className="h-px bg-neutral-100" />
               <button
                 onClick={handleLogout}
                 className="w-full flex cursor-pointer items-center gap-2 px-3.5 py-2.5 text-sm text-rose-600 transition hover:bg-rose-50 hover:text-rose-700"

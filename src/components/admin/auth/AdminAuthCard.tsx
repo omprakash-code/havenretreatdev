@@ -10,41 +10,45 @@ export default function AdminAuthCard() {
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className="w-full max-w-md flex flex-col items-center"
+      className="flex w-full max-w-[460px] flex-col items-center"
     >
       {/* ========================= */}
       {/* Branding Section (Outside Card) */}
       {/* ========================= */}
-      <div className="text-center mb-8">
+      <div className="mb-7 text-center">
         <motion.div
           initial={{ scale: 0.92, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="relative w-20 h-20 mx-auto mb-4"
+          className="relative mx-auto mb-5 h-28 w-40"
         >
           <Image
             src="/assets/logo.png"
             alt="Haven Retreat"
             fill
-            sizes="80px"
+            sizes="160px"
             className="object-contain"
             priority
           />
         </motion.div>
 
-        <h1 className="text-2xl font-semibold text-white">
-          Admin Portal
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-[#347f7c]">
+          Haven Retreat
+        </p>
+
+        <h1 className="font-playfair text-3xl font-semibold text-[#101828]">
+          Welcome back
         </h1>
 
-        <p className="text-sm text-gray-400 mt-2">
-          Secure access to booking management
+        <p className="mt-2 text-sm text-[#667085]">
+          Sign in to manage reservations and operations.
         </p>
       </div>
 
       {/* ========================= */}
       {/* Login Card (Form Only) */}
       {/* ========================= */}
-      <div className="w-full bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl p-8">
+      <div className="w-full border border-[#cbded9] bg-white p-7 shadow-[0_24px_70px_rgba(30,73,69,0.14)] sm:p-9">
         <AdminLoginForm />
       </div>
     </motion.div>

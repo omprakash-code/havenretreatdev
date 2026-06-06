@@ -9,22 +9,16 @@ export default async function AdminLoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-[#111] to-[#1a1a1a] overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_60%)]" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f4f7f5] px-4 py-16">
+      <div className="absolute inset-0 bg-[url('/media/booking/success/pool-view.avif')] bg-cover bg-center" />
+      <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(244,247,245,0.97)_0%,rgba(244,247,245,0.92)_44%,rgba(235,242,239,0.72)_100%)]" />
 
-      <div
-        className="absolute inset-0 opacity-[0.015]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-        }}
-      />
-
-      <div className="relative z-10 w-full max-w-md px-4">
+      <div className="relative z-10 w-full max-w-[460px]">
         <AdminAuthCard />
       </div>
 
-      <footer className="absolute bottom-4 text-center w-full text-xs text-gray-600">
-        © {new Date().getFullYear()} Haven Retreat — Admin Portal
+      <footer className="absolute bottom-5 z-10 w-full text-center text-xs tracking-wide text-[#667085]">
+        © {new Date().getFullYear()} Haven Retreat · Private administration
       </footer>
     </div>
   );

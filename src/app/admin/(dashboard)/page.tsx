@@ -7,6 +7,7 @@ import KpiGrid from "@/components/admin/dashboard/kpi/KpiGrid";
 import RevenueChartCard from "@/components/admin/dashboard/revenue-chart/RevenueChartCard";
 import LiveBookingsCard from "@/components/admin/dashboard/live-bookings/LiveBookingsCard";
 import PageHeader from "@/components/admin/page/PageHeader";
+import { isAdminFeatureEnabled } from "@/config/admin-features";
 
 import { getSLA } from "@/lib/admin/sla";
 import type { AdminBooking } from "@/types/admin/booking-admin";
@@ -59,34 +60,42 @@ export default function AdminDashboardPage() {
           title="Dashboard"
           description="Business performance overview and operational insights"
           actions={(
-            <div className="grid w-full grid-cols-2 gap-2 xl:grid-cols-4">
-              <Link
-                href="/admin/bookings?openAddBooking=1"
-                className="inline-flex min-h-10 w-full items-center justify-center rounded-md bg-neutral-900 px-3 py-2 text-center text-sm font-medium leading-tight text-white transition hover:bg-neutral-800 active:scale-[0.98]"
-              >
-                + New Booking
-              </Link>
+            <div className="flex w-full flex-wrap gap-2">
+              {isAdminFeatureEnabled("manualBooking") && (
+                <Link
+                  href="/admin/bookings?openAddBooking=1"
+                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-center text-sm font-medium leading-tight text-white transition hover:bg-neutral-800 active:scale-[0.98]"
+                >
+                  + New Booking
+                </Link>
+              )}
 
-              <Link
-                href="/admin/bookings/abandoned"
-                className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
-              >
-                View Abandonment
-              </Link>
+              {isAdminFeatureEnabled("abandonedBookings") && (
+                <Link
+                  href="/admin/bookings/abandoned"
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  View Abandonment
+                </Link>
+              )}
 
-              <Link
-                href="/admin/slots"
-                className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
-              >
-                Slot Management
-              </Link>
+              {isAdminFeatureEnabled("slots") && (
+                <Link
+                  href="/admin/slots"
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  Slot Management
+                </Link>
+              )}
 
-              <Link
-                href="/admin/coupons"
-                className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
-              >
-                + Create Coupon
-              </Link>
+              {isAdminFeatureEnabled("coupons") && (
+                <Link
+                  href="/admin/coupons"
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+                >
+                  + Create Coupon
+                </Link>
+              )}
             </div>
           )}
         />

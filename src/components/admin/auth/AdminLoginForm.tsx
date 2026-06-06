@@ -125,7 +125,7 @@ export default function AdminLoginForm() {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl"
+            className="border border-red-200 bg-red-50 p-3 text-sm text-red-700"
           >
             {error}
           </motion.div>
@@ -136,7 +136,7 @@ export default function AdminLoginForm() {
       <div>
         <label
           htmlFor="phone"
-          className="block text-sm font-medium text-gray-300 mb-2"
+          className="mb-2 block text-sm font-semibold text-[#344054]"
         >
           Phone Number
         </label>
@@ -144,7 +144,7 @@ export default function AdminLoginForm() {
         <div className="relative">
           <Phone
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#347f7c]"
           />
 
           <input
@@ -156,7 +156,7 @@ export default function AdminLoginForm() {
             required
             disabled={isLoading}
             placeholder="Enter your phone number"
-            className="w-full h-12 pl-10 pr-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:ring-2 focus:ring-white/10 focus:border-white/20 outline-none transition disabled:opacity-50"
+            className="h-12 w-full border border-[#d0d5dd] bg-[#fbfcfc] pl-11 pr-4 text-[#101828] outline-none transition placeholder:text-[#98a2b3] hover:border-[#a8c7c2] focus:border-[#347f7c] focus:bg-white focus:ring-1 focus:ring-[#347f7c]/15 disabled:opacity-50"
           />
         </div>
       </div>
@@ -166,7 +166,7 @@ export default function AdminLoginForm() {
       <div>
         <label
           htmlFor="password"
-          className="block text-sm font-medium text-gray-300 mb-2"
+          className="mb-2 block text-sm font-semibold text-[#344054]"
         >
           Password
         </label>
@@ -174,7 +174,7 @@ export default function AdminLoginForm() {
         <div className="relative">
           <Lock
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#347f7c]"
           />
 
           <input
@@ -185,14 +185,14 @@ export default function AdminLoginForm() {
             required
             disabled={isLoading}
             placeholder="Enter your password"
-            className="w-full h-12 pl-10 pr-12 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:ring-2 focus:ring-white/10 focus:border-white/20 outline-none transition disabled:opacity-50"
+            className="h-12 w-full border border-[#d0d5dd] bg-[#fbfcfc] pl-11 pr-12 text-[#101828] outline-none transition placeholder:text-[#98a2b3] hover:border-[#a8c7c2] focus:border-[#347f7c] focus:bg-white focus:ring-1 focus:ring-[#347f7c]/15 disabled:opacity-50"
           />
 
           <button
             type="button"
             onClick={() => setShowPassword((prev) => !prev)}
             disabled={isLoading}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 disabled:opacity-50"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer text-[#667085] transition hover:text-[#347f7c] disabled:opacity-50"
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
@@ -205,7 +205,7 @@ export default function AdminLoginForm() {
         disabled={isLoading}
         whileHover={!isLoading ? { scale: 1.02 } : {}}
         whileTap={!isLoading ? { scale: 0.98 } : {}}
-        className="w-full h-12 bg-white text-black font-semibold rounded-xl flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50"
+        className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 bg-[#347f7c] font-semibold text-white shadow-[0_12px_28px_rgba(52,127,124,0.22)] transition hover:bg-[#286c69] disabled:cursor-not-allowed disabled:bg-[#98a2b3] disabled:shadow-none"
       >
         {isLoading ? (
           <>
@@ -218,7 +218,7 @@ export default function AdminLoginForm() {
       </motion.button>
 
       {/* Security Badge */}
-      <div className="pt-3 flex items-center justify-center gap-2 text-gray-500 text-xs">
+      <div className="flex items-center justify-center gap-2 border-t border-[#eaecf0] pt-4 text-xs text-[#667085]">
         <Shield size={14} />
         Secure Admin Access
       </div>

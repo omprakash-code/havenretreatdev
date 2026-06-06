@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAdminPageEnabled } from "@/config/admin-features";
 import { verifyAdminSessionToken } from "@/services/auth/adminSession.server";
 
 export function proxy(req: NextRequest) {
@@ -35,6 +36,13 @@ export function proxy(req: NextRequest) {
     if (!session || session.role !== "ADMIN") {
       const url = req.nextUrl.clone();
       url.pathname = "/admin/login";
+      return NextResponse.redirect(url);
+    }
+
+    if (!isAdminPageEnabled(pathname)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/admin";
+      url.search = "";
       return NextResponse.redirect(url);
     }
   }
