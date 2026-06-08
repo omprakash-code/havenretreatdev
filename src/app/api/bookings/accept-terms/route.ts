@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
+import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import {
+  RangeBookingSessionError,
+  requireActiveRangeBookingSession,
+} from "@/services/booking/range-booking-session.service";
 
 function extractRequestIp(req: Request) {
   const forwardedFor = req.headers.get("x-forwarded-for");
@@ -46,6 +51,69 @@ export async function POST(req: Request) {
         "INVALID_REQUEST",
         "bookingId, signerName, signatureImage, and confirmationAccepted are required."
       );
+    }
+
+    const rangeIdentity = await getRangeBookingApiIdentity(bookingId);
+    if (rangeIdentity) {
+      const { booking } = await requireActiveRangeBookingSession(rangeIdentity);
+      if (booking.bookingStatus === "CONFIRMED") {
+        return bookingErrorResponse(
+          409,
+          "BOOKING_FINALIZED",
+          "This booking is already confirmed.",
+          { bookingRef: booking.bookingRef }
+        );
+      }
+      if (!isEditableBookingStatus(booking.bookingStatus)) {
+        return bookingErrorResponse(
+          409,
+          "SESSION_EXPIRED",
+          BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
+        );
+      }
+
+      const template = await prisma.agreementTemplate.findFirst({
+        where: { isActive: true },
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      });
+      if (!template) {
+        return bookingErrorResponse(
+          409,
+          "AGREEMENT_TEMPLATE_NOT_FOUND",
+          "No active agreement template is available yet."
+        );
+      }
+
+      const signedAt = new Date();
+      await prisma.$transaction(async (tx) => {
+        await requireActiveRangeBookingSession(rangeIdentity, signedAt, tx);
+        await tx.signedAgreement.deleteMany({ where: { bookingId } });
+        await tx.signedAgreement.create({
+          data: {
+            bookingId,
+            agreementTemplateId: template.id,
+            signerName: body.signerName!.trim(),
+            signerEmail: booking.contactEmail ?? "",
+            signedAt,
+            signatureImage: body.signatureImage!,
+            ipAddress: extractRequestIp(req),
+            userAgent: req.headers.get("user-agent"),
+            agreementVersion: body.agreementVersion ?? template.version,
+            agreementHtmlSnapshot:
+              body.agreementHtmlSnapshot ?? template.content,
+            confirmationAccepted: true,
+          },
+        });
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            termsAcceptedAt: booking.termsAcceptedAt ?? signedAt,
+            bookingStatus: "AWAITING_PAYMENT",
+            paymentStatus: "INITIALIZED",
+          },
+        });
+      });
+      return NextResponse.json({ success: true });
     }
 
     const booking = await prisma.booking.findUnique({
@@ -137,6 +205,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof RangeBookingSessionError) {
+      return bookingErrorResponse(
+        error.code === "BOOKING_NOT_FOUND" ? 404 : 409,
+        error.code,
+        error.message
+      );
+    }
     console.error("ACCEPT_TERMS_ERROR:", error);
     return bookingErrorResponse(
       500,

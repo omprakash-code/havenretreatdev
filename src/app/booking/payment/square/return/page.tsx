@@ -17,6 +17,11 @@ type StatusResponse = {
   message?: string;
 };
 
+const FAST_POLL_ATTEMPTS = 20;
+const MAX_POLL_ATTEMPTS = 120;
+const FAST_POLL_INTERVAL_MS = 1500;
+const SLOW_POLL_INTERVAL_MS = 5000;
+
 function SquarePaymentReturnContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,6 +37,7 @@ function SquarePaymentReturnContent() {
 
     let cancelled = false;
     let attempts = 0;
+    let timer: number | null = null;
 
     const poll = async () => {
       attempts += 1;
@@ -56,18 +62,36 @@ function SquarePaymentReturnContent() {
         return;
       }
 
-      if (attempts >= 20) {
-        setMessage("Payment received. Confirmation is still syncing, please wait a moment and refresh.");
+      if (res.ok && json?.status === "MANUAL_REVIEW") {
+        toast.error("Payment was received. Our team is reviewing the reservation.");
+        router.replace(BOOKING_ROUTES.ROOT);
         return;
       }
 
-      window.setTimeout(poll, 1500);
+      if (attempts === FAST_POLL_ATTEMPTS) {
+        setMessage("Payment received. Confirmation is still syncing, please keep this page open.");
+      }
+
+      if (attempts >= MAX_POLL_ATTEMPTS) {
+        setMessage("Payment received. Confirmation is taking longer than expected. Please refresh this page in a moment.");
+        return;
+      }
+
+      timer = window.setTimeout(
+        poll,
+        attempts >= FAST_POLL_ATTEMPTS
+          ? SLOW_POLL_INTERVAL_MS
+          : FAST_POLL_INTERVAL_MS
+      );
     };
 
     void poll();
 
     return () => {
       cancelled = true;
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
     };
   }, [bookingId, resetBooking, router]);
 

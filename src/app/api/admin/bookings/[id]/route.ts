@@ -5,6 +5,7 @@ import { formatInTimeZone } from "date-fns-tz";
 
 import { prisma } from "@/lib/db";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
+import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
 import { isSlotExpiredInIST } from "@/lib/slot-time";
@@ -35,6 +36,11 @@ import { overrideLockedSlotForAdmin } from "@/services/booking/admin-slot-overri
 import { resolveSlotExpiryConfig } from "@/services/booking/slot-expiry-config.service";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
+import {
+  AdminRangeBookingError,
+  isAdminRangeBookingEnabled,
+  validateAdminRangeBooking,
+} from "@/services/booking/admin-range-booking.service";
 import {
   createRazorpayOrder,
   RazorpayServerError,
@@ -84,6 +90,8 @@ type UpdateBookingPayload = {
   date?: string;
   theatreId?: string;
   slotId?: string;
+  startTime?: string;
+  endTime?: string;
   customer?: {
     name?: string;
     phone?: string;
@@ -213,6 +221,7 @@ export async function GET(
             id: true,
             name: true,
             locationId: true,
+            timezone: true,
             images: true,
             baseGuests: true,
             capacity: true,
@@ -354,12 +363,16 @@ export async function GET(
       image: booking.theatre?.images?.[0] ?? booking.venue?.images?.[0] ?? null,
       locationName: booking.theatre?.location?.name ?? booking.venue?.name ?? "—",
     };
-    const scheduleDate = booking.slot?.date ?? booking.eventDate;
-    const scheduleStartTime = booking.slot?.startTime ?? booking.eventStartTime ?? "";
-    const scheduleEndTime = booking.slot?.endTime ?? booking.eventEndTime ?? "";
-    const scheduleDateKey = scheduleDate
-      ? formatInTimeZone(scheduleDate, IST_TIMEZONE, "yyyy-MM-dd")
-      : "";
+    const schedule = presentReportingSchedule({
+      eventDate: booking.eventDate,
+      eventStartTime: booking.eventStartTime,
+      eventEndTime: booking.eventEndTime,
+      startsAtUtc: booking.startsAtUtc,
+      endsAtUtc: booking.endsAtUtc,
+      timezone: booking.timezone,
+      theatreTimezone: booking.theatre?.timezone,
+      slot: booking.slot,
+    });
 
     if (view === "drawer") {
       return NextResponse.json({
@@ -375,15 +388,23 @@ export async function GET(
           theatre: {
             id: displaySpace.id,
             name: displaySpace.name,
+            timezone: booking.theatre?.timezone ?? null,
             locationName: displaySpace.locationName,
           },
           locationName: displaySpace.locationName,
           theatreImage: displaySpace.image,
+          eventDate: booking.eventDate?.toISOString().slice(0, 10) ?? null,
+          eventStartTime: booking.eventStartTime,
+          eventEndTime: booking.eventEndTime,
+          startsAtUtc: booking.startsAtUtc?.toISOString() ?? null,
+          endsAtUtc: booking.endsAtUtc?.toISOString() ?? null,
+          timezone: booking.timezone,
+          schedule,
           slot: {
             id: booking.slot?.id ?? null,
-            date: scheduleDateKey,
-            startTime: scheduleStartTime,
-            endTime: scheduleEndTime,
+            date: schedule.date,
+            startTime: schedule.startTime,
+            endTime: schedule.endTime,
             status: booking.slot?.status ?? booking.bookingStatus,
             basePrice: booking.slot?.basePrice ?? null,
             finalPrice: booking.slot?.finalPrice ?? null,
@@ -489,7 +510,7 @@ export async function GET(
           email: booking.contactEmail ?? booking.user?.email ?? "",
         },
         locationId: booking.theatre?.locationId ?? "",
-        date: scheduleDateKey,
+        date: schedule.date,
         theatreId: booking.theatreId,
         slotId: booking.slotId,
         guestCount: booking.guestCount,
@@ -578,7 +599,8 @@ export async function PATCH(
       return bookingErrorResponse(400, "INVALID_REQUEST", "Invalid request payload.");
     }
 
-    assertBookingMutationPayload(body);
+    const adminRangeEnabled = isAdminRangeBookingEnabled();
+    assertBookingMutationPayload(body, { requireSlot: !adminRangeEnabled });
     ensureValidDateKey(body.date);
 
     const customerName = String(body.customer.name ?? "").trim();
@@ -732,17 +754,41 @@ export async function PATCH(
         );
       }
 
-      await lockSlotRowForUpdate(tx, {
-        slotId: body.slotId,
-        context: "admin-booking-update",
-      });
+      const rangeStartTime = body.startTime?.trim() || "";
+      const rangeEndTime = body.endTime?.trim() || "";
+      const rangeContext = adminRangeEnabled
+        ? await validateAdminRangeBooking(tx, {
+            theatreId: body.theatreId,
+            date: body.date,
+            startTime: rangeStartTime,
+            endTime: rangeEndTime,
+            guestCount,
+            pricingSlotId: body.slotId || null,
+            excludeBookingId: booking.id,
+          })
+        : null;
 
-      let slot = await tx.slot.findUnique({
-        where: { id: body.slotId },
-        include: {
-          theatre: true,
-        },
-      });
+      if (!adminRangeEnabled) {
+        await lockSlotRowForUpdate(tx, {
+          slotId: body.slotId,
+          context: "admin-booking-update",
+        });
+      }
+
+      let slot = rangeContext?.pricingSlot
+        ? {
+            ...rangeContext.pricingSlot,
+            status: "AVAILABLE" as const,
+            lockedBy: null as string | null,
+            lockExpiresAt: null as Date | null,
+            theatre: rangeContext.theatre,
+          }
+        : await tx.slot.findUnique({
+            where: { id: body.slotId },
+            include: {
+              theatre: true,
+            },
+          });
 
       if (!slot) {
         throw new AdminBookingEditError(
@@ -769,7 +815,7 @@ export async function PATCH(
         );
       }
 
-      if (guestCount > slot.theatre.capacity) {
+      if (!adminRangeEnabled && guestCount > slot.theatre.capacity) {
         throw new AdminBookingEditError(
           400,
           "GUEST_LIMIT_EXCEEDED",
@@ -777,7 +823,7 @@ export async function PATCH(
         );
       }
 
-      const slotChanged = slot.id !== booking.slotId;
+      const slotChanged = !adminRangeEnabled && slot.id !== booking.slotId;
       if (slotChanged) {
         if (!booking.slot) {
           throw new AdminBookingEditError(
@@ -864,14 +910,16 @@ export async function PATCH(
         );
       }
 
-      await validateNoOverlappingActiveBooking(tx, {
-        theatreId: slot.theatreId,
-        date: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        excludeBookingId: booking.id,
-        context: "admin-booking-update",
-      });
+      if (!adminRangeEnabled) {
+        await validateNoOverlappingActiveBooking(tx, {
+          theatreId: slot.theatreId,
+          date: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          excludeBookingId: booking.id,
+          context: "admin-booking-update",
+        });
+      }
 
       const normalizedItemsMap = new Map<
         string,
@@ -1199,13 +1247,24 @@ export async function PATCH(
             : body.couponCode
             ? [body.couponCode]
             : [],
-        slot: {
-          id: slot.id,
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          durationMin: slot.durationMin,
-        },
+        bookingSchedule: rangeContext
+          ? {
+              eventDate: rangeContext.range.eventDate,
+              eventStartTime: rangeStartTime,
+              eventEndTime: rangeEndTime,
+              startsAtUtc: rangeContext.range.startsAtUtc,
+              endsAtUtc: rangeContext.range.endsAtUtc,
+            }
+          : null,
+        slot: rangeContext
+          ? null
+          : {
+              id: slot.id,
+              date: slot.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              durationMin: slot.durationMin,
+            },
         theatreId: slot.theatreId,
         locationId: body.locationId,
         userId: linkedUserId,
@@ -1496,7 +1555,15 @@ export async function PATCH(
           contactPhone: phone,
           contactEmail: email,
           theatreId: slot.theatreId,
-          slotId: slot.id,
+          slotId: rangeContext ? null : slot.id,
+          eventDate: rangeContext?.range.eventDate,
+          eventStartTime: rangeContext ? rangeStartTime : undefined,
+          eventEndTime: rangeContext ? rangeEndTime : undefined,
+          startsAtUtc: rangeContext?.range.startsAtUtc,
+          endsAtUtc: rangeContext?.range.endsAtUtc,
+          occupiedUntilUtc: rangeContext?.range.occupiedUntilUtc,
+          bufferMinutes: rangeContext?.settings.bufferMinutes,
+          timezone: rangeContext?.theatre.timezone,
           occasionKey,
           occasionLabel,
           occasionData: occasionJson,
@@ -1755,6 +1822,9 @@ export async function PATCH(
       message: "Booking updated successfully.",
     });
   } catch (error) {
+    if (error instanceof AdminRangeBookingError) {
+      return bookingErrorResponse(409, error.code, error.message);
+    }
     if (error instanceof BookingSlotLockError) {
       return bookingErrorResponse(
         404,

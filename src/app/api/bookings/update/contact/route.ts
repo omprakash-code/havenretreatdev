@@ -20,6 +20,15 @@ import {
   PACKAGE_EXTRA_PERSON_PRICE,
   resolvePackageIncludedGuestCount,
 } from "@/lib/package-guest-pricing";
+import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import {
+  buildRangePricingSnapshot,
+  resolveRangePackageGuestLimit,
+} from "@/services/booking/range-booking-pricing.service";
+import {
+  RangeBookingSessionError,
+  requireActiveRangeBookingSession,
+} from "@/services/booking/range-booking-session.service";
 
 const EDITABLE_BOOKING_STATUSES = [
   "INCOMPLETE",
@@ -51,6 +60,90 @@ export async function POST(req: Request) {
         "INVALID_REQUEST",
         "Missing required fields."
       );
+    }
+
+    const rangeIdentity = await getRangeBookingApiIdentity(bookingId);
+    if (rangeIdentity) {
+      const result = await prisma.$transaction(async (tx) => {
+        const { booking } = await requireActiveRangeBookingSession(
+          rangeIdentity,
+          new Date(),
+          tx
+        );
+        if (!isEditableBookingStatus(booking.bookingStatus)) {
+          throw new Error("BOOKING_INVALID_STATE");
+        }
+
+        const settings = await tx.bookingSettings.findUnique({
+          where: { theatreId: booking.theatreId! },
+        });
+        if (!settings) throw new Error("BOOKING_INVALID_DETAILS");
+
+        const includedGuests = resolveRangePackageGuestLimit(
+          booking.packageSnapshot
+        );
+        const parsedGuestCount = Number(guestCount);
+        if (
+          !Number.isInteger(parsedGuestCount) ||
+          parsedGuestCount < includedGuests ||
+          parsedGuestCount > settings.maximumGuests
+        ) {
+          throw new Error("INVALID_GUEST_COUNT");
+        }
+
+        const productsAmount = booking.items.reduce(
+          (sum, item) => sum + Math.max(item.totalPrice, 0),
+          0
+        );
+        const pricingSnapshot = buildRangePricingSnapshot({
+          packageSnapshot: booking.packageSnapshot,
+          pricingSnapshot: booking.pricingSnapshot,
+          guestCount: parsedGuestCount,
+          productsAmount,
+          discountAmount: booking.discountAmount,
+        });
+
+        await tx.booking.update({
+          where: { id: booking.id },
+          data: {
+            contactName: name,
+            contactPhone: phone,
+            contactEmail: email ?? null,
+            guestCount: parsedGuestCount,
+            decorationRequired: Boolean(decorationRequired),
+            pricingSnapshot,
+            baseAmount:
+              pricingSnapshot.packageAmount +
+              pricingSnapshot.extraDurationAmount,
+            extrasAmount: pricingSnapshot.extraGuestAmount,
+            productsAmount,
+            totalAmount: pricingSnapshot.totalAmount,
+            remainingPayable: Math.max(
+              pricingSnapshot.totalAmount - booking.advancePaid,
+              0
+            ),
+            user: {
+              connectOrCreate: {
+                where: { phone },
+                create: { name, phone, email: email ?? null },
+              },
+            },
+          },
+        });
+
+        return {
+          effectiveDecorationRequired: Boolean(decorationRequired),
+          discountAmount: booking.discountAmount,
+          appliedCoupons: booking.couponUsages.map((usage) => ({
+            id: usage.coupon.id,
+            code: usage.coupon.code,
+            discountAmount: usage.discountAmount ?? 0,
+            status: usage.status,
+          })),
+        };
+      });
+
+      return NextResponse.json({ success: true, data: result });
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -155,6 +248,13 @@ export async function POST(req: Request) {
         contactPhone: phone,
       });
       const context = buildBookingCouponContext({
+        bookingSchedule: {
+          eventDate: booking.eventDate,
+          eventStartTime: booking.eventStartTime,
+          eventEndTime: booking.eventEndTime,
+          startsAtUtc: booking.startsAtUtc,
+          endsAtUtc: booking.endsAtUtc,
+        },
         slot: {
           id: slot.id,
           date: slot.date,
@@ -239,6 +339,13 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof RangeBookingSessionError) {
+      return bookingErrorResponse(
+        error.code === "BOOKING_NOT_FOUND" ? 404 : 409,
+        error.code,
+        error.message
+      );
+    }
     const code = error instanceof Error ? error.message : "INTERNAL_ERROR";
 
     if (code === "BOOKING_NOT_FOUND") {
@@ -263,6 +370,13 @@ export async function POST(req: Request) {
         409,
         "BOOKING_INVALID_STATE",
         "Booking details are incomplete."
+      );
+    }
+    if (code === "INVALID_GUEST_COUNT") {
+      return bookingErrorResponse(
+        400,
+        code,
+        "Guest count is outside the package and venue limits."
       );
     }
     if (code === "SLOT_EXPIRED") {

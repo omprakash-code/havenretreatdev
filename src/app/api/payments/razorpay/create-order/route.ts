@@ -35,6 +35,12 @@ import {
   logBookingSafetyEvent,
   validateNoOverlappingActiveBooking,
 } from "@/services/booking/booking-safety.service";
+import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import {
+  beginRangePaymentAttempt,
+  completeRangePaymentAttempt,
+  RangePaymentError,
+} from "@/services/booking/range-payment.service";
 
 class ApiError extends Error {
   status: number;
@@ -61,6 +67,67 @@ function jsonError(
   extra?: Record<string, unknown>
 ) {
   return bookingErrorResponse(status, code, message, extra);
+}
+
+async function createRangeRazorpayOrder(booking: {
+  id: string;
+  bookingRef: string;
+  lockVersion: number | null;
+  totalAmount: number;
+  advancePaid: number;
+  razorpayOrderId: string | null;
+}) {
+  const identity = await getRangeBookingApiIdentity(booking.id);
+  if (!identity || identity.lockVersion === null) {
+    throw new ApiError(
+      403,
+      "SESSION_EXPIRED",
+      "Your booking session expired or was replaced."
+    );
+  }
+  const configuredAdvanceAmount = await getRequiredAdvancePaymentAmount(prisma);
+  const amount =
+    booking.advancePaid > 0 ? booking.advancePaid : configuredAdvanceAmount;
+  const started = await beginRangePaymentAttempt({
+    bookingId: booking.id,
+    bookingLockVersion: identity.lockVersion,
+    provider: "RAZORPAY",
+    amount,
+  });
+  if (started.payment.status === "AWAITING_PAYMENT" && booking.razorpayOrderId) {
+    return {
+      id: booking.razorpayOrderId,
+      amount: amount * 100,
+      advancePayable: amount,
+      totalAmount: booking.totalAmount,
+      remainingPayable: Math.max(booking.totalAmount - amount, 0),
+    };
+  }
+
+  const created = await createRazorpayOrder({
+    amount: amount * 100,
+    currency: "INR",
+    receipt: `${booking.bookingRef}-v${identity.lockVersion}`,
+    payment_capture: true,
+  });
+  await completeRangePaymentAttempt({
+    paymentId: started.payment.id,
+    providerOrderId: created.id,
+    providerPayload: {
+      source: "order_creation",
+      orderId: created.id,
+      amount: created.amount,
+      currency: created.currency,
+      status: created.status ?? null,
+    },
+  });
+  return {
+    id: created.id,
+    amount: created.amount,
+    advancePayable: amount,
+    totalAmount: booking.totalAmount,
+    remainingPayable: Math.max(booking.totalAmount - amount, 0),
+  };
 }
 
 export async function POST(req: Request) {
@@ -102,8 +169,30 @@ export async function POST(req: Request) {
       );
     }
 
+    if (booking.slotId === null) {
+      const order = await createRangeRazorpayOrder(booking);
+      return Response.json({
+        success: true,
+        orderId: order.id,
+        amount: order.amount,
+        advancePayable: order.advancePayable,
+        totalAmount: order.totalAmount,
+        remainingPayable: order.remainingPayable,
+      });
+    }
+
     const now = new Date();
-    if (isStrictLockExpired(booking, now)) {
+    if (
+      isStrictLockExpired(
+        {
+          id: booking.id,
+          bookingStatus: booking.bookingStatus,
+          slotId: booking.slotId,
+          slot: booking.slot,
+        },
+        now
+      )
+    ) {
       const expireResult = await expireBookingLockSession(prisma, {
         bookingId: booking.id,
         slotId: booking.slotId,
@@ -400,6 +489,16 @@ export async function POST(req: Request) {
         error.message,
         error.extra
       );
+    }
+
+    if (error instanceof RangePaymentError) {
+      const status =
+        error.code === "RANGE_PAYMENT_DISABLED"
+          ? 503
+          : error.code === "BOOKING_NOT_FOUND"
+            ? 404
+            : 409;
+      return jsonError(status, error.code, error.message);
     }
 
     if (error instanceof BookingOverlapError) {

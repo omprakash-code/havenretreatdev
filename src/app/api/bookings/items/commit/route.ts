@@ -41,6 +41,15 @@ import {
   getPackageIncludedProductTotalPrice,
   resolvePackageIncludedProducts,
 } from "@/lib/package-included-products";
+import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import {
+  buildRangePricingSnapshot,
+  resolveRangePackageGuestLimit,
+} from "@/services/booking/range-booking-pricing.service";
+import {
+  RangeBookingSessionError,
+  requireActiveRangeBookingSession,
+} from "@/services/booking/range-booking-session.service";
 
 function isEditableBookingStatus(status: string) {
   return (
@@ -99,6 +108,7 @@ export async function POST(req: Request) {
         "Invalid booking payload."
       );
     }
+    const rangeIdentity = await getRangeBookingApiIdentity(bookingId);
 
     const normalizedItemsMap = new Map<
       string,
@@ -172,12 +182,37 @@ export async function POST(req: Request) {
         throw new Error("BOOKING_INVALID_STATE");
       }
 
-      if (!booking.slot || !booking.theatre || booking.slot.status !== "LOCKED") {
+      const isRangeBooking = booking.slotId === null;
+      if (isRangeBooking) {
+        if (!rangeIdentity) throw new Error("SESSION_EXPIRED");
+        await requireActiveRangeBookingSession(rangeIdentity, new Date(), tx);
+      }
+      if (
+        !booking.theatre ||
+        (!isRangeBooking &&
+          (!booking.slot || booking.slot.status !== "LOCKED"))
+      ) {
         throw new Error("SLOT_EXPIRED");
       }
 
-      const slot = booking.slot;
       const theatre = booking.theatre;
+      const slot = booking.slot ?? {
+        id: `range:${booking.id}`,
+        date: booking.eventDate!,
+        startTime: booking.eventStartTime!,
+        endTime: booking.eventEndTime!,
+        durationMin:
+          booking.startsAtUtc && booking.endsAtUtc
+            ? Math.round(
+                (booking.endsAtUtc.getTime() -
+                  booking.startsAtUtc.getTime()) /
+                  60_000
+              )
+            : 0,
+        basePrice: booking.baseAmount,
+        finalPrice: booking.baseAmount,
+        decorationMandatory: false,
+      };
       const effectiveItemsMap = new Map(normalizedItemsMap);
       const packageIncludedProducts = resolvePackageIncludedProducts(theatre);
       const packageIncludedProductSlugs = Object.keys(packageIncludedProducts);
@@ -345,18 +380,30 @@ export async function POST(req: Request) {
         0
       );
 
-      const includedGuestCount = resolvePackageIncludedGuestCount(theatre);
-      const locationMaxCapacity = await tx.theatre.aggregate({
-        where: {
-          locationId: theatre.locationId,
-          isActive: true,
-        },
-        _max: { capacity: true },
-      });
-      const guestLimit = Math.max(
-        includedGuestCount,
-        Number(locationMaxCapacity._max.capacity ?? includedGuestCount)
-      );
+      const includedGuestCount = isRangeBooking
+        ? resolveRangePackageGuestLimit(booking.packageSnapshot)
+        : resolvePackageIncludedGuestCount(theatre);
+      const guestLimit = isRangeBooking
+        ? (
+            await tx.bookingSettings.findUniqueOrThrow({
+              where: { theatreId: theatre.id },
+              select: { maximumGuests: true },
+            })
+          ).maximumGuests
+        : Math.max(
+            includedGuestCount,
+            Number(
+              (
+                await tx.theatre.aggregate({
+                  where: {
+                    locationId: theatre.locationId,
+                    isActive: true,
+                  },
+                  _max: { capacity: true },
+                })
+              )._max.capacity ?? includedGuestCount
+            )
+          );
       const parsedRequestedGuestCount =
         requestedGuestCountRaw == null ? booking.guestCount : requestedGuestCountRaw;
       const requestedGuestCount =
@@ -383,22 +430,39 @@ export async function POST(req: Request) {
         durationMin: slot.durationMin,
       });
 
-      const pricingBase = calculateBookingPricing({
-        slotBasePrice: slot.basePrice,
-        slotFinalPrice: slot.finalPrice,
-        durationHours,
-        includedDurationHours: durationPricing.includedDurationHours,
-        extraHourlyRate: durationPricing.extraHourlyRate,
-        guestCount: requestedGuestCount,
-        theatreBaseGuests: includedGuestCount,
-        theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
-        theatreDecorationPrice: theatre.decorationPrice,
-        slotDecorationMandatory: slot.decorationMandatory,
-        decorationRequired: effectiveDecorationRequired,
-        productsAmount: 0,
-        discountAmount: 0,
-        advancePaid: 0,
-      });
+      const rangePricing = isRangeBooking
+        ? buildRangePricingSnapshot({
+            packageSnapshot: booking.packageSnapshot,
+            pricingSnapshot: booking.pricingSnapshot,
+            guestCount: requestedGuestCount,
+            productsAmount,
+            discountAmount: 0,
+          })
+        : null;
+      const pricingBase = rangePricing
+        ? {
+            baseAmount:
+              rangePricing.packageAmount +
+              rangePricing.extraDurationAmount,
+            extrasAmount: rangePricing.extraGuestAmount,
+            decorationAmount: 0,
+          }
+        : calculateBookingPricing({
+            slotBasePrice: slot.basePrice,
+            slotFinalPrice: slot.finalPrice,
+            durationHours,
+            includedDurationHours: durationPricing.includedDurationHours,
+            extraHourlyRate: durationPricing.extraHourlyRate,
+            guestCount: requestedGuestCount,
+            theatreBaseGuests: includedGuestCount,
+            theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
+            theatreDecorationPrice: theatre.decorationPrice,
+            slotDecorationMandatory: slot.decorationMandatory,
+            decorationRequired: effectiveDecorationRequired,
+            productsAmount: 0,
+            discountAmount: 0,
+            advancePaid: 0,
+          });
 
       const slotAmount = pricingBase.baseAmount;
       const nonSlotAmount =
@@ -411,13 +475,22 @@ export async function POST(req: Request) {
         contactPhone: booking.contactPhone,
       });
       const context = buildBookingCouponContext({
-        slot: {
-          id: slot.id,
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          durationMin: slot.durationMin,
+        bookingSchedule: {
+          eventDate: booking.eventDate,
+          eventStartTime: booking.eventStartTime,
+          eventEndTime: booking.eventEndTime,
+          startsAtUtc: booking.startsAtUtc,
+          endsAtUtc: booking.endsAtUtc,
         },
+        slot: booking.slot
+          ? {
+              id: booking.slot.id,
+              date: booking.slot.date,
+              startTime: booking.slot.startTime,
+              endTime: booking.slot.endTime,
+              durationMin: booking.slot.durationMin,
+            }
+          : null,
         theatreId: theatre.id,
         locationId: theatre.locationId,
         userId: resolvedUserId,
@@ -445,6 +518,15 @@ export async function POST(req: Request) {
         minimumPayable: advanceFloor,
       });
       const totalAmount = bookingTotalBeforeDiscount - totalDiscount;
+      const finalRangePricing = isRangeBooking
+        ? buildRangePricingSnapshot({
+            packageSnapshot: booking.packageSnapshot,
+            pricingSnapshot: booking.pricingSnapshot,
+            guestCount: requestedGuestCount,
+            productsAmount,
+            discountAmount: totalDiscount,
+          })
+        : null;
 
       const shouldInvalidatePaymentOrder =
         booking.bookingStatus === "AWAITING_PAYMENT" ||
@@ -461,6 +543,7 @@ export async function POST(req: Request) {
           productsAmount,
           discountAmount: totalDiscount,
           totalAmount,
+          pricingSnapshot: finalRangePricing ?? undefined,
           remainingPayable: Math.max(totalAmount - booking.advancePaid, 0),
           ...(shouldInvalidatePaymentOrder
             ? {
@@ -509,6 +592,13 @@ export async function POST(req: Request) {
       })),
     });
   } catch (error) {
+    if (error instanceof RangeBookingSessionError) {
+      return bookingErrorResponse(
+        error.code === "BOOKING_NOT_FOUND" ? 404 : 409,
+        error.code,
+        error.message
+      );
+    }
     const code = error instanceof Error ? error.message : "INTERNAL_ERROR";
 
     if (code === "INVALID_REQUEST") {

@@ -14,6 +14,11 @@ import {
 } from "@/services/booking/booking-lock-lifecycle.service";
 import { RESERVATION_TIMED_OUT_MESSAGE } from "@/lib/booking-session-expiry";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
+import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import {
+  RangeBookingSessionError,
+  requireActiveRangeBookingSession,
+} from "@/services/booking/range-booking-session.service";
 
 export async function POST(req: Request) {
   try {
@@ -27,6 +32,59 @@ export async function POST(req: Request) {
       );
     }
 
+    const rangeIdentity = await getRangeBookingApiIdentity(bookingId);
+    if (rangeIdentity) {
+      const { booking, lock } =
+        await requireActiveRangeBookingSession(rangeIdentity);
+      if (
+        booking.lockVersion === null ||
+        booking.lockVersion !== lock.version
+      ) {
+        return bookingErrorResponse(
+          409,
+          "LOCK_VERSION_MISMATCH",
+          "The reservation has been replaced by a newer lock."
+        );
+      }
+      if (
+        booking.bookingStatus !== "AWAITING_PAYMENT" &&
+        booking.bookingStatus !== "PAYMENT_PROCESSING"
+      ) {
+        return bookingErrorResponse(
+          409,
+          "BOOKING_INVALID_STATE",
+          "Booking is not ready for payment."
+        );
+      }
+      if (!booking.termsAcceptedAt || booking.totalAmount <= 0) {
+        return bookingErrorResponse(
+          409,
+          "BOOKING_INVALID_STATE",
+          "Booking agreement or amount is incomplete."
+        );
+      }
+
+      const configuredAdvance =
+        await getRequiredAdvancePaymentAmount(prisma);
+      const advancePayable =
+        booking.advancePaid > 0 ? booking.advancePaid : configuredAdvance;
+      return NextResponse.json({
+        success: true,
+        message: "Range booking ready for payment provider migration",
+        bookingStatus: booking.bookingStatus,
+        paymentStatus: booking.paymentStatus,
+        lockVersion: lock.version,
+        lockExpiresAt: lock.expiresAt.toISOString(),
+        advancePayable,
+        totalAmount: booking.totalAmount,
+        remainingPayable: Math.max(
+          booking.totalAmount - advancePayable,
+          0
+        ),
+        paymentProviderReady: false,
+      });
+    }
+
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: { slot: true },
@@ -37,6 +95,15 @@ export async function POST(req: Request) {
         404,
         "BOOKING_NOT_FOUND",
         "Booking not found."
+      );
+    }
+
+    if (!booking.slotId || !booking.slot) {
+      return bookingErrorResponse(
+        409,
+        "SLOT_EXPIRED",
+        "Reservation expired, please choose a slot again.",
+        { slotStatus: booking.slot?.status ?? null }
       );
     }
 
@@ -78,7 +145,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!booking.slot || booking.slot.status !== "LOCKED") {
+    if (booking.slot.status !== "LOCKED") {
       return bookingErrorResponse(
         409,
         "SLOT_EXPIRED",
@@ -132,6 +199,13 @@ export async function POST(req: Request) {
       remainingPayable: Math.max(booking.totalAmount - resolvedAdvancePayable, 0),
     });
   } catch (error) {
+    if (error instanceof RangeBookingSessionError) {
+      return bookingErrorResponse(
+        error.code === "BOOKING_NOT_FOUND" ? 404 : 409,
+        error.code,
+        error.message
+      );
+    }
     console.error("PREPARE PAYMENT ERROR:", error);
 
     if (error instanceof AdvancePaymentConfigError) {

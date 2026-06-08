@@ -106,7 +106,8 @@ export default function BookingSummary({
   const pricing = booking.pricing;
   const appliedCoupons = booking.appliedCoupons ?? [];
   const isFinalExtrasPage = pathname === "/booking/extras/gift";
-  const canApplyCoupon = Boolean(booking.bookingId);
+  const canApplyCoupon =
+    Boolean(booking.bookingId) && booking.bookingMode === "LEGACY_SLOT";
   const couponIdentityGate = resolveCouponIdentityGate({
     phone: couponIdentityOverride?.phone ?? booking.contact?.phone,
     email: couponIdentityOverride?.email ?? booking.contact?.email,

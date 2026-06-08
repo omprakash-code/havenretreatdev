@@ -10,7 +10,13 @@ import TimeRangePicker, {
   type UnavailableTimeRange,
 } from "@/components/booking/time-range/TimeRangePicker";
 import { useBooking } from "@/context/BookingContext";
-import { toDateKey, toDateKeyString } from "@/lib/date";
+import {
+  addDaysToDateKey,
+  dateFromDateKey,
+  getDateKeyInTimeZone,
+  toDateKey,
+  toDateKeyString,
+} from "@/lib/date";
 
 type Props = {
   onContinue: () => void;
@@ -22,10 +28,11 @@ type Location = {
   city?: string;
 };
 
-function getISTWeekdayShort(date: Date): string {
-  return date.toLocaleDateString("en-IN", {
+const DEFAULT_VENUE_TIMEZONE = "America/New_York";
+
+function getWeekdayShort(date: Date): string {
+  return date.toLocaleDateString("en-US", {
     weekday: "short",
-    timeZone: "Asia/Kolkata",
   });
 }
 
@@ -53,19 +60,31 @@ export default function SelectLocationScreen({ onContinue }: Props) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [unavailableRanges, setUnavailableRanges] = useState<UnavailableTimeRange[]>([]);
+  const [rangeSettings, setRangeSettings] = useState<{
+    businessOpenTime: string;
+    businessCloseTime: string;
+    minimumDurationMinutes: number;
+    timezone: string;
+  } | null>(null);
   const [datesLoading, setDatesLoading] = useState(false);
   const noSlotsForLocation = booking.location && !datesLoading && availableDates.length === 0;
+  const venueTimezone = rangeSettings?.timezone ?? DEFAULT_VENUE_TIMEZONE;
 
   const releaseBookingSession = useCallback(async () => {
     try {
-      await fetch("/api/bookings/release", {
-        method: "POST",
+      await fetch(
+        booking.bookingMode === "RANGE"
+          ? "/api/booking-locks"
+          : "/api/bookings/release",
+        {
+        method: booking.bookingMode === "RANGE" ? "DELETE" : "POST",
         keepalive: true,
-      });
+        }
+      );
     } catch {
       // best effort; local state still updates
     }
-  }, []);
+  }, [booking.bookingMode]);
 
   const persistPrebooking = useCallback(
     async (location: Location, date: Date) => {
@@ -175,9 +194,23 @@ export default function SelectLocationScreen({ onContinue }: Props) {
         const json = await res.json();
         if (!cancelled && json.success) {
           setUnavailableRanges(json.data ?? []);
+          const settings = json.theatres?.[0];
+          setRangeSettings(
+            settings
+              ? {
+                  businessOpenTime: settings.businessOpenTime,
+                  businessCloseTime: settings.businessCloseTime,
+                  minimumDurationMinutes: settings.minimumDurationMinutes,
+                  timezone: settings.timezone,
+                }
+              : null
+          );
         }
       } catch {
-        if (!cancelled) setUnavailableRanges([]);
+        if (!cancelled) {
+          setUnavailableRanges([]);
+          setRangeSettings(null);
+        }
       }
     }
 
@@ -210,18 +243,18 @@ export default function SelectLocationScreen({ onContinue }: Props) {
   useEffect(() => {
     if (!booking.location || datesLoading || booking.date || availableDates.length === 0) return;
 
-    const todayKey = toDateKey(new Date());
+    const todayKey = toDateKey(getDateKeyInTimeZone(new Date(), venueTimezone));
 
 
     const firstValid = availableDates
-      .map((d) => new Date(d))
+      .map((d) => dateFromDateKey(d))
       .find((d) => toDateKey(d) >= todayKey);
 
     if (firstValid) {
       setDate(firstValid);
       void persistPrebooking(booking.location, firstValid);
     }
-  }, [availableDates, datesLoading, booking.location, booking.date, setDate, persistPrebooking]);
+  }, [availableDates, datesLoading, booking.location, booking.date, setDate, persistPrebooking, venueTimezone]);
 
 
 
@@ -260,8 +293,9 @@ export default function SelectLocationScreen({ onContinue }: Props) {
 
   const isQuickDate = (date: Date) =>
     quickDates.some((d) => {
-      const quick = new Date();
-      quick.setDate(quick.getDate() + d.offset);
+      const quick = dateFromDateKey(
+        addDaysToDateKey(getDateKeyInTimeZone(new Date(), venueTimezone), d.offset)
+      );
       return isSameDay(quick, date);
     });
 
@@ -269,9 +303,9 @@ export default function SelectLocationScreen({ onContinue }: Props) {
      Handlers
   ------------------------------ */
   const handleQuickDateSelect = (offset: number) => {
-    const date = new Date();
-    date.setDate(date.getDate() + offset);
-    date.setHours(0, 0, 0, 0);
+    const date = dateFromDateKey(
+      addDaysToDateKey(getDateKeyInTimeZone(new Date(), venueTimezone), offset)
+    );
 
     const isAvailable = availableDates.some(
       (d) => toDateKey(d) === toDateKey(date)
@@ -407,7 +441,8 @@ export default function SelectLocationScreen({ onContinue }: Props) {
             }}
             isQuickDate={isQuickDate}
             isSameDay={isSameDay}
-            getWeekdayShort={getISTWeekdayShort}
+            getWeekdayShort={getWeekdayShort}
+            timezone={venueTimezone}
           />
 
           {/* Calendar Modal */}
@@ -415,6 +450,7 @@ export default function SelectLocationScreen({ onContinue }: Props) {
             <BookingCalendar
               availableDates={availableDates}
               selectedDate={booking.date}
+              timezone={venueTimezone}
               onSelect={(date) => {
                 const d = new Date(date);
                 d.setHours(0, 0, 0, 0);
@@ -435,11 +471,18 @@ export default function SelectLocationScreen({ onContinue }: Props) {
           <TimeRangePicker
             startTime={booking.startTime}
             endTime={booking.endTime}
-            minDurationHours={minimumBookingDurationHours}
+            minDurationHours={
+              rangeSettings
+                ? rangeSettings.minimumDurationMinutes / 60
+                : minimumBookingDurationHours
+            }
             onChange={setTimeRange}
             disabled={!booking.date}
             selectedDate={booking.date}
             unavailableRanges={unavailableRanges}
+            businessOpenTime={rangeSettings?.businessOpenTime}
+            businessCloseTime={rangeSettings?.businessCloseTime}
+            timezone={rangeSettings?.timezone}
           />
         </div>
 

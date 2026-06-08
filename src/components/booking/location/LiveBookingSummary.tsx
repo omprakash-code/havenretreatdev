@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Clock } from "@/components/icons";
-import { formatDuration, formatISTDate, formatISTTime } from "@/lib/formatters";
+import { formatDuration, formatISTTime } from "@/lib/formatters";
 
 type LiveBookingSummaryProps = {
   selectedDate: Date | null;
@@ -9,6 +9,14 @@ type LiveBookingSummaryProps = {
   endTime: string | null;
   durationHours: number | null;
 };
+
+function formatBookingDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default function LiveBookingSummary({
   selectedDate,
@@ -41,7 +49,7 @@ export default function LiveBookingSummary({
         <SummaryPill
           icon={Calendar}
           label="Date"
-          value={selectedDate ? formatISTDate(selectedDate) : "Select date"}
+          value={selectedDate ? formatBookingDate(selectedDate) : "Select date"}
         />
         <SummaryPill
           icon={Clock}

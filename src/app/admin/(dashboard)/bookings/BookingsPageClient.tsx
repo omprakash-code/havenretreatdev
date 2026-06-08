@@ -290,7 +290,9 @@ export default function BookingsPage() {
         new Set(
           bookings.map(
             (b) =>
-              `${b.slot.startTime} - ${b.slot.endTime}`
+              `${b.schedule?.startTime || b.slot.startTime} - ${
+                b.schedule?.endTime || b.slot.endTime
+              }`
           )
         )
       ),

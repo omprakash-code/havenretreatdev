@@ -68,6 +68,8 @@ async function resolveBookingByPaymentEntity(payment: RazorpayPaymentEntity) {
       where: { razorpayOrderId: orderId },
       select: {
         id: true,
+        slotId: true,
+        lockVersion: true,
         bookingStatus: true,
         paymentStatus: true,
         razorpayPaymentId: true,
@@ -86,6 +88,8 @@ async function resolveBookingByPaymentEntity(payment: RazorpayPaymentEntity) {
     where: { id: bookingIdFromNotes },
     select: {
       id: true,
+      slotId: true,
+      lockVersion: true,
       bookingStatus: true,
       paymentStatus: true,
       razorpayPaymentId: true,
@@ -138,6 +142,10 @@ async function handlePaymentCaptured(payment: RazorpayPaymentEntity) {
       razorpay_order_id: orderId,
       razorpay_payment_id: paymentId,
       razorpay_signature: buildSyntheticCheckoutSignature(orderId, paymentId),
+      providerPayload: {
+        source: "razorpay_webhook",
+        payment,
+      },
     }),
   });
 
@@ -204,6 +212,8 @@ async function handlePaymentFailed(payment: RazorpayPaymentEntity) {
       where: { id: booking.id },
       select: {
         id: true,
+        slotId: true,
+        lockVersion: true,
         bookingStatus: true,
         paymentStatus: true,
       },
@@ -215,6 +225,59 @@ async function handlePaymentFailed(payment: RazorpayPaymentEntity) {
       fresh.bookingStatus === "CONFIRMED" &&
       fresh.paymentStatus === "PAID";
     if (bookingIsPaid) return;
+
+    if (fresh.slotId === null && fresh.lockVersion !== null) {
+      const lock = await tx.bookingLock.findUnique({
+        where: {
+          bookingId_version: {
+            bookingId: fresh.id,
+            version: fresh.lockVersion,
+          },
+        },
+      });
+      const lockIsActive =
+        lock?.status === "ACTIVE" && lock.expiresAt > new Date();
+      await tx.booking.update({
+        where: { id: fresh.id },
+        data: {
+          bookingStatus: lockIsActive ? "AWAITING_PAYMENT" : "ABANDONED",
+          paymentStatus: lockIsActive ? "FAILED" : "EXPIRED",
+          ...(!lockIsActive
+            ? {
+                cancelledReason: "PAYMENT_LOCK_EXPIRED",
+                cancelledAt: new Date(),
+              }
+            : {}),
+        },
+      });
+      const attempt = await tx.payment.findFirst({
+        where: {
+          bookingId: fresh.id,
+          provider: "RAZORPAY",
+          bookingLockVersion: fresh.lockVersion,
+          ...(payment.order_id
+            ? { providerOrderId: payment.order_id }
+            : {}),
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      if (attempt) {
+        await tx.payment.update({
+          where: { id: attempt.id },
+          data: {
+            status: lockIsActive ? "FAILED" : "EXPIRED",
+            providerPaymentId: paymentId || null,
+            providerPayload: {
+              source: "razorpay_webhook",
+              event: "payment.failed",
+              payment: JSON.parse(JSON.stringify(payment)),
+            },
+            method: taggedMethod,
+          },
+        });
+      }
+      return;
+    }
 
     await tx.booking.update({
       where: { id: fresh.id },

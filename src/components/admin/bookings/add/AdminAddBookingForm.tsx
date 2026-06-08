@@ -54,6 +54,10 @@ import {
   getTheatreHoverHint,
 } from "@/components/admin/bookings/add/sections/scheduleSection.helpers";
 
+const ADMIN_RANGE_BOOKING_ENABLED =
+  process.env.ADMIN_RANGE_BOOKING_ENABLED === "true" ||
+  process.env.NEXT_PUBLIC_ADMIN_RANGE_BOOKING_ENABLED === "true";
+
 type AdminAddBookingFormProps = {
   embedded?: boolean;
   mode?: "create" | "edit";
@@ -1484,6 +1488,9 @@ export function AdminAddBookingForm({
     }
 
     setSlotId("");
+    if (ADMIN_RANGE_BOOKING_ENABLED) {
+      return;
+    }
     void resolveSlotForSelectedTimeRange(nextStartTime, nextEndTime).catch((error) => {
       toast.error((error as Error)?.message || "Selected time range is not available.");
     });
@@ -1503,6 +1510,10 @@ export function AdminAddBookingForm({
     if (exactSlot) {
       setSlotId(exactSlot.id);
       return exactSlot.id;
+    }
+
+    if (ADMIN_RANGE_BOOKING_ENABLED) {
+      return "";
     }
 
     const res = await fetch("/api/bookings/resolve-range-slot", {
@@ -1836,7 +1847,7 @@ export function AdminAddBookingForm({
     if (!date) nextErrors.date = "Date is required.";
     if (!theatreId) nextErrors.theatreId = "Theatre is required.";
     if (!startTime || !endTime) nextErrors.slotId = "Event time is required.";
-    if (startTime && endTime && !resolvedSlotId) {
+    if (startTime && endTime && !resolvedSlotId && !ADMIN_RANGE_BOOKING_ENABLED) {
       nextErrors.slotId = "Event time must be resolved before saving.";
     }
     if (slotConflictMessage) nextErrors.slotStatus = slotConflictMessage;
@@ -2426,6 +2437,8 @@ export function AdminAddBookingForm({
         date,
         theatreId,
         slotId: resolvedSlotId,
+        startTime,
+        endTime,
         customer: {
           name: name.trim(),
           phone: normalizePhone(phone),

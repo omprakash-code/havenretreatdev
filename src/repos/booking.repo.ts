@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { allocateBookingRef } from "@/services/booking/bookingId.service";
 
 //------------------------------------------------------
 // BOOKING CREATION (new additions)
@@ -22,6 +23,7 @@ export async function createBookingTx(data: {
   };
 }) {
   return prisma.$transaction(async (tx) => {
+    const bookingRef = await allocateBookingRef(tx);
     const booking = await tx.booking.create({
       data: {
         userId: data.userId ?? null, // SAFE
@@ -41,7 +43,7 @@ export async function createBookingTx(data: {
 
         bookingStatus: "INCOMPLETE",
         paymentStatus: "AWAITING_PAYMENT",
-        bookingRef: "TEMP",
+        bookingRef,
       },
     });
 

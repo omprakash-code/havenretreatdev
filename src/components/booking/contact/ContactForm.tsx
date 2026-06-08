@@ -159,6 +159,13 @@ export default function ContactForm({
     const locationId = booking.location?.id;
     const bookingDate = booking.date;
 
+    if (booking.bookingMode === "RANGE") {
+      setLargerTheatreOptions([]);
+      setDecorationOptionalTheatreOptions([]);
+      setLoadingLargerTheatres(false);
+      return;
+    }
+
     if (!theatre?.id || !locationId || !bookingDate) {
       setLargerTheatreOptions([]);
       setDecorationOptionalTheatreOptions([]);
@@ -256,7 +263,13 @@ export default function ContactForm({
     return () => {
       cancelled = true;
     };
-  }, [booking.date, booking.location?.id, theatre?.capacity, theatre?.id]);
+  }, [
+    booking.bookingMode,
+    booking.date,
+    booking.location?.id,
+    theatre?.capacity,
+    theatre?.id,
+  ]);
 
   /* -----------------------------
      Package logic

@@ -4,6 +4,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import { requireActiveRangeBookingSession } from "@/services/booking/range-booking-session.service";
 
 const EDITABLE_BOOKING_STATUSES = [
   "INCOMPLETE",
@@ -43,6 +45,16 @@ export async function GET(req: Request) {
         },
         { status: 404 }
       );
+    }
+    if (booking.slotId === null) {
+      const identity = await getRangeBookingApiIdentity(bookingId);
+      if (!identity) {
+        return NextResponse.json(
+          { success: false, code: "SESSION_EXPIRED" },
+          { status: 409 }
+        );
+      }
+      await requireActiveRangeBookingSession(identity);
     }
 
     /* -----------------------------

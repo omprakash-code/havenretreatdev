@@ -76,6 +76,7 @@ export default function PaymentsTable({
             <th className="px-4">Status</th>
             <th className="px-4">Provider</th>
             <th className="px-4">Transaction ID</th>
+            <th className="px-4">Booking Time</th>
             <th className="pl-4 pr-5">Date</th>
           </tr>
         </thead>
@@ -157,6 +158,13 @@ export default function PaymentsTable({
               <td className="px-4 py-3 whitespace-nowrap">{row.provider}</td>
               <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
                 {row.transactionId ?? "No Transaction id"}
+              </td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                <div>{row.schedule?.dateLabel ?? row.slotDate ?? "—"}</div>
+                <div className="text-xs text-neutral-500">
+                  {row.schedule?.timeLabel ??
+                    `${row.slotStartTime} - ${row.slotEndTime}`}
+                </div>
               </td>
               <td className="py-3 pl-4 pr-5 whitespace-nowrap">
                 {formatISTDateTime(row.createdAt)}

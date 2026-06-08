@@ -73,9 +73,9 @@ export default function UserBookingAbandonmentEmail({
     : "Booking Not Completed";
   const primaryMessage = isPaymentDropoff
     ? "We could not complete your booking because the payment step was not finished. The earlier reservation has been released."
-    : "Your booking session ended before confirmation, so the selected slot has been released.";
+    : "Your booking session ended before confirmation, so the selected booking time has been released.";
   const secondaryMessage = isPaymentDropoff
-    ? "If you still want to book, please start again and choose any available slot."
+    ? "If you still want to book, please start again and choose any available booking time."
     : "You can start again anytime and complete your booking in a few quick steps.";
   const ctaLabel = isPaymentDropoff ? "Start New Booking" : "Continue Booking";
 

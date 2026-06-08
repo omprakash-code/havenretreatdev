@@ -153,7 +153,7 @@ export default function AdminBookingAbandonmentEmail({
                       labelColor={color.textSecondary}
                     />
                     <BookingEmailDataRow
-                      label="Time Slot"
+                      label="Booking Time"
                       value={timeSlot}
                       labelColor={color.textSecondary}
                     />

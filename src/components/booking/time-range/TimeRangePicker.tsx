@@ -8,11 +8,8 @@ import {
   DEFAULT_TIME_RANGE_INCREMENT_MINUTES,
   parseTimeValue,
 } from "@/lib/booking-time-range";
+import { toDateKeyString } from "@/lib/date";
 import { formatISTTime } from "@/lib/formatters";
-
-const IST_TIMEZONE = "Asia/Kolkata";
-const BUSINESS_OPEN_MINUTES = 9 * 60;
-const BUSINESS_CLOSE_MINUTES = 23 * 60;
 
 type TimeRangePickerProps = {
   startTime: string | null;
@@ -24,6 +21,9 @@ type TimeRangePickerProps = {
   selectedDate?: Date | null;
   variant?: "event-card" | "admin-field";
   unavailableRanges?: UnavailableTimeRange[];
+  businessOpenTime?: string;
+  businessCloseTime?: string;
+  timezone?: string;
 };
 
 export type UnavailableTimeRange = {
@@ -32,18 +32,22 @@ export type UnavailableTimeRange = {
   reason: "BOOKED" | "BLOCKED" | "LOCKED";
 };
 
-function getISTDateKey(date: Date) {
+function getDateKey(date: Date, timezone: string) {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: IST_TIMEZONE,
+    timeZone: timezone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(date);
 }
 
-function getNowISTMinutes() {
+function getSelectedBookingDateKey(date: Date) {
+  return toDateKeyString(date);
+}
+
+function getNowMinutes(timezone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: IST_TIMEZONE,
+    timeZone: timezone,
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
@@ -80,9 +84,12 @@ export default function TimeRangePicker({
   selectedDate = null,
   variant = "event-card",
   unavailableRanges = [],
+  businessOpenTime = "09:00",
+  businessCloseTime = "23:00",
+  timezone = "America/New_York",
 }: TimeRangePickerProps) {
   const times = useMemo(() => buildTimeValues(incrementMinutes), [incrementMinutes]);
-  const [nowISTMinutes, setNowISTMinutes] = useState(() => getNowISTMinutes());
+  const [nowMinutes, setNowMinutes] = useState(() => getNowMinutes(timezone));
   const [open, setOpen] = useState(false);
   const modalPanelRef = useRef<HTMLDivElement | null>(null);
   const [draftStartTime, setDraftStartTime] = useState<string | null>(startTime);
@@ -93,41 +100,46 @@ export default function TimeRangePicker({
     top: number;
   } | null>(null);
   const minDurationMinutes = Math.round(minDurationHours * 60);
+  const businessOpenMinutes =
+    parseTimeValue(businessOpenTime) ?? 9 * 60;
+  const businessCloseMinutes =
+    parseTimeValue(businessCloseTime) ?? 23 * 60;
   const startMinutes = parseTimeValue(startTime);
   const draftStartMinutes = parseTimeValue(draftStartTime);
   const durationHours = calculateDurationHours(startTime, endTime);
   const draftDurationHours = calculateDurationHours(draftStartTime, draftEndTime);
   const isSelectingEndTime = Boolean(draftStartTime && !draftEndTime);
   const isSelectedDateToday =
-    selectedDate !== null && getISTDateKey(selectedDate) === getISTDateKey(new Date());
+    selectedDate !== null &&
+    getSelectedBookingDateKey(selectedDate) === getDateKey(new Date(), timezone);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      setNowISTMinutes(getNowISTMinutes());
+      setNowMinutes(getNowMinutes(timezone));
     }, 60_000);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [timezone]);
 
   useEffect(() => {
     if (!isSelectedDateToday || startMinutes === null) return;
-    if (startMinutes <= nowISTMinutes) {
+    if (startMinutes <= nowMinutes) {
       onChange(null, null);
     }
-  }, [isSelectedDateToday, nowISTMinutes, onChange, startMinutes]);
+  }, [isSelectedDateToday, nowMinutes, onChange, startMinutes]);
 
   const canUseStartTime = (candidate: string) => {
     const candidateMinutes = parseTimeValue(candidate);
     const isWithinBusinessHours =
       candidateMinutes !== null &&
-      candidateMinutes >= BUSINESS_OPEN_MINUTES &&
-      candidateMinutes <= BUSINESS_CLOSE_MINUTES;
+      candidateMinutes >= businessOpenMinutes &&
+      candidateMinutes <= businessCloseMinutes;
     const hasSameDayEnd =
       candidateMinutes !== null &&
-      candidateMinutes + minDurationMinutes <= BUSINESS_CLOSE_MINUTES;
+      candidateMinutes + minDurationMinutes <= businessCloseMinutes;
     const hasNotExpired =
       !isSelectedDateToday ||
-      (candidateMinutes !== null && candidateMinutes > nowISTMinutes);
+      (candidateMinutes !== null && candidateMinutes > nowMinutes);
 
     const minEndTime =
       candidateMinutes !== null
@@ -148,7 +160,7 @@ export default function TimeRangePicker({
     return (
       draftStartMinutes !== null &&
       candidateMinutes !== null &&
-      candidateMinutes <= BUSINESS_CLOSE_MINUTES &&
+      candidateMinutes <= businessCloseMinutes &&
       candidateMinutes - draftStartMinutes >= minDurationMinutes &&
       !rangeOverlapsUnavailable(draftStartTime!, candidate)
     );
@@ -272,7 +284,7 @@ export default function TimeRangePicker({
 
     if (isEndSelection) {
       if (!draftStartTime) return "Choose a start time first";
-      if (candidateMinutes !== null && candidateMinutes > BUSINESS_CLOSE_MINUTES) {
+      if (candidateMinutes !== null && candidateMinutes > businessCloseMinutes) {
         return `${label} is outside business hours`;
       }
       if (!canUseDraftEndTime(time)) {
@@ -287,13 +299,17 @@ export default function TimeRangePicker({
       return `${label} is available as an end time`;
     }
 
-    if (isSelectedDateToday && candidateMinutes !== null && candidateMinutes <= nowISTMinutes) {
+    if (
+      isSelectedDateToday &&
+      candidateMinutes !== null &&
+      candidateMinutes <= nowMinutes
+    ) {
       return `${label} is unavailable because it has already passed`;
     }
 
     if (
       candidateMinutes !== null &&
-      candidateMinutes + minDurationMinutes > BUSINESS_CLOSE_MINUTES
+      candidateMinutes + minDurationMinutes > businessCloseMinutes
     ) {
       return `${label} is unavailable because it cannot meet the minimum duration today`;
     }
@@ -314,15 +330,15 @@ export default function TimeRangePicker({
     const candidateMinutes = parseTimeValue(time);
     const isInBusinessWindow =
       candidateMinutes !== null &&
-      candidateMinutes >= BUSINESS_OPEN_MINUTES &&
-      candidateMinutes <= BUSINESS_CLOSE_MINUTES;
+      candidateMinutes >= businessOpenMinutes &&
+      candidateMinutes <= businessCloseMinutes;
 
     if (isSelectingEndTime) {
       return (
         draftStartMinutes !== null &&
         candidateMinutes !== null &&
         candidateMinutes >= draftStartMinutes &&
-        candidateMinutes <= BUSINESS_CLOSE_MINUTES
+        candidateMinutes <= businessCloseMinutes
       );
     }
 

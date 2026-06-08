@@ -39,7 +39,7 @@ const COLORS = {
 
 const SUCCESS_VENUE_IMAGE = "/media/booking/success/pool-view.avif";
 
-function slotRangeLabel(input: string) {
+function bookingTimeRangeLabel(input: string) {
   const raw = String(input || "").trim();
   if (!raw) return raw;
   const [start, end] = raw.split(/\s*-\s*/);
@@ -282,7 +282,7 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     rows.push({
       label: "Note",
       value:
-        "Please arrive 15 minutes before your slot. Remaining balance can be paid at the venue via UPI, Card, or Cash.",
+        "Please arrive 15 minutes before your booking time. Remaining balance can be paid at the venue via UPI, Card, or Cash.",
       tone: "muted",
     });
   }
@@ -350,7 +350,7 @@ function drawVenueHero(
   const details = [
     `Location: ${sanitizeDisplayText(data.locationName)}`,
     `Date: ${sanitizeDisplayText(data.date)}`,
-    `Time: ${sanitizeDisplayText(slotRangeLabel(data.timeSlot))}`,
+    `Time: ${sanitizeDisplayText(bookingTimeRangeLabel(data.timeSlot))}`,
     `Duration: ${sanitizeDisplayText(formatDurationLabel(data))}`,
     `Guests: ${data.guestCount} People`,
     `Name: ${sanitizeDisplayText(data.contact.name)}`,
@@ -778,7 +778,8 @@ function drawProductCard(
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.6);
-  doc.setTextColor(...(item.totalPrice <= 0 ? COLORS.textMuted : COLORS.textStrong));
+  const priceColor = item.totalPrice <= 0 ? COLORS.textMuted : COLORS.textStrong;
+  doc.setTextColor(priceColor[0], priceColor[1], priceColor[2]);
   doc.text(
     item.totalPrice <= 0 ? "Included" : formatCurrency(item.totalPrice),
     x + w - 2,

@@ -1,9 +1,9 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
-import { formatInTimeZone } from "date-fns-tz";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getRequiredAdvancePaymentAmount } from "@/lib/advance-payment";
+import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { timingSafeEqualString } from "@/lib/security/timingSafeEqual";
 import {
@@ -48,8 +48,9 @@ import {
   logBookingSafetyEvent,
   validateNoOverlappingActiveBooking,
 } from "@/services/booking/booking-safety.service";
-
-const IST_TIMEZONE = "Asia/Kolkata";
+import {
+  finalizeRangePayment,
+} from "@/services/booking/range-payment.service";
 
 const resolvedBaseUrl = (() => {
   const nextPublic = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -87,6 +88,7 @@ type VerifyPayload = {
   razorpay_payment_id?: string;
   razorpay_signature?: string;
   bookingId?: string;
+  providerPayload?: Prisma.InputJsonValue;
 };
 
 type ConfirmationEmailData = BookingConfirmationEmailProps & {
@@ -114,9 +116,8 @@ function buildEmailData(input: {
   contactEmail: string | null;
   locationName: string | null;
   theatreName: string;
-  slotDate: Date;
-  slotStartTime: string;
-  slotEndTime: string;
+  date: string;
+  timeSlot: string;
   guestCount: number;
   occasionLabel: string | null;
   occasionData: Prisma.JsonValue | null;
@@ -141,8 +142,8 @@ function buildEmailData(input: {
     customerEmail: input.contactEmail ?? undefined,
     locationName: input.locationName ?? "—",
     theatreName: input.theatreName,
-    date: formatInTimeZone(input.slotDate, IST_TIMEZONE, "EEE, dd MMM yyyy"),
-    timeSlot: `${input.slotStartTime} - ${input.slotEndTime}`,
+    date: input.date,
+    timeSlot: input.timeSlot,
     guestCount: input.guestCount,
     occasionLabel: input.occasionLabel ?? undefined,
     occasionDetails: buildOccasionDetails(input.occasionData),
@@ -167,6 +168,28 @@ function buildEmailData(input: {
   };
 
   return data;
+}
+
+function resolveScheduleNotificationText(input: {
+  eventDate?: Date | null;
+  eventStartTime?: string | null;
+  eventEndTime?: string | null;
+  startsAtUtc?: Date | null;
+  endsAtUtc?: Date | null;
+  timezone?: string | null;
+  theatreTimezone?: string | null;
+  slot?: {
+    date: Date;
+    startTime: string;
+    endTime: string;
+    durationMin?: number | null;
+  } | null;
+}) {
+  const schedule = resolvePresentedBookingSchedule(input);
+  return {
+    date: schedule?.date ?? "-",
+    timeSlot: schedule?.timeSlot ?? "-",
+  };
 }
 
 function resolveRestartBookingUrl() {
@@ -443,6 +466,9 @@ async function finalizePaymentCapturedBookingFailure(input: {
         where: { id: input.bookingSnapshot.theatre.locationId },
         select: { name: true },
       });
+      const scheduleText = resolveScheduleNotificationText({
+        slot: input.bookingSnapshot.slot,
+      });
 
       await sendPaymentCapturedBookingFailedNotifications({
         bookingRef: input.bookingRef,
@@ -451,16 +477,8 @@ async function finalizePaymentCapturedBookingFailure(input: {
         customerEmail: input.bookingSnapshot.contactEmail,
         theatreName: input.bookingSnapshot.theatre.name,
         locationName: location?.name ?? null,
-        date: input.bookingSnapshot.slot
-          ? formatInTimeZone(
-              input.bookingSnapshot.slot.date,
-              IST_TIMEZONE,
-              "EEE, dd MMM yyyy"
-            )
-          : "-",
-        timeSlot: input.bookingSnapshot.slot
-          ? `${input.bookingSnapshot.slot.startTime} - ${input.bookingSnapshot.slot.endTime}`
-          : "-",
+        date: scheduleText.date,
+        timeSlot: scheduleText.timeSlot,
         guestCount: input.bookingSnapshot.guestCount,
         occasionLabel: input.bookingSnapshot.occasionLabel,
         occasionDetails: buildOccasionDetails(input.bookingSnapshot.occasionData),
@@ -551,6 +569,70 @@ export async function POST(req: Request) {
       );
     }
 
+    if (bookingSnapshot.slotId === null) {
+      const result = await finalizeRangePayment({
+        provider: "RAZORPAY",
+        bookingId: bookingSnapshot.id,
+        providerOrderId: razorpay_order_id,
+        providerPaymentId: razorpay_payment_id,
+        amount:
+          bookingSnapshot.advancePaid > 0
+            ? bookingSnapshot.advancePaid
+            : await getRequiredAdvancePaymentAmount(prisma),
+        providerPayload: payload?.providerPayload ?? {
+          source: "checkout_verification",
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id,
+        },
+      });
+      if (result.status === "CONFIRMED" || result.status === "ALREADY_CONFIRMED") {
+        const response = NextResponse.json({
+          success: true,
+          bookingRef: result.bookingRef,
+          successToken: result.successToken,
+        });
+        response.cookies.set("ds_booking_session", "", {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 0,
+        });
+        response.cookies.set("ds_lock_owner", "", {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 0,
+        });
+        return response;
+      }
+      if (result.status === "MANUAL_REVIEW") {
+        return bookingErrorResponse(
+          409,
+          "PAYMENT_MANUAL_REVIEW",
+          "Payment was received, but the reservation requires manual review.",
+          {
+            paymentCaptured: true,
+            bookingRef: result.bookingRef,
+            cancelledReason: result.reason,
+          }
+        );
+      }
+      return bookingErrorResponse(
+        409,
+        "PAYMENT_ATTEMPT_NOT_FOUND",
+        "Payment attempt could not be matched to this booking."
+      );
+    }
+
+    if (!bookingSnapshot.theatre) {
+      return bookingErrorResponse(
+        409,
+        "BOOKING_INVALID_STATE",
+        "Booking theatre is missing."
+      );
+    }
+    const bookingSnapshotTheatre = bookingSnapshot.theatre;
+
     const paymentAmount =
       bookingSnapshot.advancePaid && bookingSnapshot.advancePaid > 0
         ? bookingSnapshot.advancePaid
@@ -602,8 +684,8 @@ export async function POST(req: Request) {
             totalAmount: bookingSnapshot.totalAmount,
             advancePaid: bookingSnapshot.advancePaid,
             theatre: {
-              name: bookingSnapshot.theatre.name,
-              locationId: bookingSnapshot.theatre.locationId,
+              name: bookingSnapshotTheatre.name,
+              locationId: bookingSnapshotTheatre.locationId,
             },
             slot: null,
           },
@@ -635,8 +717,8 @@ export async function POST(req: Request) {
             totalAmount: bookingSnapshot.totalAmount,
             advancePaid: bookingSnapshot.advancePaid,
             theatre: {
-              name: bookingSnapshot.theatre.name,
-              locationId: bookingSnapshot.theatre.locationId,
+              name: bookingSnapshotTheatre.name,
+              locationId: bookingSnapshotTheatre.locationId,
             },
             slot: {
               date: bookingSnapshot.slot.date,
@@ -687,7 +769,7 @@ export async function POST(req: Request) {
         bookingSnapshot.paymentStatus === "PAID"
       ) {
         const location = await prisma.location.findUnique({
-          where: { id: bookingSnapshot.theatre.locationId },
+          where: { id: bookingSnapshotTheatre.locationId },
         });
 
         if (
@@ -768,9 +850,18 @@ export async function POST(req: Request) {
           );
         }
 
+        if (!existing.theatre) {
+          throw new ApiError(
+            409,
+            "BOOKING_INVALID_STATE",
+            "Booking theatre is missing."
+          );
+        }
+        const existingTheatre = existing.theatre;
+
         if (!existing.slot) {
           const fallbackLocation = await tx.location.findUnique({
-            where: { id: existing.theatre.locationId },
+            where: { id: existingTheatre.locationId },
           });
           const paidAmount =
             existing.advancePaid && existing.advancePaid > 0
@@ -801,6 +892,17 @@ export async function POST(req: Request) {
           });
           paymentMarkedPaid = true;
 
+          const scheduleText = resolveScheduleNotificationText({
+            eventDate: existing.eventDate,
+            eventStartTime: existing.eventStartTime,
+            eventEndTime: existing.eventEndTime,
+            startsAtUtc: existing.startsAtUtc,
+            endsAtUtc: existing.endsAtUtc,
+            timezone: existing.timezone,
+            theatreTimezone: existingTheatre.timezone,
+            slot: existing.slot,
+          });
+
           return {
             bookingRef: updatedBooking.bookingRef,
             successToken: "",
@@ -814,14 +916,10 @@ export async function POST(req: Request) {
               customerName: existing.contactName,
               customerPhone: existing.contactPhone,
               customerEmail: existing.contactEmail,
-              theatreName: existing.theatre.name,
+              theatreName: existingTheatre.name,
               locationName: fallbackLocation?.name ?? null,
-              date: bookingSnapshot.slot
-                ? formatInTimeZone(bookingSnapshot.slot.date, IST_TIMEZONE, "EEE, dd MMM yyyy")
-                : "-",
-              timeSlot: bookingSnapshot.slot
-                ? `${bookingSnapshot.slot.startTime} - ${bookingSnapshot.slot.endTime}`
-                : "-",
+              date: scheduleText.date,
+              timeSlot: scheduleText.timeSlot,
               guestCount: existing.guestCount,
               amountPaid: paidAmount,
               paymentReference: razorpay_payment_id,
@@ -833,18 +931,27 @@ export async function POST(req: Request) {
           } satisfies VerifyResult;
         }
 
+        if (!existing.slotId) {
+          throw new ApiError(
+            409,
+            "BOOKING_INVALID_STATE",
+            "Booking slot is missing."
+          );
+        }
+        const existingSlotId = existing.slotId;
+
         await lockSlotRowForUpdate(tx, {
-          slotId: existing.slotId,
+          slotId: existingSlotId,
           context: "razorpay-verify",
         });
 
         const location = await tx.location.findUnique({
-          where: { id: existing.theatre.locationId },
+          where: { id: existingTheatre.locationId },
         });
 
         if (isStrictLockExpired(existing, new Date())) {
           await tx.slot.update({
-            where: { id: existing.slotId },
+            where: { id: existingSlotId },
             data: {
               status: "AVAILABLE",
               lockedAt: null,
@@ -882,6 +989,17 @@ export async function POST(req: Request) {
           });
           paymentMarkedPaid = true;
 
+          const scheduleText = resolveScheduleNotificationText({
+            eventDate: existing.eventDate,
+            eventStartTime: existing.eventStartTime,
+            eventEndTime: existing.eventEndTime,
+            startsAtUtc: existing.startsAtUtc,
+            endsAtUtc: existing.endsAtUtc,
+            timezone: existing.timezone,
+            theatreTimezone: existingTheatre.timezone,
+            slot: existing.slot,
+          });
+
           return {
             bookingRef: updatedBooking.bookingRef,
             successToken: "",
@@ -895,10 +1013,10 @@ export async function POST(req: Request) {
               customerName: existing.contactName,
               customerPhone: existing.contactPhone,
               customerEmail: existing.contactEmail,
-              theatreName: existing.theatre.name,
+              theatreName: existingTheatre.name,
               locationName: location?.name ?? null,
-              date: formatInTimeZone(existing.slot.date, IST_TIMEZONE, "EEE, dd MMM yyyy"),
-              timeSlot: `${existing.slot.startTime} - ${existing.slot.endTime}`,
+              date: scheduleText.date,
+              timeSlot: scheduleText.timeSlot,
               guestCount: existing.guestCount,
               amountPaid: paidAmount,
               paymentReference: razorpay_payment_id,
@@ -945,6 +1063,17 @@ export async function POST(req: Request) {
               existing.id,
               existing.bookingRef
             );
+            const scheduleText = resolveScheduleNotificationText({
+              eventDate: existing.eventDate,
+              eventStartTime: existing.eventStartTime,
+              eventEndTime: existing.eventEndTime,
+              startsAtUtc: existing.startsAtUtc,
+              endsAtUtc: existing.endsAtUtc,
+              timezone: existing.timezone,
+              theatreTimezone: existingTheatre.timezone,
+              slot: existing.slot,
+            });
+
             return {
               bookingRef: existing.bookingRef,
               successToken,
@@ -960,10 +1089,9 @@ export async function POST(req: Request) {
                     contactPhone: existing.contactPhone,
                     contactEmail: existing.contactEmail,
                     locationName: location?.name ?? null,
-                    theatreName: existing.theatre.name,
-                    slotDate: existing.slot.date,
-                    slotStartTime: existing.slot.startTime,
-                    slotEndTime: existing.slot.endTime,
+                    theatreName: existingTheatre.name,
+                    date: scheduleText.date,
+                    timeSlot: scheduleText.timeSlot,
                     guestCount: existing.guestCount,
                     occasionLabel: existing.occasionLabel,
                     occasionData: existing.occasionData as Prisma.JsonValue | null,
@@ -1044,6 +1172,17 @@ export async function POST(req: Request) {
           });
           paymentMarkedPaid = true;
 
+          const scheduleText = resolveScheduleNotificationText({
+            eventDate: existing.eventDate,
+            eventStartTime: existing.eventStartTime,
+            eventEndTime: existing.eventEndTime,
+            startsAtUtc: existing.startsAtUtc,
+            endsAtUtc: existing.endsAtUtc,
+            timezone: existing.timezone,
+            theatreTimezone: existingTheatre.timezone,
+            slot: existing.slot,
+          });
+
           return {
             bookingRef: updatedBooking.bookingRef,
             successToken: "",
@@ -1057,10 +1196,10 @@ export async function POST(req: Request) {
               customerName: existing.contactName,
               customerPhone: existing.contactPhone,
               customerEmail: existing.contactEmail,
-              theatreName: existing.theatre.name,
+              theatreName: existingTheatre.name,
               locationName: location?.name ?? null,
-              date: formatInTimeZone(existing.slot.date, IST_TIMEZONE, "EEE, dd MMM yyyy"),
-              timeSlot: `${existing.slot.startTime} - ${existing.slot.endTime}`,
+              date: scheduleText.date,
+              timeSlot: scheduleText.timeSlot,
               guestCount: existing.guestCount,
               amountPaid: paidAmount,
               paymentReference: razorpay_payment_id,
@@ -1102,6 +1241,17 @@ export async function POST(req: Request) {
           });
           paymentMarkedPaid = true;
 
+          const scheduleText = resolveScheduleNotificationText({
+            eventDate: existing.eventDate,
+            eventStartTime: existing.eventStartTime,
+            eventEndTime: existing.eventEndTime,
+            startsAtUtc: existing.startsAtUtc,
+            endsAtUtc: existing.endsAtUtc,
+            timezone: existing.timezone,
+            theatreTimezone: existingTheatre.timezone,
+            slot: existing.slot,
+          });
+
           return {
             bookingRef: updatedBooking.bookingRef,
             successToken: "",
@@ -1115,10 +1265,10 @@ export async function POST(req: Request) {
               customerName: existing.contactName,
               customerPhone: existing.contactPhone,
               customerEmail: existing.contactEmail,
-              theatreName: existing.theatre.name,
+              theatreName: existingTheatre.name,
               locationName: location?.name ?? null,
-              date: formatInTimeZone(existing.slot.date, IST_TIMEZONE, "EEE, dd MMM yyyy"),
-              timeSlot: `${existing.slot.startTime} - ${existing.slot.endTime}`,
+              date: scheduleText.date,
+              timeSlot: scheduleText.timeSlot,
               guestCount: existing.guestCount,
               amountPaid: paidAmount,
               paymentReference: razorpay_payment_id,
@@ -1209,15 +1359,24 @@ export async function POST(req: Request) {
           existing.decorationAmount +
           productsTotal;
         const couponContext = buildBookingCouponContext({
-          slot: {
-            id: existing.slot.id,
-            date: existing.slot.date,
-            startTime: existing.slot.startTime,
-            endTime: existing.slot.endTime,
-            durationMin: existing.slot.durationMin,
+          bookingSchedule: {
+            eventDate: existing.eventDate,
+            eventStartTime: existing.eventStartTime,
+            eventEndTime: existing.eventEndTime,
+            startsAtUtc: existing.startsAtUtc,
+            endsAtUtc: existing.endsAtUtc,
           },
-          theatreId: existing.theatreId,
-          locationId: existing.theatre.locationId,
+          slot: existing.slot
+            ? {
+                id: existing.slot.id,
+                date: existing.slot.date,
+                startTime: existing.slot.startTime,
+                endTime: existing.slot.endTime,
+                durationMin: existing.slot.durationMin,
+              }
+            : null,
+          theatreId: existing.theatreId ?? "",
+          locationId: existing.theatre?.locationId ?? "",
           userId: existing.userId,
           contactPhone: existing.contactPhone,
           decorationRequired: existing.decorationRequired,
@@ -1270,7 +1429,7 @@ export async function POST(req: Request) {
         });
 
         await tx.slot.update({
-          where: { id: existing.slotId },
+          where: { id: existingSlotId },
           data: {
             status: "BOOKED",
             lockedAt: null,
@@ -1280,7 +1439,7 @@ export async function POST(req: Request) {
         });
         logBookingSafetyEvent("PAYMENT_CONFIRMED_BOOKING", {
           bookingId: updatedBooking.id,
-          slotId: existing.slotId,
+          slotId: existingSlotId,
           paymentId: razorpay_payment_id,
           orderId: razorpay_order_id,
         });
@@ -1289,7 +1448,7 @@ export async function POST(req: Request) {
         if (confirmedLockOwner) {
           const siblingReleaseResult = await releaseSiblingSessionLocks(tx, {
             lockOwner: confirmedLockOwner,
-            keepSlotId: existing.slotId,
+            keepSlotId: existingSlotId,
             now: new Date(),
             cancelledReason: "AUTO_RELEASED_AFTER_CONFIRMATION",
           });
@@ -1317,6 +1476,16 @@ export async function POST(req: Request) {
           updatedBooking.id,
           updatedBooking.bookingRef
         );
+        const scheduleText = resolveScheduleNotificationText({
+          eventDate: existing.eventDate,
+          eventStartTime: existing.eventStartTime,
+          eventEndTime: existing.eventEndTime,
+          startsAtUtc: existing.startsAtUtc,
+          endsAtUtc: existing.endsAtUtc,
+          timezone: existing.timezone,
+          theatreTimezone: existingTheatre.timezone,
+          slot: existing.slot,
+        });
         return {
           bookingRef: updatedBooking.bookingRef,
           successToken,
@@ -1328,10 +1497,9 @@ export async function POST(req: Request) {
             contactPhone: existing.contactPhone,
             contactEmail: existing.contactEmail,
             locationName: location?.name ?? null,
-            theatreName: existing.theatre.name,
-            slotDate: existing.slot.date,
-            slotStartTime: existing.slot.startTime,
-            slotEndTime: existing.slot.endTime,
+            theatreName: existingTheatre.name,
+            date: scheduleText.date,
+            timeSlot: scheduleText.timeSlot,
             guestCount: updatedBooking.guestCount,
             occasionLabel: existing.occasionLabel,
             occasionData: existing.occasionData as Prisma.JsonValue | null,
@@ -1536,8 +1704,8 @@ export async function POST(req: Request) {
             totalAmount: bookingSnapshot.totalAmount,
             advancePaid: bookingSnapshot.advancePaid,
             theatre: {
-              name: bookingSnapshot.theatre.name,
-              locationId: bookingSnapshot.theatre.locationId,
+              name: bookingSnapshotTheatre.name,
+              locationId: bookingSnapshotTheatre.locationId,
             },
             slot: bookingSnapshot.slot
               ? {

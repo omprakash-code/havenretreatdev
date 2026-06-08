@@ -2,6 +2,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { Prisma } from "@prisma/client";
 import AdminBookingAbandonmentEmail from "@/emails/AdminBookingAbandonmentEmail";
 import UserBookingAbandonmentEmail from "@/emails/UserBookingAbandonmentEmail";
+import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { prisma } from "@/lib/db";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { sendEmail } from "@/services/email.service";
@@ -38,6 +39,12 @@ type BookingForAbandonmentNotification = {
   cancelledReason: string | null;
   cancelledAt: Date | null;
   bookingStatus: string;
+  eventDate: Date | null;
+  eventStartTime: string | null;
+  eventEndTime: string | null;
+  startsAtUtc: Date | null;
+  endsAtUtc: Date | null;
+  timezone: string | null;
   items: Array<{
     productName: string;
     variantLabel: string;
@@ -46,15 +53,16 @@ type BookingForAbandonmentNotification = {
   }>;
   theatre: {
     name: string;
+    timezone: string | null;
     location: {
       name: string;
     } | null;
-  };
+  } | null;
   slot: {
     date: Date;
     startTime: string;
     endTime: string;
-  };
+  } | null;
 };
 
 function stringifyOccasionValue(value: Prisma.JsonValue): string {
@@ -183,8 +191,23 @@ async function sendAbandonmentNotificationForBooking(
     return;
   }
 
-  const date = formatInTimeZone(booking.slot.date, IST_TIMEZONE, "EEE, dd MMM yyyy");
-  const timeSlot = `${booking.slot.startTime} - ${booking.slot.endTime}`;
+  const schedule = resolvePresentedBookingSchedule({
+    eventDate: booking.eventDate,
+    eventStartTime: booking.eventStartTime,
+    eventEndTime: booking.eventEndTime,
+    startsAtUtc: booking.startsAtUtc,
+    endsAtUtc: booking.endsAtUtc,
+    timezone: booking.timezone,
+    theatreTimezone: booking.theatre?.timezone,
+    slot: booking.slot,
+  });
+
+  if (!schedule) {
+    return;
+  }
+
+  const date = schedule.date;
+  const timeSlot = schedule.timeSlot;
   const occasionDetails = buildOccasionDetails(booking.occasionData);
   const addonItems = buildAddonItemsWithNumberValues(
     booking.items,
@@ -206,8 +229,8 @@ async function sendAbandonmentNotificationForBooking(
       react: UserBookingAbandonmentEmail({
         bookingRef: booking.bookingRef,
         customerName: booking.contactName ?? undefined,
-        theatreName: booking.theatre.name,
-        locationName: booking.theatre.location?.name,
+        theatreName: booking.theatre?.name ?? "Haven Retreat",
+        locationName: booking.theatre?.location?.name,
         date,
         timeSlot,
         guestCount: booking.guestCount,
@@ -236,8 +259,8 @@ async function sendAbandonmentNotificationForBooking(
             customerName: booking.contactName ?? undefined,
             customerPhone: booking.contactPhone ?? undefined,
             customerEmail: booking.contactEmail ?? undefined,
-            theatreName: booking.theatre.name,
-            locationName: booking.theatre.location?.name,
+            theatreName: booking.theatre?.name ?? "Haven Retreat",
+            locationName: booking.theatre?.location?.name,
             date,
             timeSlot,
             guestCount: booking.guestCount,
@@ -303,6 +326,12 @@ export async function notifyAbandonedBookingsByIds(
       cancelledReason: true,
       cancelledAt: true,
       bookingStatus: true,
+      eventDate: true,
+      eventStartTime: true,
+      eventEndTime: true,
+      startsAtUtc: true,
+      endsAtUtc: true,
+      timezone: true,
       items: {
         select: {
           productName: true,
@@ -314,6 +343,7 @@ export async function notifyAbandonedBookingsByIds(
       theatre: {
         select: {
           name: true,
+          timezone: true,
           location: {
             select: {
               name: true,

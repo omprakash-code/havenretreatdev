@@ -2,6 +2,7 @@
 
 import { formatInTimeZone } from "date-fns-tz"
 import { isValidPhone, normalizePhone } from "@/lib/phone"
+import { resolveCouponScheduleContext } from "@/services/coupon/coupon-evaluation-context"
 import {
   CouponEvaluationContext,
   CouponRuleEntity,
@@ -14,16 +15,18 @@ export function evaluateRule(
   rule: CouponRuleEntity,
   ctx: CouponEvaluationContext
 ): boolean {
+  const schedule = resolveCouponScheduleContext(ctx)
+
   switch (rule.type) {
     case 'SLOT_DATE_RANGE': {
-      const inRange = isDateInRange(ctx.slot.date, rule.value)
+      const inRange = isDateInRange(schedule.date, rule.value)
       return resolveRangeOperator(rule.operator, inRange)
     }
 
     case 'SLOT_TIME_RANGE': {
       const fitsWithinRange = doesSlotFitTimeRange(
-        ctx.slot.startTime,
-        ctx.slot.endTime,
+        schedule.startTime,
+        schedule.endTime,
         rule.value
       )
       return resolveRangeOperator(rule.operator, fitsWithinRange)
@@ -32,11 +35,12 @@ export function evaluateRule(
     case 'SLOT_DURATION_MIN':
       return evaluateValueOperator(
         rule.operator,
-        String(ctx.slot.durationMin),
+        String(schedule.durationMin),
         toStringList(rule.value)
       )
 
     case 'SLOT_ID':
+      if (!ctx.slot?.id) return rule.operator === 'NOT_IN'
       return evaluateValueOperator(
         rule.operator,
         ctx.slot.id,

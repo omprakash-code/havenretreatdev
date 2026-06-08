@@ -7,6 +7,15 @@ export type AdminPaymentRecord = {
   contactPhone: string | null;
   theatreName: string;
   locationName: string;
+  schedule?: {
+    source: "BOOKING" | "SLOT" | "MISSING";
+    date: string;
+    startTime: string;
+    endTime: string;
+    dateLabel: string;
+    timeLabel: string;
+    dateTimeLabel: string;
+  };
   slotDate: string;
   slotStartTime: string;
   slotEndTime: string;

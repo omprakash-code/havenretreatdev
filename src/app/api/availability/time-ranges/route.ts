@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { formatInTimeZone } from "date-fns-tz";
 import { prisma } from "@/lib/db";
 import { ACTIVE_OVERLAP_BOOKING_STATUSES } from "@/services/booking/booking-safety.service";
+import {
+  compareTimeRangeAvailability,
+  scheduleAvailabilityShadow,
+} from "@/services/availability/availability-shadow.service";
+import { getRangeAvailabilityForLocation } from "@/services/availability/availability.service";
 
 const IST_TIMEZONE = "Asia/Kolkata";
 
@@ -24,6 +29,7 @@ function addRange(
 }
 
 export async function GET(req: Request) {
+  const legacyStartedAt = performance.now();
   try {
     const { searchParams } = new URL(req.url);
     const locationId = searchParams.get("locationId");
@@ -34,6 +40,20 @@ export async function GET(req: Request) {
         { success: false, message: "locationId and date are required." },
         { status: 400 }
       );
+    }
+
+    if (process.env.RANGE_AVAILABILITY_PRIMARY === "true") {
+      const rangeResult = await getRangeAvailabilityForLocation({
+        locationId,
+        date: dateKey,
+      });
+      return NextResponse.json({
+        success: true,
+        date: dateKey,
+        data: rangeResult.unavailableRanges,
+        theatres: rangeResult.theatres,
+        engine: "RANGE",
+      });
     }
 
     const date = toISTDate(dateKey);
@@ -112,6 +132,18 @@ export async function GET(req: Request) {
 
     const data = [...unavailable.values()].sort((a, b) =>
       a.startTime.localeCompare(b.startTime)
+    );
+
+    scheduleAvailabilityShadow(() =>
+      compareTimeRangeAvailability({
+        locationId,
+        date: dateKey,
+        legacyRanges: data,
+        legacyDurationMs: Number(
+          (performance.now() - legacyStartedAt).toFixed(2)
+        ),
+        requestId: req.headers.get("x-request-id"),
+      })
     );
 
     return NextResponse.json({

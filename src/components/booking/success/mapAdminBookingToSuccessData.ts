@@ -1,10 +1,11 @@
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { buildOccasionDetails } from "@/lib/booking-celebration";
-import { formatISTDate, formatSlotTime } from "@/lib/formatters";
+import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { getNumberDecorationLabel } from "@/lib/product-numbering";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 
-export type AdminBookingPdfSource = AdminBooking & {
+export type AdminBookingPdfSource = Omit<AdminBooking, "slot"> & {
+  slot: AdminBooking["slot"] | null;
   locationName: string;
   theatreImage?: string | null;
   decorationRequired?: boolean;
@@ -13,8 +14,21 @@ export type AdminBookingPdfSource = AdminBooking & {
 export function mapAdminBookingToSuccessData(
   booking: AdminBookingPdfSource
 ): BookingSuccessData {
-  const date = formatISTDate(booking.slot.date);
-  const timeSlot = formatSlotTime(booking.slot.startTime, booking.slot.endTime);
+  const schedule = resolvePresentedBookingSchedule(
+    {
+      eventDate: booking.eventDate,
+      eventStartTime: booking.eventStartTime,
+      eventEndTime: booking.eventEndTime,
+      startsAtUtc: booking.startsAtUtc,
+      endsAtUtc: booking.endsAtUtc,
+      timezone: booking.timezone,
+      theatreTimezone: booking.theatre.timezone,
+      slot: booking.slot,
+    },
+    "dd MMM yyyy"
+  );
+  const date = schedule?.date ?? "—";
+  const timeSlot = schedule?.timeSlot ?? "—";
 
   return {
     bookingRef: booking.bookingRef,
@@ -41,7 +55,7 @@ export function mapAdminBookingToSuccessData(
     date,
     timeSlot,
     locationName: booking.locationName,
-    dateTime: `${date}, ${timeSlot}`,
+    dateTime: schedule?.dateTime ?? `${date}, ${timeSlot}`,
     occasionLabel: booking.occasionLabel ?? undefined,
     occasionDetails: buildOccasionDetails(booking.occasionData),
     guestCount: booking.guestCount,

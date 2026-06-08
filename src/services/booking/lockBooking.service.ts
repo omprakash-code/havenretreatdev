@@ -6,8 +6,7 @@ import {
   BOOKING_LOCK_MINUTES_MIN,
   DEFAULT_BOOKING_LOCK_MINUTES,
 } from "@/lib/app-settings";
-import { generateBookingRef } from "./bookingId.service";
-import { toDateKey } from "@/lib/date";
+import { allocateBookingRef } from "./bookingId.service";
 import { isSlotExpiredInIST } from "@/lib/slot-time";
 import { releaseSiblingSessionLocks } from "./booking-lock-lifecycle.service";
 import { resolveSlotExpiryConfig } from "./slot-expiry-config.service";
@@ -377,9 +376,10 @@ export async function lockBookingService({
         },
       });
     } else {
+      const bookingRef = await allocateBookingRef(tx, now);
       booking = await tx.booking.create({
         data: {
-          bookingRef: `TEMP-${crypto.randomUUID()}`,
+          bookingRef,
           bookingStatus: "INCOMPLETE",
           paymentStatus: null,
 
@@ -398,27 +398,6 @@ export async function lockBookingService({
         },
       });
     }
-
-    /* ---------------------------------
-       7. Generate booking reference
-    ---------------------------------- */
-    const todayKey = toDateKey(now);
-    const todayCount = await tx.booking.count({
-      where: {
-        createdAt: {
-          gte: new Date(todayKey),
-        },
-      },
-    });
-
-
-
-    await tx.booking.update({
-      where: { id: booking.id },
-      data: {
-        bookingRef: generateBookingRef(new Date(), todayCount + 1),
-      },
-    });
 
     return {
       booking,

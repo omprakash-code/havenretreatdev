@@ -59,7 +59,7 @@ export async function resolveTerminalAbandonedPaymentStatus(
 type BookingLockSnapshot = {
   id: string;
   bookingStatus: BookingStatus;
-  slotId: string;
+  slotId: string | null;
   slot: {
     status: string;
     lockExpiresAt: Date | null;
@@ -68,14 +68,14 @@ type BookingLockSnapshot = {
 
 type ExpireLockInput = {
   bookingId: string;
-  slotId: string;
+  slotId: string | null;
   now?: Date;
   cancelledReason?: string;
 };
 
 type ReleaseSiblingLocksInput = {
   lockOwner: string;
-  keepSlotId: string;
+  keepSlotId: string | null;
   now?: Date;
   cancelledReason?: string;
 };
@@ -144,19 +144,21 @@ export async function expireBookingLockSession(
     abandonedBookingIds = [bookingToRelease.id];
   }
 
-  await db.slot.updateMany({
-    where: {
-      id: slotId,
-      status: "LOCKED",
-      lockExpiresAt: { lte: now },
-    },
-    data: {
-      status: "AVAILABLE",
-      lockedBy: null,
-      lockedAt: null,
-      lockExpiresAt: null,
-    },
-  });
+  if (slotId) {
+    await db.slot.updateMany({
+      where: {
+        id: slotId,
+        status: "LOCKED",
+        lockExpiresAt: { lte: now },
+      },
+      data: {
+        status: "AVAILABLE",
+        lockedBy: null,
+        lockedAt: null,
+        lockExpiresAt: null,
+      },
+    });
+  }
 
   await db.couponUsage.updateMany({
     where: {
@@ -187,7 +189,7 @@ export async function releaseSiblingSessionLocks(
     where: {
       status: "LOCKED",
       lockedBy: lockOwner,
-      id: { not: keepSlotId },
+      ...(keepSlotId ? { id: { not: keepSlotId } } : {}),
     },
     select: { id: true },
   });
@@ -220,7 +222,11 @@ export async function releaseSiblingSessionLocks(
     .filter((booking) => booking.bookingStatus === BookingStatus.INCOMPLETE)
     .map((booking) => booking.id);
   const releasableSlotIds = Array.from(
-    new Set(siblingBookingsToRelease.map((booking) => booking.slotId))
+    new Set(
+      siblingBookingsToRelease
+        .map((booking) => booking.slotId)
+        .filter((slotId): slotId is string => Boolean(slotId))
+    )
   );
 
   if (releasableSlotIds.length === 0) {

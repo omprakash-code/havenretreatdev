@@ -102,8 +102,19 @@ export async function GET() {
           COUNT(*) FILTER (WHERE b."bookingStatus" = 'ABANDONED') AS abandoned_lifetime,
           COUNT(*) FILTER (
             WHERE b."bookingStatus" IN ('INCOMPLETE', 'AWAITING_PAYMENT', 'PAYMENT_PROCESSING')
-              AND s."status" = 'LOCKED'
-              AND s."lockExpiresAt" > NOW()
+              AND (
+                (
+                  s."status" = 'LOCKED'
+                  AND s."lockExpiresAt" > NOW()
+                )
+                OR EXISTS (
+                  SELECT 1
+                  FROM "BookingLock" bl
+                  WHERE bl."bookingId" = b."id"
+                    AND bl."status" = 'ACTIVE'
+                    AND bl."expiresAt" > NOW()
+                )
+              )
           ) AS live_bookings,
           COALESCE(SUM(b."totalAmount") FILTER (
             WHERE b."paymentStatus" = 'PAID'

@@ -11,12 +11,21 @@ import {
   logBookingSafetyEvent,
   validateNoOverlappingActiveBooking,
 } from "@/services/booking/booking-safety.service";
+import {
+  finalizeRangePayment,
+} from "@/services/booking/range-payment.service";
 
 export type SquareFinalizeResult = {
-  status: "CONFIRMED" | "ALREADY_CONFIRMED" | "PAID_EXPIRED" | "IGNORED";
+  status:
+    | "CONFIRMED"
+    | "ALREADY_CONFIRMED"
+    | "MANUAL_REVIEW"
+    | "PAID_EXPIRED"
+    | "IGNORED";
   bookingId?: string;
   bookingRef?: string;
   successToken?: string;
+  reason?: string;
 };
 
 function isPayableBookingStatus(status: string) {
@@ -121,7 +130,30 @@ export async function finalizeSquarePayment(input: {
   orderId: string;
   paymentId: string;
   amount: number;
+  providerPayload?: Prisma.InputJsonValue;
 }) {
+  const rangeAttempt = await prisma.payment.findFirst({
+    where: {
+      provider: "SQUARE",
+      providerOrderId: input.orderId,
+      bookingLockVersion: { not: null },
+    },
+    select: { id: true },
+  });
+  if (rangeAttempt) {
+    return finalizeRangePayment({
+      provider: "SQUARE",
+      providerOrderId: input.orderId,
+      providerPaymentId: input.paymentId,
+      amount: input.amount,
+      providerPayload: input.providerPayload ?? {
+        source: "square_webhook",
+        orderId: input.orderId,
+        paymentId: input.paymentId,
+      },
+    });
+  }
+
   return prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
       SELECT id

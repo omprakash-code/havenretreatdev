@@ -166,7 +166,10 @@ export default function CartAbandonmentPage() {
       Array.from(
         new Set(
           data.map(
-            (b) => `${b.slot.startTime} - ${b.slot.endTime}`
+            (b) =>
+              `${b.schedule?.startTime || b.slot.startTime} - ${
+                b.schedule?.endTime || b.slot.endTime
+              }`
           )
         )
       ),
@@ -194,7 +197,9 @@ export default function CartAbandonmentPage() {
 
       if (
         slot &&
-        `${b.slot.startTime} - ${b.slot.endTime}` !== slot
+        `${b.schedule?.startTime || b.slot.startTime} - ${
+          b.schedule?.endTime || b.slot.endTime
+        }` !== slot
       )
         return false;
 

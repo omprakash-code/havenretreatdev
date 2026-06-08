@@ -10,6 +10,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { formatInTimeZone } from "date-fns-tz";
+import {
+  compareLegacyDates,
+  scheduleAvailabilityShadow,
+} from "@/services/availability/availability-shadow.service";
+import { getRangeAvailabilityForLocation } from "@/services/availability/availability.service";
+import { addDays } from "date-fns";
 
 const IST_TIMEZONE = "Asia/Kolkata";
 
@@ -24,6 +30,7 @@ const IST_TIMEZONE = "Asia/Kolkata";
  * - DISABLED slots are ignored
  */
 export async function GET(req: Request) {
+  const legacyStartedAt = performance.now();
   try {
     const { searchParams } = new URL(req.url);
     const locationId = searchParams.get("locationId");
@@ -33,6 +40,64 @@ export async function GET(req: Request) {
         { success: false, message: "locationId is required" },
         { status: 400 }
       );
+    }
+
+    if (process.env.RANGE_AVAILABILITY_PRIMARY === "true") {
+      const theatre = await prisma.theatre.findFirst({
+        where: { locationId, isActive: true },
+        select: { timezone: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      });
+      if (!theatre) {
+        return NextResponse.json({ success: true, data: [], engine: "RANGE" });
+      }
+
+      const configuredDays = Number(
+        process.env.RANGE_AVAILABILITY_DAYS ?? 90
+      );
+      const horizonDays = Number.isFinite(configuredDays)
+        ? Math.min(Math.max(Math.trunc(configuredDays), 1), 365)
+        : 90;
+      const todayKey = formatInTimeZone(
+        new Date(),
+        theatre.timezone,
+        "yyyy-MM-dd"
+      );
+      const today = new Date(`${todayKey}T12:00:00Z`);
+      const dateKeys = Array.from({ length: horizonDays }, (_, index) =>
+        formatInTimeZone(
+          addDays(today, index),
+          theatre.timezone,
+          "yyyy-MM-dd"
+        )
+      );
+      const dates: Array<{ date: string; isWeekend: boolean }> = [];
+      for (let index = 0; index < dateKeys.length; index += 7) {
+        const batch = await Promise.all(
+          dateKeys.slice(index, index + 7).map((date) =>
+            getRangeAvailabilityForLocation({ locationId, date })
+          )
+        );
+        for (const result of batch) {
+          if (!result.hasAvailability) continue;
+          const weekday = Number(
+            formatInTimeZone(
+              new Date(`${result.date}T12:00:00Z`),
+              theatre.timezone,
+              "i"
+            )
+          );
+          dates.push({
+            date: result.date,
+            isWeekend: weekday === 6 || weekday === 7,
+          });
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        data: dates,
+        engine: "RANGE",
+      });
     }
 
     // Compute IST midnight as an absolute instant to avoid server-local timezone drift.
@@ -77,6 +142,17 @@ export async function GET(req: Request) {
         isWeekend: isoWeekday === 6 || isoWeekday === 7,
       };
     });
+
+    scheduleAvailabilityShadow(() =>
+      compareLegacyDates({
+        locationId,
+        legacyDates: dates.map((item) => item.date),
+        legacyDurationMs: Number(
+          (performance.now() - legacyStartedAt).toFixed(2)
+        ),
+        requestId: req.headers.get("x-request-id"),
+      })
+    );
 
     return NextResponse.json({
       success: true,

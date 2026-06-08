@@ -1,8 +1,12 @@
 "use client";
 
 import { Calendar } from "@/components/icons";
-import { toDateKey } from "@/lib/date";
-import { formatISTDate } from "@/lib/formatters";
+import {
+  addDaysToDateKey,
+  dateFromDateKey,
+  getDateKeyInTimeZone,
+  toDateKey,
+} from "@/lib/date";
 
 type QuickDate = {
   label: string | null;
@@ -21,7 +25,15 @@ type DateSelectorProps = {
   isQuickDate: (date: Date) => boolean;
   isSameDay: (a: Date, b: Date) => boolean;
   getWeekdayShort: (date: Date) => string;
+  timezone?: string;
 };
+
+function formatBookingDateShort(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+  });
+}
 
 export default function DateSelector({
   datesLoading,
@@ -35,7 +47,10 @@ export default function DateSelector({
   isQuickDate,
   isSameDay,
   getWeekdayShort,
+  timezone = "America/New_York",
 }: DateSelectorProps) {
+  const venueTodayKey = getDateKeyInTimeZone(new Date(), timezone);
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -53,9 +68,8 @@ export default function DateSelector({
               <DateSkeleton key={`date-skeleton-${i}`} />
             ))
           : quickDates.map((quickDate) => {
-              const date = new Date();
-              date.setHours(0, 0, 0, 0);
-              date.setDate(date.getDate() + quickDate.offset);
+              const dateKey = addDaysToDateKey(venueTodayKey, quickDate.offset);
+              const date = dateFromDateKey(dateKey);
 
               const label =
                 quickDate.offset <= 1 ? quickDate.label : getWeekdayShort(date);
@@ -117,7 +131,7 @@ export default function DateSelector({
             </span>
             <span className="mt-1 block text-[11px] font-semibold leading-tight sm:text-[12px]">
               {selectedDate && !isQuickDate(selectedDate)
-                ? formatISTDate(selectedDate).replace(/ \d{4}$/, "")
+                ? formatBookingDateShort(selectedDate)
                 : "Choose Date"}
             </span>
           </button>

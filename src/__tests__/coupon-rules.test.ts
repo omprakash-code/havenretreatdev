@@ -54,6 +54,56 @@ describe("coupon rule evaluator", () => {
     expect(evaluateRule(rule, context)).toBe(true);
   });
 
+  it("prefers booking-owned schedule fields over legacy slot fields", () => {
+    const rule = {
+      id: "rule_booking_schedule",
+      couponId: "coupon_1",
+      type: "SLOT_TIME_RANGE",
+      operator: "BETWEEN",
+      value: { start: "09:00", end: "13:00" },
+    } satisfies CouponRuleEntity;
+    const context = buildContext({
+      schedule: {
+        date: new Date("2026-03-04T00:00:00.000Z"),
+        startTime: "09:00",
+        endTime: "13:00",
+        durationMin: 240,
+        source: "BOOKING",
+      },
+      slot: {
+        id: "legacy_slot_late",
+        date: new Date("2026-03-04T00:00:00.000Z"),
+        startTime: "18:00",
+        endTime: "22:00",
+        durationMin: 240,
+      },
+    });
+
+    expect(evaluateRule(rule, context)).toBe(true);
+  });
+
+  it("keeps legacy slot schedule fallback when booking schedule is absent", () => {
+    const rule = {
+      id: "rule_slot_fallback",
+      couponId: "coupon_1",
+      type: "SLOT_TIME_RANGE",
+      operator: "BETWEEN",
+      value: { start: "09:00", end: "13:00" },
+    } satisfies CouponRuleEntity;
+    const context = buildContext({
+      schedule: undefined,
+      slot: {
+        id: "legacy_slot_morning",
+        date: new Date("2026-03-04T00:00:00.000Z"),
+        startTime: "09:00",
+        endTime: "13:00",
+        durationMin: 240,
+      },
+    });
+
+    expect(evaluateRule(rule, context)).toBe(true);
+  });
+
   it("requires SLOT_TIME_RANGE to fully contain slot timing", () => {
     const rule = {
       id: "rule_1",

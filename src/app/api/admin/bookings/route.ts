@@ -2,14 +2,13 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { formatInTimeZone } from "date-fns-tz";
 import {
   Prisma,
   BookingStatus,
 } from "@prisma/client";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
+import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 
-const IST_TIMEZONE = "Asia/Kolkata";
 const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
 const DEFAULT_PAGE_SIZE = 40;
 const MAX_PAGE_SIZE = 200;
@@ -67,12 +66,26 @@ export async function GET(req: Request) {
           },
         },
         {
-          slot: {
-            status: "LOCKED",
-            lockExpiresAt: {
-              gt: now,
+          OR: [
+            {
+              slot: {
+                status: "LOCKED",
+                lockExpiresAt: {
+                  gt: now,
+                },
+              },
             },
-          },
+            {
+              bookingLocks: {
+                some: {
+                  status: "ACTIVE",
+                  expiresAt: {
+                    gt: now,
+                  },
+                },
+              },
+            },
+          ],
         },
       ],
     };
@@ -136,10 +149,18 @@ export async function GET(req: Request) {
       const [startTime = "", endTime = ""] = slot.split(" - ").map((value) => value.trim());
       if (startTime && endTime) {
         whereAnd.push({
-          slot: {
-            startTime,
-            endTime,
-          },
+          OR: [
+            {
+              eventStartTime: startTime,
+              eventEndTime: endTime,
+            },
+            {
+              slot: {
+                startTime,
+                endTime,
+              },
+            },
+          ],
         });
       }
     }
@@ -186,10 +207,14 @@ export async function GET(req: Request) {
       eventDate: true,
       eventStartTime: true,
       eventEndTime: true,
+      startsAtUtc: true,
+      endsAtUtc: true,
+      timezone: true,
       theatre: {
         select: {
           id: true,
           name: true,
+          timezone: true,
           location: {
             select: {
               name: true,
@@ -209,6 +234,21 @@ export async function GET(req: Request) {
           startTime: true,
           endTime: true,
           status: true,
+        },
+      },
+      bookingLocks: {
+        where: {
+          status: "ACTIVE",
+          expiresAt: {
+            gt: now,
+          },
+        },
+        orderBy: { version: "desc" },
+        take: 1,
+        select: {
+          status: true,
+          version: true,
+          expiresAt: true,
         },
       },
     } satisfies Prisma.BookingSelect;
@@ -234,7 +274,17 @@ export async function GET(req: Request) {
         ]);
 
     const data = bookings.map((b, index) => {
-      const scheduleDate = b.slot?.date ?? b.eventDate;
+      const schedule = presentReportingSchedule({
+        eventDate: b.eventDate,
+        eventStartTime: b.eventStartTime,
+        eventEndTime: b.eventEndTime,
+        startsAtUtc: b.startsAtUtc,
+        endsAtUtc: b.endsAtUtc,
+        timezone: b.timezone,
+        theatreTimezone: b.theatre?.timezone,
+        slot: b.slot,
+      });
+      const activeRangeLock = b.bookingLocks?.[0] ?? null;
       return {
         srNo: index + 1,
 
@@ -250,16 +300,22 @@ export async function GET(req: Request) {
         theatre: {
           id: b.theatre?.id ?? b.venue?.id ?? "",
           name: b.theatre?.name ?? b.venue?.name ?? "Haven Retreat",
+          timezone: b.theatre?.timezone ?? null,
           locationName: b.theatre?.location?.name ?? b.venue?.name ?? null,
         },
+        eventDate: b.eventDate?.toISOString().slice(0, 10) ?? null,
+        eventStartTime: b.eventStartTime,
+        eventEndTime: b.eventEndTime,
+        startsAtUtc: b.startsAtUtc?.toISOString() ?? null,
+        endsAtUtc: b.endsAtUtc?.toISOString() ?? null,
+        timezone: b.timezone,
+        schedule,
 
         slot: {
-          date: scheduleDate
-            ? formatInTimeZone(scheduleDate, IST_TIMEZONE, "yyyy-MM-dd")
-            : "",
-          startTime: b.slot?.startTime ?? b.eventStartTime ?? "",
-          endTime: b.slot?.endTime ?? b.eventEndTime ?? "",
-          status: b.slot?.status ?? b.bookingStatus,
+          date: schedule.date,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          status: b.slot?.status ?? activeRangeLock?.status ?? b.bookingStatus,
         },
 
         guestCount: b.guestCount,

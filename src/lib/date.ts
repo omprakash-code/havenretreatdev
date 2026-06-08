@@ -27,6 +27,29 @@ export function addDays(date: Date, days: number) {
   );
 }
 
+export function getDateKeyInTimeZone(
+  date: Date = new Date(),
+  timezone = "America/New_York"
+): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+export function dateFromDateKey(dateKey: string): Date {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+export function addDaysToDateKey(dateKey: string, days: number): string {
+  return toDateKeyString(addDays(dateFromDateKey(dateKey), days));
+}
+
 /**
  * DO NOT USE toISOString() — it breaks dates
  */

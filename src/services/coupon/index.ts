@@ -1,5 +1,6 @@
 export * from './coupon.types'
 export * from './coupon-evaluator'
+export * from './coupon-evaluation-context'
 export * from './coupon-stack'
 export * from './coupon-cap'
 export * from './coupon-allocation'

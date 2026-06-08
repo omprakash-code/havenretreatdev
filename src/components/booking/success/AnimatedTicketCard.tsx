@@ -14,7 +14,6 @@ import {
   WhatsAppIcon,
   Download,
   Copy,
-  CheckCircle,
   Phone,
   Mail,
   ShieldCheck,
@@ -113,8 +112,8 @@ ${celebrationLine}
 
 Booking ID: ${data.bookingRef}
 Location: ${data.locationName}
-Slot Date: ${data.date}
-Slot Time: ${data.timeSlot}
+Booking Date: ${data.date}
+Booking Time: ${data.timeSlot}
 
 Have you tried this yet?
 ${shareUrl}`;
@@ -246,7 +245,7 @@ ${shareUrl}`;
                 variant="secondary"
               />
               <MiniActionButton
-                label="Book Another Slot"
+                label="Book Another Time"
                 icon={<Ticket size={14} />}
                 onClick={handleBookAnother}
                 variant="tertiary"
@@ -342,7 +341,7 @@ ${shareUrl}`;
                 />
                 <p className="text-[11px] leading-relaxed text-slate-500 sm:text-xs">
                   Balance due on arrival. Please arrive 15 minutes before your
-                  slot and keep your booking reference handy. Accepted at venue:
+                  booking time and keep your booking reference handy. Accepted at venue:
                   UPI, Card, or Cash.
                 </p>
               </div>
@@ -395,7 +394,7 @@ ${shareUrl}`;
               variant="secondary"
             />
             <MiniActionButton
-              label="Book Another Slot"
+              label="Book Another Time"
               icon={<Ticket size={14} />}
               onClick={handleBookAnother}
               variant="tertiary"

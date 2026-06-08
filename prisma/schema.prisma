@@ -196,6 +196,7 @@ model Theatre {
   name       String // Theatre 1, Theatre 2
   images     String[]
   locationId String
+  timezone   String   @default("America/New_York")
 
   hasFood Boolean @default(false)
 
@@ -400,7 +401,7 @@ enum UserRole {
 // - business logic migration is intentionally deferred to a later phase
 model Booking {
   id         String @id @default(cuid())
-  bookingRef String @unique // HR191120250001 (display ID)
+  bookingRef String @unique // HRMMDDYYYYNNNNN, e.g. HR0607202600001
 
   userId       String? // optional
   contactName  String?
@@ -431,6 +432,8 @@ model Booking {
   endsAtUtc          DateTime? @db.Timestamptz(3)
   occupiedUntilUtc   DateTime? @db.Timestamptz(3)
   bufferMinutes      Int? // booking-owned snapshot; required for new range bookings after backfill
+  timezone           String?
+  lockVersion        Int?
   guestCount         Int // shared across legacy theatre and venue event flows
   decorationRequired Boolean @default(false)
 
@@ -473,7 +476,7 @@ model Booking {
   couponUsages CouponUsage[]
   signedAgreements SignedAgreement[]
   bookingAddons   BookingAddon[]
-  bookingLock     BookingLock?
+  bookingLocks    BookingLock[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -498,6 +501,13 @@ model Booking {
   @@index([venueId, packageId, eventDate])
 }
 
+model BookingReferenceCounter {
+  year       Int      @id
+  lastNumber Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 enum BookingLockStatus {
   ACTIVE
   EXPIRED
@@ -507,8 +517,10 @@ enum BookingLockStatus {
 
 model BookingLock {
   id               String            @id @default(cuid())
-  bookingId        String            @unique
+  bookingId        String
   theatreId        String
+  lockOwnerHash    String
+  version          Int
   eventDate        DateTime          @db.Date
   startTime        String
   endTime          String
@@ -527,6 +539,8 @@ model BookingLock {
   @@index([theatreId, eventDate])
   @@index([theatreId, startsAtUtc, occupiedUntilUtc])
   @@index([status, expiresAt])
+  @@index([lockOwnerHash, status, expiresAt])
+  @@unique([bookingId, version])
 }
 
 model AvailabilityBlock {
@@ -539,6 +553,9 @@ model AvailabilityBlock {
   startsAtUtc      DateTime? @db.Timestamptz(3)
   endsAtUtc        DateTime? @db.Timestamptz(3)
   internalNote     String?
+  recurrenceRule   String?
+  recurrenceStartDate DateTime? @db.Date
+  recurrenceEndDate   DateTime? @db.Date
   isActive         Boolean   @default(true)
   createdByAdminId String?
 
@@ -581,6 +598,7 @@ enum PaymentStatus {
   INITIALIZED // Razorpay order created
   AWAITING_PAYMENT // checkout opened / user redirected
   PAID
+  MANUAL_REVIEW // provider captured payment but booking could not be confirmed
   FAILED
   CANCELLED
   EXPIRED // user abandoned after init
@@ -723,19 +741,29 @@ model Payment {
   id        String @id @default(cuid())
   bookingId String
 
-  provider          String // "MOCK" | "RAZORPAY"
-  transactionId     String?
-  method            String? // UPI, Card, Cash
-  recordedByAdminId String?
+  provider           String // "MOCK" | "RAZORPAY"
+  transactionId      String?
+  providerOrderId    String?
+  providerPaymentId  String?
+  bookingLockVersion Int?
+  idempotencyKey     String?
+  providerPayload    Json?
+  method             String? // UPI, Card, Cash
+  recordedByAdminId  String?
 
   amount Int
   status PaymentStatus
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId, createdAt])
+  @@index([bookingId, bookingLockVersion, createdAt])
+  @@unique([provider, providerOrderId])
+  @@unique([provider, providerPaymentId])
+  @@unique([provider, idempotencyKey])
 }
 
 // =======================================================

@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatIST, formatSlotTime } from "@/lib/formatters";
+import { formatIST } from "@/lib/formatters";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 import Image from "next/image";
 import {
@@ -263,6 +263,11 @@ type BookingDetailsProps = {
 
 export default function BookingDetails({ booking }: BookingDetailsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "payment">("overview");
+  const scheduleDateLabel =
+    booking.schedule?.dateLabel || formatIST(booking.slot.date).split(",")[0];
+  const scheduleTimeLabel =
+    booking.schedule?.timeLabel ||
+    `${booking.slot.startTime} - ${booking.slot.endTime}`;
 
   // Calculate products total
   const productsTotal = booking.items.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -485,7 +490,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       Date
                     </div>
                     <p className="text-sm font-semibold text-slate-900">
-                      {formatIST(booking.slot.date).split(",")[0]}
+                      {scheduleDateLabel}
                     </p>
                   </div>
 
@@ -495,7 +500,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       Time
                     </div>
                     <p className="text-sm font-semibold text-slate-900">
-                      {formatSlotTime(booking.slot.startTime, booking.slot.endTime)}
+                      {scheduleTimeLabel}
                     </p>
                   </div>
 

@@ -75,6 +75,7 @@ export async function POST(req: Request) {
       orderId: payment.order_id,
       paymentId: payment.id,
       amount: Math.round(Number(payment.amount_money?.amount ?? 0) / 100),
+      providerPayload: payload as never,
     });
 
     return Response.json({ success: true, result });

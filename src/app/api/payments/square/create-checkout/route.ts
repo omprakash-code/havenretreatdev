@@ -24,6 +24,12 @@ import {
   logBookingSafetyEvent,
   validateNoOverlappingActiveBooking,
 } from "@/services/booking/booking-safety.service";
+import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import {
+  beginRangePaymentAttempt,
+  completeRangePaymentAttempt,
+  RangePaymentError,
+} from "@/services/booking/range-payment.service";
 
 class ApiError extends Error {
   status: number;
@@ -57,6 +63,84 @@ function getBaseUrl(req: Request) {
   return `${url.protocol}//${url.host}`;
 }
 
+async function createRangeSquareCheckout(
+  req: Request,
+  booking: {
+    id: string;
+    bookingRef: string;
+    lockVersion: number | null;
+    totalAmount: number;
+    advancePaid: number;
+    paymentProvider: string | null;
+    paymentOrderId: string | null;
+    paymentCheckoutUrl: string | null;
+  }
+) {
+  const identity = await getRangeBookingApiIdentity(booking.id);
+  if (!identity || identity.lockVersion === null) {
+    throw new ApiError(
+      403,
+      "SESSION_EXPIRED",
+      "Your booking session expired or was replaced."
+    );
+  }
+  const configuredAdvanceAmount = await getRequiredAdvancePaymentAmount(prisma);
+  const amount =
+    booking.advancePaid > 0 ? booking.advancePaid : configuredAdvanceAmount;
+  const started = await beginRangePaymentAttempt({
+    bookingId: booking.id,
+    bookingLockVersion: identity.lockVersion,
+    provider: "SQUARE",
+    amount,
+  });
+  if (
+    started.payment.status === "AWAITING_PAYMENT" &&
+    booking.paymentProvider === "SQUARE" &&
+    booking.paymentOrderId &&
+    booking.paymentCheckoutUrl
+  ) {
+    return {
+      checkoutUrl: booking.paymentCheckoutUrl,
+      orderId: booking.paymentOrderId,
+      amount: amount * 100,
+      advancePayable: amount,
+      totalAmount: booking.totalAmount,
+      remainingPayable: Math.max(booking.totalAmount - amount, 0),
+    };
+  }
+
+  const created = await createSquarePaymentLink({
+    idempotencyKey: started.idempotencyKey,
+    name: `Haven Retreat ${booking.bookingRef}`,
+    amount: amount * 100,
+    currency: getSquareCurrency(),
+    redirectUrl:
+      `${getBaseUrl(req)}/booking/payment/square/return?bookingId=` +
+      encodeURIComponent(booking.id),
+    bookingId: booking.id,
+    bookingRef: booking.bookingRef,
+  });
+  await completeRangePaymentAttempt({
+    paymentId: started.payment.id,
+    providerOrderId: created.orderId,
+    checkoutUrl: created.checkoutUrl,
+    paymentLinkId: created.paymentLinkId,
+    providerPayload: {
+      source: "checkout_creation",
+      orderId: created.orderId,
+      paymentLinkId: created.paymentLinkId,
+    },
+  });
+  return {
+    checkoutUrl: created.checkoutUrl,
+    orderId: created.orderId,
+    amount: amount * 100,
+    advancePayable: amount,
+    totalAmount: booking.totalAmount,
+    remainingPayable: Math.max(booking.totalAmount - amount, 0),
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as { bookingId?: string } | null;
@@ -73,6 +157,11 @@ export async function POST(req: Request) {
 
     if (!booking) {
       return jsonError(404, "BOOKING_NOT_FOUND", "Booking not found.");
+    }
+
+    if (booking.slotId === null) {
+      const checkout = await createRangeSquareCheckout(req, booking);
+      return Response.json({ success: true, ...checkout });
     }
 
     const now = new Date();
@@ -290,6 +379,18 @@ export async function POST(req: Request) {
 
     if (error instanceof ApiError) {
       return jsonError(error.status, error.code, error.message, error.extra);
+    }
+
+    if (error instanceof RangePaymentError) {
+      const status =
+        error.code === "RANGE_PAYMENT_DISABLED"
+          ? 503
+          : error.code === "BOOKING_NOT_FOUND"
+            ? 404
+            : error.code === "SESSION_EXPIRED"
+              ? 409
+              : 409;
+      return jsonError(status, error.code, error.message);
     }
 
     if (error instanceof BookingOverlapError) {

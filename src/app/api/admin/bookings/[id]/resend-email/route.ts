@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { formatInTimeZone } from "date-fns-tz";
 
 import { prisma } from "@/lib/db";
+import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
@@ -12,8 +12,6 @@ import {
   type BookingConfirmationDetail,
   type BookingConfirmationEmailProps,
 } from "@/emails/BookingConfirmationEmail";
-
-const IST_TIMEZONE = "Asia/Kolkata";
 
 type ConfirmationEmailData = BookingConfirmationEmailProps & {
   customerName: string;
@@ -162,9 +160,8 @@ function buildEmailData(input: {
   contactEmail: string | null;
   locationName: string | null;
   theatreName: string;
-  slotDate: Date;
-  slotStartTime: string;
-  slotEndTime: string;
+  date: string;
+  timeSlot: string;
   guestCount: number;
   occasionLabel: string | null;
   occasionData: Prisma.JsonValue | null;
@@ -189,8 +186,8 @@ function buildEmailData(input: {
     customerEmail: input.contactEmail ?? undefined,
     locationName: input.locationName ?? "—",
     theatreName: input.theatreName,
-    date: formatInTimeZone(input.slotDate, IST_TIMEZONE, "EEE, dd MMM yyyy"),
-    timeSlot: `${input.slotStartTime} - ${input.slotEndTime}`,
+    date: input.date,
+    timeSlot: input.timeSlot,
     guestCount: input.guestCount,
     occasionLabel: input.occasionLabel ?? undefined,
     occasionDetails: buildOccasionDetails(input.occasionData),
@@ -291,11 +288,18 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     );
 
     const latestPayment = booking.payment[0];
-    const slotDate = booking.slot?.date ?? booking.eventDate;
-    const slotStartTime = booking.slot?.startTime ?? booking.eventStartTime;
-    const slotEndTime = booking.slot?.endTime ?? booking.eventEndTime;
+    const schedule = resolvePresentedBookingSchedule({
+      eventDate: booking.eventDate,
+      eventStartTime: booking.eventStartTime,
+      eventEndTime: booking.eventEndTime,
+      startsAtUtc: booking.startsAtUtc,
+      endsAtUtc: booking.endsAtUtc,
+      timezone: booking.timezone,
+      theatreTimezone: booking.theatre?.timezone,
+      slot: booking.slot,
+    });
 
-    if (!slotDate || !slotStartTime || !slotEndTime) {
+    if (!schedule) {
       return NextResponse.json(
         {
           success: false,
@@ -313,9 +317,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       contactEmail: booking.contactEmail,
       locationName: booking.theatre?.location?.name ?? booking.venue?.name ?? null,
       theatreName: booking.theatre?.name ?? booking.venue?.name ?? "Haven Retreat",
-      slotDate,
-      slotStartTime,
-      slotEndTime,
+      date: schedule.date,
+      timeSlot: schedule.timeSlot,
       guestCount: booking.guestCount,
       occasionLabel: booking.occasionLabel,
       occasionData: booking.occasionData as Prisma.JsonValue | null,

@@ -1,0 +1,184 @@
+import { formatInTimeZone } from "date-fns-tz";
+
+import { formatSlotTime } from "@/lib/formatters";
+import { timeToMinutes } from "@/lib/time";
+
+export const LEGACY_SLOT_TIMEZONE = "Asia/Kolkata";
+export const DEFAULT_BOOKING_TIMEZONE = "America/New_York";
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+type DateLike = Date | string | null | undefined;
+
+export type BookingSchedulePresenterInput = {
+  eventDate?: DateLike;
+  eventStartTime?: string | null;
+  eventEndTime?: string | null;
+  startsAtUtc?: DateLike;
+  endsAtUtc?: DateLike;
+  timezone?: string | null;
+  theatreTimezone?: string | null;
+  slot?: {
+    date?: DateLike;
+    startTime?: string | null;
+    endTime?: string | null;
+    durationMin?: number | null;
+  } | null;
+};
+
+export type PresentedBookingSchedule = {
+  source: "BOOKING" | "SLOT";
+  timezone: string;
+  dateKey: string;
+  startTime: string;
+  endTime: string;
+  timeSlot: string;
+  date: string;
+  dateTime: string;
+  durationHours: number | null;
+  endsAtUtc: Date | null;
+  successTokenExpiresAt: Date | null;
+};
+
+function toDate(value: DateLike) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function dateKeyFromDateOnly(value: DateLike) {
+  if (!value) return null;
+  if (typeof value === "string") {
+    const match = value.match(/^\d{4}-\d{2}-\d{2}/);
+    return match?.[0] ?? null;
+  }
+  return value.toISOString().slice(0, 10);
+}
+
+function renderDateKey(dateKey: string, pattern: string) {
+  return formatInTimeZone(new Date(`${dateKey}T12:00:00Z`), "UTC", pattern);
+}
+
+function durationHoursFromTimes(startTime: string, endTime: string) {
+  const start = timeToMinutes(startTime);
+  let end = timeToMinutes(endTime);
+  if (end <= start) end += 24 * 60;
+  return (end - start) / 60;
+}
+
+function resolveEndInstant(input: {
+  dateKey: string;
+  startTime: string;
+  endTime: string;
+  endsAtUtc?: DateLike;
+  timezone: string;
+}) {
+  const explicitEnd = toDate(input.endsAtUtc);
+  if (explicitEnd) return explicitEnd;
+
+  if (input.timezone === LEGACY_SLOT_TIMEZONE) {
+    let endAt = new Date(`${input.dateKey}T${input.endTime}:00+05:30`);
+    if (timeToMinutes(input.endTime) <= timeToMinutes(input.startTime)) {
+      endAt = new Date(endAt.getTime() + ONE_DAY_MS);
+    }
+    return endAt;
+  }
+
+  return null;
+}
+
+export function resolvePresentedBookingSchedule(
+  input: BookingSchedulePresenterInput,
+  datePattern = "EEE, dd MMM yyyy"
+): PresentedBookingSchedule | null {
+  const bookingStart = input.eventStartTime?.trim();
+  const bookingEnd = input.eventEndTime?.trim();
+  if (input.eventDate && bookingStart && bookingEnd) {
+    const timezone =
+      input.timezone?.trim() ||
+      input.theatreTimezone?.trim() ||
+      DEFAULT_BOOKING_TIMEZONE;
+    const startsAtUtc = toDate(input.startsAtUtc);
+    const dateKey =
+      startsAtUtc != null
+        ? formatInTimeZone(startsAtUtc, timezone, "yyyy-MM-dd")
+        : dateKeyFromDateOnly(input.eventDate);
+
+    if (!dateKey) return null;
+
+    const endsAtUtc = resolveEndInstant({
+      dateKey,
+      startTime: bookingStart,
+      endTime: bookingEnd,
+      endsAtUtc: input.endsAtUtc,
+      timezone,
+    });
+    const durationHours =
+      startsAtUtc && endsAtUtc
+        ? (endsAtUtc.getTime() - startsAtUtc.getTime()) / 36e5
+        : durationHoursFromTimes(bookingStart, bookingEnd);
+    const date = startsAtUtc
+      ? formatInTimeZone(startsAtUtc, timezone, datePattern)
+      : renderDateKey(dateKey, datePattern);
+    const timeSlot = formatSlotTime(bookingStart, bookingEnd);
+
+    return {
+      source: "BOOKING",
+      timezone,
+      dateKey,
+      startTime: bookingStart,
+      endTime: bookingEnd,
+      timeSlot,
+      date,
+      dateTime: `${date}, ${timeSlot}`,
+      durationHours: Number.isFinite(durationHours) ? durationHours : null,
+      endsAtUtc,
+      successTokenExpiresAt: endsAtUtc
+        ? new Date(endsAtUtc.getTime() + ONE_DAY_MS)
+        : null,
+    };
+  }
+
+  const slotDate = input.slot?.date;
+  const slotStart = input.slot?.startTime?.trim();
+  const slotEnd = input.slot?.endTime?.trim();
+  if (!slotDate || !slotStart || !slotEnd) return null;
+
+  const slotDateObject = toDate(slotDate);
+  const dateKey = slotDateObject
+    ? formatInTimeZone(slotDateObject, LEGACY_SLOT_TIMEZONE, "yyyy-MM-dd")
+    : dateKeyFromDateOnly(slotDate);
+  if (!dateKey) return null;
+
+  const endsAtUtc = resolveEndInstant({
+    dateKey,
+    startTime: slotStart,
+    endTime: slotEnd,
+    timezone: LEGACY_SLOT_TIMEZONE,
+  });
+  const durationHours =
+    typeof input.slot?.durationMin === "number"
+      ? input.slot.durationMin / 60
+      : durationHoursFromTimes(slotStart, slotEnd);
+  const date = slotDateObject
+    ? formatInTimeZone(slotDateObject, LEGACY_SLOT_TIMEZONE, datePattern)
+    : renderDateKey(dateKey, datePattern);
+  const timeSlot = formatSlotTime(slotStart, slotEnd);
+
+  return {
+    source: "SLOT",
+    timezone: LEGACY_SLOT_TIMEZONE,
+    dateKey,
+    startTime: slotStart,
+    endTime: slotEnd,
+    timeSlot,
+    date,
+    dateTime: `${date}, ${timeSlot}`,
+    durationHours: Number.isFinite(durationHours) ? durationHours : null,
+    endsAtUtc,
+    successTokenExpiresAt: endsAtUtc
+      ? new Date(endsAtUtc.getTime() + ONE_DAY_MS)
+      : null,
+  };
+}

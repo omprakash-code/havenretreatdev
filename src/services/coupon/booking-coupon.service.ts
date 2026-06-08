@@ -3,6 +3,7 @@ import type { Prisma, ProductCategory } from "@prisma/client";
 import { normalizePhone } from "@/lib/phone";
 import { allocateCouponsInOrder } from "@/services/coupon/coupon-allocation";
 import { buildCouponAmountsFromComponents } from "@/services/coupon/coupon-amounts";
+import { buildCouponScheduleContext } from "@/services/coupon/coupon-evaluation-context";
 import { evaluateCoupon } from "@/services/coupon/coupon-evaluator";
 import {
   buildCouponDebugSnapshot,
@@ -29,13 +30,20 @@ type BookingCouponItem = {
 };
 
 type BuildBookingCouponContextInput = {
-  slot: {
+  slot?: {
     id: string;
     date: Date;
     startTime: string;
     endTime: string;
     durationMin: number;
-  };
+  } | null;
+  bookingSchedule?: {
+    eventDate?: Date | null;
+    eventStartTime?: string | null;
+    eventEndTime?: string | null;
+    startsAtUtc?: Date | null;
+    endsAtUtc?: Date | null;
+  } | null;
   theatreId: string;
   locationId: string;
   userId?: string | null;
@@ -107,7 +115,11 @@ export function buildBookingCouponContext(
   input: BuildBookingCouponContextInput
 ): CouponEvaluationContext {
   return {
-    slot: input.slot,
+    schedule: buildCouponScheduleContext({
+      bookingSchedule: input.bookingSchedule,
+      slot: input.slot,
+    }),
+    slot: input.slot ?? null,
     theatreId: input.theatreId,
     locationId: input.locationId,
     user:

@@ -90,6 +90,8 @@ describe("/api/admin/settings", () => {
       { key: "SPECIAL_SLOT_TEXT", value: "Special Price" },
       { key: "ADVANCE_PAYMENT_AMOUNT", value: "750" },
       { key: "BOOKING_LOCK_MINUTES", value: "10" },
+      { key: "MINIMUM_BOOKING_DURATION_HOURS", value: "4" },
+      { key: "EXTRA_HOURLY_RATE", value: "120" },
       { key: "SLOT_EXPIRY_MODE", value: "START_TIME" },
       { key: "SLOT_EXPIRY_GRACE_MINUTES", value: "30" },
     ]);
@@ -226,6 +228,8 @@ describe("/api/admin/settings", () => {
       { key: "SPECIAL_SLOT_TEXT", value: "Special Price" },
       { key: "ADVANCE_PAYMENT_AMOUNT", value: "1" },
       { key: "BOOKING_LOCK_MINUTES", value: "10" },
+      { key: "MINIMUM_BOOKING_DURATION_HOURS", value: "4" },
+      { key: "EXTRA_HOURLY_RATE", value: "120" },
       { key: "SLOT_EXPIRY_MODE", value: "START_TIME" },
       { key: "SLOT_EXPIRY_GRACE_MINUTES", value: "30" },
     ]);
@@ -293,6 +297,8 @@ describe("/api/admin/settings", () => {
       { key: "SPECIAL_SLOT_TEXT", value: "Special Price" },
       { key: "ADVANCE_PAYMENT_AMOUNT", value: "1200" },
       { key: "BOOKING_LOCK_MINUTES", value: "10" },
+      { key: "MINIMUM_BOOKING_DURATION_HOURS", value: "4" },
+      { key: "EXTRA_HOURLY_RATE", value: "120" },
       { key: "SLOT_EXPIRY_MODE", value: "START_TIME" },
       { key: "SLOT_EXPIRY_GRACE_MINUTES", value: "30" },
     ]);

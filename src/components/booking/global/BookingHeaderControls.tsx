@@ -8,7 +8,6 @@ import BookingCalendar from "@/components/booking/location/BookingCalendar";
 import { useBooking } from "@/context/BookingContext";
 import { useMounted } from "@/hooks/useMounted";
 import { toDateKey } from "@/lib/date";
-import { formatISTDate } from "@/lib/formatters";
 import { useLockCountdown } from "@/hooks/booking/useLockCountdown";
 import { BOOKING_ROUTES } from "@/constants/routes";
 
@@ -37,11 +36,21 @@ type BookingByRefHeaderResponse = {
   locationName?: unknown;
 };
 
+const DEFAULT_VENUE_TIMEZONE = "America/New_York";
+
 function parseDateKey(dateKey: string): Date {
   const [year, month, day] = dateKey.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   date.setHours(0, 0, 0, 0);
   return date;
+}
+
+function formatBookingDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function isLocationOption(value: unknown): value is LocationOption {
@@ -113,7 +122,7 @@ export default function BookingHeaderControls({
       : "Select Location";
   const contextDateLabel =
     mounted && booking.date
-      ? formatISTDate(booking.date)
+      ? formatBookingDate(booking.date)
       : "Select Date";
 
   const locationLabel =
@@ -490,6 +499,7 @@ export default function BookingHeaderControls({
                 variant="inline"
                 availableDates={availableDateKeys}
                 selectedDate={booking.date}
+                timezone={DEFAULT_VENUE_TIMEZONE}
                 onSelect={(date) => void handleDateSelect(date)}
                 onClose={() => setDateMenuOpen(false)}
               />

@@ -39,6 +39,9 @@ type TxMock = {
     create: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
   };
+  theatre: {
+    findUnique: ReturnType<typeof vi.fn>;
+  };
   couponUsage: {
     updateMany: ReturnType<typeof vi.fn>;
   };
@@ -46,7 +49,10 @@ type TxMock = {
 
 function createTxMock(): TxMock {
   return {
-    $queryRaw: vi.fn().mockResolvedValue([{ id: "slot-1" }]),
+    $queryRaw: vi
+      .fn()
+      .mockResolvedValueOnce([{ id: "slot-1" }])
+      .mockResolvedValue([{ lastNumber: 1 }]),
     slot: {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       findUnique: vi.fn(),
@@ -60,9 +66,14 @@ function createTxMock(): TxMock {
       update: vi.fn().mockResolvedValue({}),
       create: vi.fn().mockResolvedValue({
         id: "booking-new",
-        bookingRef: "TEMP",
+        bookingRef: "HR0101209900001",
       }),
       count: vi.fn().mockResolvedValue(0),
+    },
+    theatre: {
+      findUnique: vi.fn().mockResolvedValue({
+        capacity: 50,
+      }),
     },
     couponUsage: {
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),

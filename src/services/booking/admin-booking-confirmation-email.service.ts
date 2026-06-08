@@ -5,8 +5,8 @@ import type {
 } from "@/emails/BookingConfirmationEmail";
 import AdminBookingConfirmationEmail from "@/emails/AdminBookingConfirmationEmail";
 import { Prisma } from "@prisma/client";
-import { formatInTimeZone } from "date-fns-tz";
 import { prisma } from "@/lib/db";
+import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { sendEmail } from "@/services/email.service";
 import { resolveAdminBookingNotificationRecipients } from "@/services/booking/booking-notification-recipients.service";
@@ -16,8 +16,6 @@ type SendAdminBookingConfirmationEmailParams = {
   emailData: BookingConfirmationEmailProps;
   confirmationSource?: string;
 };
-
-const IST_TIMEZONE = "Asia/Kolkata";
 
 function stringifyOccasionValue(value: Prisma.JsonValue): string {
   if (typeof value === "string") return value.trim();
@@ -189,6 +187,21 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     return { sentCount: 0 };
   }
 
+  const schedule = resolvePresentedBookingSchedule({
+    eventDate: booking.eventDate,
+    eventStartTime: booking.eventStartTime,
+    eventEndTime: booking.eventEndTime,
+    startsAtUtc: booking.startsAtUtc,
+    endsAtUtc: booking.endsAtUtc,
+    timezone: booking.timezone,
+    theatreTimezone: booking.theatre?.timezone,
+    slot: booking.slot,
+  });
+
+  if (!schedule) {
+    return { sentCount: 0 };
+  }
+
   const latestPayment = booking.payment[0];
   const addonItems = buildAddonItemsWithNumberValues(
     booking.items,
@@ -199,10 +212,10 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     customerName: booking.contactName ?? "Guest",
     customerPhone: booking.contactPhone ?? "-",
     customerEmail: booking.contactEmail ?? undefined,
-    theatreName: booking.theatre.name,
-    locationName: booking.theatre.location?.name ?? "-",
-    date: formatInTimeZone(booking.slot.date, IST_TIMEZONE, "EEE, dd MMM yyyy"),
-    timeSlot: `${booking.slot.startTime} - ${booking.slot.endTime}`,
+    theatreName: booking.theatre?.name ?? "Haven Retreat",
+    locationName: booking.theatre?.location?.name ?? "-",
+    date: schedule.date,
+    timeSlot: schedule.timeSlot,
     guestCount: booking.guestCount,
     occasionLabel: booking.occasionLabel ?? undefined,
     occasionDetails: buildOccasionDetails(

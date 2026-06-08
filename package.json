@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run",
+    "test": "vitest run --no-file-parallelism",
     "test:coupon": "vitest run src/__tests__/coupon-engine.invariants.integration.test.ts"
   },
   "dependencies": {

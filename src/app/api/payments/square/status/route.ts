@@ -43,6 +43,18 @@ export async function GET(req: Request) {
     });
   }
 
+  if (
+    booking.bookingStatus === "ABANDONED" &&
+    booking.paymentStatus === "MANUAL_REVIEW"
+  ) {
+    return Response.json({
+      success: true,
+      status: "MANUAL_REVIEW",
+      bookingRef: booking.bookingRef,
+      cancelledReason: booking.cancelledReason,
+    });
+  }
+
   return Response.json({
     success: true,
     status: booking.bookingStatus,

@@ -130,6 +130,7 @@ export default function PaymentPage() {
         dismissPayToast();
         if (
           orderJson?.code === "PAID_EXPIRED" ||
+          orderJson?.code === "PAYMENT_MANUAL_REVIEW" ||
           orderJson?.bookingStatus === "PAID_EXPIRED" ||
           (orderJson?.paymentCaptured &&
             (orderJson?.code === "SESSION_EXPIRED" ||

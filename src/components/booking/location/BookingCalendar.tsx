@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "@/components/icons";
-import { toDateKey } from "@/lib/date";
+import { dateFromDateKey, getDateKeyInTimeZone, toDateKey } from "@/lib/date";
 
 type BookingCalendarProps = {
   onSelect: (date: Date) => void;
@@ -10,6 +10,7 @@ type BookingCalendarProps = {
   availableDates: string[]; // ["2025-01-03", "2025-01-04"]
   variant?: "modal" | "inline";
   selectedDate?: Date | null;
+  timezone?: string;
 };
 
 export default function BookingCalendar({
@@ -18,7 +19,12 @@ export default function BookingCalendar({
   availableDates,
   variant = "modal",
   selectedDate,
+  timezone = "America/New_York",
 }: BookingCalendarProps) {
+  const venueToday = useMemo(
+    () => dateFromDateKey(getDateKeyInTimeZone(new Date(), timezone)),
+    [timezone]
+  );
   const normalizedSelectedDate = useMemo(() => {
     if (!selectedDate) return null;
     const d = new Date(selectedDate);
@@ -35,7 +41,7 @@ export default function BookingCalendar({
         1
       );
     }
-    return new Date();
+    return new Date(venueToday.getFullYear(), venueToday.getMonth(), 1);
   });
   const isInline = variant === "inline";
 
@@ -50,14 +56,15 @@ export default function BookingCalendar({
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
   const monthName = currentMonth.toLocaleString("en-IN", { month: "long" });
+  const canGoPreviousMonth =
+    year > venueToday.getFullYear() ||
+    (year === venueToday.getFullYear() && month > venueToday.getMonth());
 
   const startOfMonth = new Date(year, month, 1);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startDay = startOfMonth.getDay();
 
-  // Normalize today
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayKey = toDateKey(venueToday);
 
   // Build fixed 6-row calendar grid
   const prevMonthDays = new Date(year, month, 0).getDate();
@@ -87,7 +94,7 @@ export default function BookingCalendar({
 
     const key = toDateKey(selectedDate);
 
-    if (key < toDateKey(today)) return;
+    if (key < todayKey) return;
     if (!availableDateSet.has(key)) return;
 
 
@@ -107,7 +114,8 @@ export default function BookingCalendar({
         <button
           type="button"
           onClick={() => setCurrentMonth(new Date(year, month - 1))}
-          className="grid h-9 w-9 place-items-center border border-transparent bg-transparent text-gray-700 transition-colors hover:border-[#d7e4e1] hover:bg-[#f8fbfa] hover:text-[#245e5b] active:bg-[#edf3f1]"
+          disabled={!canGoPreviousMonth}
+          className="grid h-9 w-9 place-items-center border border-transparent bg-transparent text-gray-700 transition-colors hover:border-[#d7e4e1] hover:bg-[#f8fbfa] hover:text-[#245e5b] active:bg-[#edf3f1] disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:border-transparent disabled:hover:bg-transparent"
         >
           <ChevronLeft size={15} />
         </button>
@@ -158,7 +166,7 @@ export default function BookingCalendar({
 
           const key = toDateKey(cellDate);
           const isOutsideMonth = cell.monthOffset !== 0;
-          const isPast = key < toDateKey(today);
+          const isPast = key < todayKey;
           const isUnavailable = !availableDateSet.has(key);
 
           const isDisabled =
@@ -166,7 +174,7 @@ export default function BookingCalendar({
           const isSelected =
             selectedDateKey != null &&
             key === selectedDateKey;
-          const isToday = key === toDateKey(today);
+          const isToday = key === todayKey;
 
           return (
             <button

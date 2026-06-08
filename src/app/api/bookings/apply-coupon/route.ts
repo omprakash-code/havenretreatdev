@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { evaluateCoupon } from "@/services/coupon";
 import { calculateDiscountBreakdown } from "@/services/coupon/coupon-discount";
@@ -28,6 +29,11 @@ import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
 import { isSlotOnlyCouponScope } from "@/lib/coupon-scope";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
+import { verifyBookingSessionToken } from "@/services/booking/bookingSession.server";
+import {
+    RangeBookingSessionError,
+    requireActiveRangeBookingSession,
+} from "@/services/booking/range-booking-session.service";
 
 function isEditableBookingStatus(status: string) {
     return (
@@ -117,7 +123,47 @@ export async function POST(req: Request) {
             );
         }
 
-        if (!booking.slot || booking.slot.status !== "LOCKED") {
+        if (!booking.theatre || !booking.theatreId) {
+            return bookingErrorResponse(
+                409,
+                "SESSION_EXPIRED",
+                BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
+            );
+        }
+
+        if (booking.slotId === null) {
+            const cookieStore = await cookies();
+            const sessionToken = cookieStore.get("ds_booking_session")?.value ?? null;
+            const payload = sessionToken ? verifyBookingSessionToken(sessionToken) : null;
+            if (
+                !payload ||
+                payload.bookingId !== booking.id ||
+                typeof payload.lockVersion !== "number"
+            ) {
+                return bookingErrorResponse(
+                    409,
+                    "SESSION_EXPIRED",
+                    BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
+                );
+            }
+
+            try {
+                await requireActiveRangeBookingSession({
+                    bookingId: booking.id,
+                    lockOwner: payload.lockOwner,
+                    lockVersion: payload.lockVersion,
+                });
+            } catch (error) {
+                if (error instanceof RangeBookingSessionError) {
+                    return bookingErrorResponse(
+                        409,
+                        "SESSION_EXPIRED",
+                        BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
+                    );
+                }
+                throw error;
+            }
+        } else if (!booking.slot || booking.slot.status !== "LOCKED") {
             return bookingErrorResponse(
                 409,
                 "SLOT_EXPIRED",
@@ -222,13 +268,22 @@ export async function POST(req: Request) {
             productsTotal;
 
         const context = buildBookingCouponContext({
-            slot: {
-                id: booking.slot.id,
-                date: booking.slot.date,
-                startTime: booking.slot.startTime,
-                endTime: booking.slot.endTime,
-                durationMin: booking.slot.durationMin,
+            bookingSchedule: {
+                eventDate: booking.eventDate,
+                eventStartTime: booking.eventStartTime,
+                eventEndTime: booking.eventEndTime,
+                startsAtUtc: booking.startsAtUtc,
+                endsAtUtc: booking.endsAtUtc,
             },
+            slot: booking.slot
+                ? {
+                    id: booking.slot.id,
+                    date: booking.slot.date,
+                    startTime: booking.slot.startTime,
+                    endTime: booking.slot.endTime,
+                    durationMin: booking.slot.durationMin,
+                }
+                : null,
             theatreId: booking.theatreId,
             locationId: booking.theatre.locationId,
             userId: resolvedUserId,

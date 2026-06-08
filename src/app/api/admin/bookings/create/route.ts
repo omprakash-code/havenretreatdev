@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
 import { createBookingSessionToken } from "@/services/booking/bookingSession.server";
-import { generateBookingRef } from "@/services/booking/bookingId.service";
+import { allocateBookingRef } from "@/services/booking/bookingId.service";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { isSlotExpiredInIST } from "@/lib/slot-time";
@@ -25,6 +25,11 @@ import { overrideLockedSlotForAdmin } from "@/services/booking/admin-slot-overri
 import { resolveBookingLockMinutes } from "@/services/booking/lockBooking.service";
 import { resolveSlotExpiryConfig } from "@/services/booking/slot-expiry-config.service";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import {
+  AdminRangeBookingError,
+  isAdminRangeBookingEnabled,
+  validateAdminRangeBooking,
+} from "@/services/booking/admin-range-booking.service";
 import {
   BookingOverlapError,
   BookingSlotLockError,
@@ -77,6 +82,8 @@ type CreateBookingPayload = {
   date?: string;
   theatreId?: string;
   slotId?: string;
+  startTime?: string;
+  endTime?: string;
   customer?: {
     name?: string;
     phone?: string;
@@ -294,73 +301,18 @@ function buildAddonItemsWithNumberValues(
   });
 }
 
-function isBookingRefUniqueConflict(error: unknown) {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  if (error.code !== "P2002") return false;
-
-  const target = error.meta?.target;
-  if (Array.isArray(target)) {
-    return target.some((value) => String(value).includes("bookingRef"));
-  }
-
-  return typeof target === "string" && target.includes("bookingRef");
-}
-
-async function getNextBookingCounter(tx: Prisma.TransactionClient, now: Date) {
-  const datePrefix = generateBookingRef(now, 0).slice(0, 10);
-  const latestBooking = await tx.booking.findFirst({
-    where: {
-      bookingRef: {
-        startsWith: datePrefix,
-      },
-    },
-    orderBy: {
-      bookingRef: "desc",
-    },
-    select: {
-      bookingRef: true,
-    },
-  });
-
-  if (!latestBooking?.bookingRef) return 1;
-
-  const currentCounter = Number(latestBooking.bookingRef.slice(-4));
-  if (!Number.isInteger(currentCounter) || currentCounter < 1) return 1;
-
-  return currentCounter + 1;
-}
-
 async function createBookingWithUniqueRef(
   tx: Prisma.TransactionClient,
   now: Date,
   data: Omit<Prisma.BookingUncheckedCreateInput, "bookingRef">
 ) {
-  const maxRetries = 6;
-  const nextCounter = await getNextBookingCounter(tx, now);
-
-  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
-    const bookingRef = generateBookingRef(now, nextCounter + attempt);
-
-    try {
-      return await tx.booking.create({
-        data: {
-          ...data,
-          bookingRef,
-        },
-      });
-    } catch (error) {
-      if (isBookingRefUniqueConflict(error)) {
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw new AdminBookingError(
-    409,
-    "BOOKING_REF_CONFLICT",
-    "Unable to generate a unique booking reference. Please try again."
-  );
+  const bookingRef = await allocateBookingRef(tx, now);
+  return tx.booking.create({
+    data: {
+      ...data,
+      bookingRef,
+    },
+  });
 }
 
 export async function POST(req: Request) {
@@ -413,7 +365,8 @@ export async function POST(req: Request) {
       });
     }
 
-    assertBookingMutationPayload(body);
+    const adminRangeEnabled = isAdminRangeBookingEnabled();
+    assertBookingMutationPayload(body, { requireSlot: !adminRangeEnabled });
 
     ensureValidDateKey(body.date);
 
@@ -509,17 +462,40 @@ export async function POST(req: Request) {
 
     const result = await prisma.$transaction(async (tx) => {
       const abandonedBookingIds = new Set<string>();
-      await lockSlotRowForUpdate(tx, {
-        slotId: body.slotId,
-        context: "admin-booking-create",
-      });
+      const rangeStartTime = body.startTime?.trim() || "";
+      const rangeEndTime = body.endTime?.trim() || "";
+      const rangeContext = adminRangeEnabled
+        ? await validateAdminRangeBooking(tx, {
+            theatreId: body.theatreId,
+            date: body.date,
+            startTime: rangeStartTime,
+            endTime: rangeEndTime,
+            guestCount,
+            pricingSlotId: body.slotId || null,
+          })
+        : null;
 
-      let slot = await tx.slot.findUnique({
-        where: { id: body.slotId },
-        include: {
-          theatre: true,
-        },
-      });
+      if (!adminRangeEnabled) {
+        await lockSlotRowForUpdate(tx, {
+          slotId: body.slotId,
+          context: "admin-booking-create",
+        });
+      }
+
+      let slot = rangeContext?.pricingSlot
+        ? {
+            ...rangeContext.pricingSlot,
+            status: "AVAILABLE" as const,
+            lockedBy: null as string | null,
+            lockExpiresAt: null as Date | null,
+            theatre: rangeContext.theatre,
+          }
+        : await tx.slot.findUnique({
+            where: { id: body.slotId },
+            include: {
+              theatre: true,
+            },
+          });
 
       if (!slot) {
         throw new AdminBookingError(
@@ -546,7 +522,7 @@ export async function POST(req: Request) {
         );
       }
 
-      if (slot.status === "LOCKED") {
+      if (!adminRangeEnabled && slot.status === "LOCKED") {
         if (!body.allowLockedSlotOverride) {
           const lockedBySameSession = Boolean(
             requestedLockOwner && slot.lockedBy === requestedLockOwner
@@ -588,7 +564,7 @@ export async function POST(req: Request) {
         slot = refreshedSlot;
       }
 
-      if (slot.status !== "AVAILABLE") {
+      if (!adminRangeEnabled && slot.status !== "AVAILABLE") {
         throw new AdminBookingError(
           409,
           "SLOT_UNAVAILABLE",
@@ -596,22 +572,24 @@ export async function POST(req: Request) {
         );
       }
 
-      const slotExpiryConfig = await resolveSlotExpiryConfig(tx);
-      const isExpired = isSlotExpiredInIST(
-        { startTime: slot.startTime, endTime: slot.endTime },
-        slot.date,
-        slotExpiryConfig
-      );
-
-      if (isExpired) {
-        throw new AdminBookingError(
-          409,
-          "SLOT_UNAVAILABLE",
-          "Selected slot is no longer available."
+      if (!adminRangeEnabled) {
+        const slotExpiryConfig = await resolveSlotExpiryConfig(tx);
+        const isExpired = isSlotExpiredInIST(
+          { startTime: slot.startTime, endTime: slot.endTime },
+          slot.date,
+          slotExpiryConfig
         );
+
+        if (isExpired) {
+          throw new AdminBookingError(
+            409,
+            "SLOT_UNAVAILABLE",
+            "Selected slot is no longer available."
+          );
+        }
       }
 
-      if (guestCount > slot.theatre.capacity) {
+      if (!adminRangeEnabled && guestCount > slot.theatre.capacity) {
         throw new AdminBookingError(
           400,
           "GUEST_LIMIT_EXCEEDED",
@@ -619,13 +597,15 @@ export async function POST(req: Request) {
         );
       }
 
-      await validateNoOverlappingActiveBooking(tx, {
-        theatreId: slot.theatreId,
-        date: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        context: "admin-booking-create",
-      });
+      if (!adminRangeEnabled) {
+        await validateNoOverlappingActiveBooking(tx, {
+          theatreId: slot.theatreId,
+          date: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          context: "admin-booking-create",
+        });
+      }
 
       const normalizedItemsMap = new Map<
         string,
@@ -899,13 +879,24 @@ export async function POST(req: Request) {
             : body.couponCode
             ? [body.couponCode]
             : [],
-        slot: {
-          id: slot.id,
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          durationMin: slot.durationMin,
-        },
+        bookingSchedule: rangeContext
+          ? {
+              eventDate: rangeContext.range.eventDate,
+              eventStartTime: rangeStartTime,
+              eventEndTime: rangeEndTime,
+              startsAtUtc: rangeContext.range.startsAtUtc,
+              endsAtUtc: rangeContext.range.endsAtUtc,
+            }
+          : null,
+        slot: rangeContext
+          ? null
+          : {
+              id: slot.id,
+              date: slot.date,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              durationMin: slot.durationMin,
+            },
         theatreId: slot.theatreId,
         locationId: body.locationId,
         userId: linkedUserId,
@@ -979,8 +970,9 @@ export async function POST(req: Request) {
       });
       const lockWindowMinutes = await resolveBookingLockMinutes(tx);
 
-      const slotUpdateResult =
-        paymentType === "OFFLINE"
+      const slotUpdateResult = adminRangeEnabled
+        ? { count: 1 }
+        : paymentType === "OFFLINE"
           ? await tx.slot.updateMany({
               where: {
                 id: slot.id,
@@ -1022,7 +1014,15 @@ export async function POST(req: Request) {
         contactPhone: phone,
         contactEmail: email,
         theatreId: slot.theatreId,
-        slotId: slot.id,
+        slotId: rangeContext ? null : slot.id,
+        eventDate: rangeContext?.range.eventDate,
+        eventStartTime: rangeContext ? rangeStartTime : undefined,
+        eventEndTime: rangeContext ? rangeEndTime : undefined,
+        startsAtUtc: rangeContext?.range.startsAtUtc,
+        endsAtUtc: rangeContext?.range.endsAtUtc,
+        occupiedUntilUtc: rangeContext?.range.occupiedUntilUtc,
+        bufferMinutes: rangeContext?.settings.bufferMinutes,
+        timezone: rangeContext?.theatre.timezone,
         occasionKey,
         occasionLabel,
         occasionData: occasionJson,
@@ -1287,6 +1287,9 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error) {
+    if (error instanceof AdminRangeBookingError) {
+      return bookingErrorResponse(409, error.code, error.message);
+    }
     if (error instanceof BookingSlotLockError) {
       return bookingErrorResponse(
         404,

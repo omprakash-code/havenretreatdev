@@ -125,7 +125,7 @@ export default function BookingsTable({
             <th className="px-3 text-left">Customer</th>
             <th className="px-3 text-left">Phone</th>
             <th className="px-3 w-[85px] text-left">Theatre</th>
-            <th className="px-3 text-left">Slot</th>
+            <th className="px-3 text-left">Booking Time</th>
             <th className="px-3 text-left">Amount</th>
             <th className="px-3 text-left w-[120px]">Status</th>
             <th className="px-3 text-left">Booking Date</th>

@@ -9,7 +9,6 @@ import { Phone } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsApp";
 
 import {
-  formatSlotTime,
   formatIST,
   maskPhone,
 } from "@/lib/formatters";
@@ -61,6 +60,11 @@ export default function BookingRow({
     showSLA && booking.sla
       ? SLA_META[booking.sla.label]
       : null;
+  const scheduleDateLabel =
+    booking.schedule?.dateLabel || formatIST(booking.slot.date).split(",")[0];
+  const scheduleTimeLabel =
+    booking.schedule?.timeLabel ||
+    `${booking.slot.startTime} - ${booking.slot.endTime}`;
 
   return (
     <tr className="border-t border-neutral-200 text-[13px] text-neutral-800 hover:bg-[#F3F4F6] transition-colors">
@@ -126,16 +130,13 @@ export default function BookingRow({
       {/* Theatre */}
       <td className="px-3 py-3">{booking.theatre.name}</td>
 
-      {/* Slot Date & Time */}
+      {/* Booking Date & Time */}
       <td className="px-3 py-3 whitespace-nowrap leading-tight">
         <div>
-          {formatIST(booking.slot.date).split(",")[0]}
+          {scheduleDateLabel}
         </div>
         <div className="text-xs text-neutral-500">
-          {formatSlotTime(
-            booking.slot.startTime,
-            booking.slot.endTime
-          )}
+          {scheduleTimeLabel}
         </div>
       </td>
 

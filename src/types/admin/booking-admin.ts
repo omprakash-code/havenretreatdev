@@ -27,10 +27,27 @@ export type AdminBooking = {
   theatre: {
     id: string;
     name: string;
+    timezone?: string | null;
     locationName?: string | null;
   };
   locationName?: string | null;
   theatreImage?: string | null;
+
+  eventDate?: string | null;
+  eventStartTime?: string | null;
+  eventEndTime?: string | null;
+  startsAtUtc?: string | null;
+  endsAtUtc?: string | null;
+  timezone?: string | null;
+  schedule?: {
+    source: "BOOKING" | "SLOT" | "MISSING";
+    date: string;
+    startTime: string;
+    endTime: string;
+    dateLabel: string;
+    timeLabel: string;
+    dateTimeLabel: string;
+  };
 
   slot: {
     id?: string | null;

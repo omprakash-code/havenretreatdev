@@ -74,7 +74,7 @@ export async function POST() {
 
       await tx.slot.updateMany({
         where: {
-          id: booking.slotId,
+          id: booking.slot.id,
           status: "LOCKED",
           lockedBy: lockOwner,
         },

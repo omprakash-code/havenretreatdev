@@ -1,10 +1,9 @@
 import { Prisma, PaymentStatus } from "@prisma/client";
-import { formatInTimeZone } from "date-fns-tz";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { prisma } from "@/lib/db";
+import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 
-const IST_TIMEZONE = "Asia/Kolkata";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 
@@ -23,7 +22,7 @@ function deriveAttemptReason(input: {
   bookingStatus: string;
   bookingPaymentStatus: string | null;
   bookingRazorpayPaymentId: string | null;
-  slotStatus: string;
+  slotStatus: string | null;
   method: string | null;
 }) {
   if (input.paymentStatus === PaymentStatus.CANCELLED) {
@@ -139,9 +138,16 @@ export async function GET(req: Request) {
               paymentStatus: true,
               totalAmount: true,
               razorpayPaymentId: true,
+              eventDate: true,
+              eventStartTime: true,
+              eventEndTime: true,
+              startsAtUtc: true,
+              endsAtUtc: true,
+              timezone: true,
               theatre: {
                 select: {
                   name: true,
+                  timezone: true,
                   location: {
                     select: {
                       name: true,
@@ -172,8 +178,18 @@ export async function GET(req: Request) {
           bookingStatus: payment.booking.bookingStatus,
           bookingPaymentStatus: payment.booking.paymentStatus,
           bookingRazorpayPaymentId: payment.booking.razorpayPaymentId,
-          slotStatus: payment.booking.slot.status,
+          slotStatus: payment.booking.slot?.status ?? null,
           method: payment.method,
+        });
+        const schedule = presentReportingSchedule({
+          eventDate: payment.booking.eventDate,
+          eventStartTime: payment.booking.eventStartTime,
+          eventEndTime: payment.booking.eventEndTime,
+          startsAtUtc: payment.booking.startsAtUtc,
+          endsAtUtc: payment.booking.endsAtUtc,
+          timezone: payment.booking.timezone,
+          theatreTimezone: payment.booking.theatre?.timezone,
+          slot: payment.booking.slot,
         });
 
         return {
@@ -181,15 +197,12 @@ export async function GET(req: Request) {
           bookingRef: payment.booking.bookingRef,
           customerName: payment.booking.contactName,
           contactPhone: payment.booking.contactPhone,
-          theatreName: payment.booking.theatre.name,
-          locationName: payment.booking.theatre.location.name,
-          slotDate: formatInTimeZone(
-            payment.booking.slot.date,
-            IST_TIMEZONE,
-            "yyyy-MM-dd"
-          ),
-          slotStartTime: payment.booking.slot.startTime,
-          slotEndTime: payment.booking.slot.endTime,
+          theatreName: payment.booking.theatre?.name ?? "Haven Retreat",
+          locationName: payment.booking.theatre?.location?.name ?? "—",
+          schedule,
+          slotDate: schedule.date,
+          slotStartTime: schedule.startTime,
+          slotEndTime: schedule.endTime,
           totalAmount: payment.booking.totalAmount,
           payableAmount: payment.amount,
           status: payment.status,

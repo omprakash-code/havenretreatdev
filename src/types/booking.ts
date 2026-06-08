@@ -13,6 +13,7 @@ export type PaymentStatus =
   | "INITIALIZED"
   | "AWAITING_PAYMENT"
   | "PAID"
+  | "MANUAL_REVIEW"
   | "FAILED"
   | "EXPIRED"
   | "OFFLINE";

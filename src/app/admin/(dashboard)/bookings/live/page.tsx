@@ -159,7 +159,12 @@ export default function LiveBookingsPage() {
     () =>
       Array.from(
         new Set(
-          data.map((booking) => `${booking.slot.startTime} - ${booking.slot.endTime}`)
+          data.map(
+            (booking) =>
+              `${booking.schedule?.startTime || booking.slot.startTime} - ${
+                booking.schedule?.endTime || booking.slot.endTime
+              }`
+          )
         )
       ),
     [data]
@@ -169,7 +174,14 @@ export default function LiveBookingsPage() {
     return enrichedAndSorted.filter((booking) => {
       if (theatre && booking.theatre.name !== theatre) return false;
 
-      if (slot && `${booking.slot.startTime} - ${booking.slot.endTime}` !== slot) return false;
+      if (
+        slot &&
+        `${booking.schedule?.startTime || booking.slot.startTime} - ${
+          booking.schedule?.endTime || booking.slot.endTime
+        }` !== slot
+      ) {
+        return false;
+      }
 
       if (search.trim()) {
         const query = search.trim().toLowerCase();

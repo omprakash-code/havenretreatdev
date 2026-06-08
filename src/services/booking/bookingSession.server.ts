@@ -26,9 +26,13 @@ function sign(value: string) {
 
 export function createBookingSessionToken(
   bookingId: string,
-  lockOwner: string
+  lockOwner: string,
+  lockVersion?: number
 ) {
-  const payload = `${bookingId}.${lockOwner}`;
+  const payload =
+    lockVersion === undefined
+      ? `${bookingId}.${lockOwner}`
+      : `${bookingId}.${lockOwner}.${lockVersion}`;
   const signature = sign(payload);
   return Buffer.from(`${payload}.${signature}`).toString("base64");
 }
@@ -36,15 +40,33 @@ export function createBookingSessionToken(
 export function verifyBookingSessionToken(token: string) {
   try {
     const decoded = Buffer.from(token, "base64").toString("utf8");
-    const [bookingId, lockOwner, signature] = decoded.split(".");
+    const parts = decoded.split(".");
+    if (parts.length !== 3 && parts.length !== 4) return null;
+
+    const [bookingId, lockOwner] = parts;
+    const versionPart = parts.length === 4 ? parts[2] : null;
+    const signature = parts.at(-1);
 
     if (!bookingId || !lockOwner || !signature) return null;
 
-    const expectedSignature = sign(`${bookingId}.${lockOwner}`);
+    let lockVersion: number | null = null;
+    if (versionPart !== null) {
+      const parsedLockVersion = Number.parseInt(versionPart, 10);
+      if (!Number.isSafeInteger(parsedLockVersion) || parsedLockVersion < 1) {
+        return null;
+      }
+      lockVersion = parsedLockVersion;
+    }
+
+    const payload =
+      lockVersion === null
+        ? `${bookingId}.${lockOwner}`
+        : `${bookingId}.${lockOwner}.${lockVersion}`;
+    const expectedSignature = sign(payload);
 
     if (!timingSafeEqualString(expectedSignature, signature)) return null;
 
-    return { bookingId, lockOwner };
+    return { bookingId, lockOwner, lockVersion };
   } catch {
     return null;
   }

@@ -96,6 +96,14 @@ function createTxMock() {
     productVariant: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    theatre: {
+      aggregate: vi.fn().mockResolvedValue({
+        _max: { capacity: 6 },
+      }),
+    },
+    appSetting: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     bookingItem: {
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       create: vi.fn(),

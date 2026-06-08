@@ -12,6 +12,7 @@ import {
   isEligibilityRule,
   resolveCouponBaseAmount,
 } from "./coupon-targeting"
+import { resolveCouponScheduleContext } from "@/services/coupon/coupon-evaluation-context"
 import { formatInTimeZone } from "date-fns-tz"
 
 const IST_TIMEZONE = "Asia/Kolkata"
@@ -35,8 +36,8 @@ export function evaluateCoupon(
     return reject(CouponRejectionReason.OUTSIDE_VALIDITY)
   }
 
-  // 2b. Coupon must also be valid for the selected booking slot timing.
-  const slotStartAt = getSlotStartInstantInIST(ctx)
+  // 2b. Coupon must also be valid for the selected booking timing.
+  const slotStartAt = getBookingStartInstant(ctx)
   if (
     slotStartAt &&
     (slotStartAt < coupon.validFrom ||
@@ -113,11 +114,14 @@ function reject(
   return { valid: false, reason, ...extra }
 }
 
-function getSlotStartInstantInIST(
+function getBookingStartInstant(
   ctx: CouponEvaluationContext
 ): Date | null {
-  const slotDateKey = formatInTimeZone(ctx.slot.date, IST_TIMEZONE, "yyyy-MM-dd")
-  const [hours, minutes] = ctx.slot.startTime.split(":").map(Number)
+  const schedule = resolveCouponScheduleContext(ctx)
+  if (schedule.startsAtUtc) return schedule.startsAtUtc
+
+  const slotDateKey = formatInTimeZone(schedule.date, IST_TIMEZONE, "yyyy-MM-dd")
+  const [hours, minutes] = schedule.startTime.split(":").map(Number)
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
 
   const hourText = String(Math.trunc(hours)).padStart(2, "0")

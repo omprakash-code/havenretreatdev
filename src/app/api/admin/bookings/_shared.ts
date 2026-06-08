@@ -76,13 +76,15 @@ export function ensureValidDateKey(value: string) {
 }
 
 export function assertBookingMutationPayload<T extends BookingMutationPayloadCore>(
-  payload: T
+  payload: T,
+  options?: { requireSlot?: boolean }
 ): asserts payload is T & Required<Pick<T, CoreField>> {
+  const requireSlot = options?.requireSlot ?? true;
   if (
     !payload.locationId ||
     !payload.date ||
     !payload.theatreId ||
-    !payload.slotId ||
+    (requireSlot && !payload.slotId) ||
     !payload.customer ||
     !payload.payment
   ) {

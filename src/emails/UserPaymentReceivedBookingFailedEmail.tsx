@@ -117,7 +117,7 @@ export default function UserPaymentReceivedBookingFailedEmail({
                 We received your payment, but this booking could not be confirmed.
               </p>
               <p style={{ margin: "0 0 14px", color: color.textMuted }}>
-                Our team will process the refund shortly. You can restart booking right away if you want another slot.
+                Our team will process the refund shortly. You can restart booking right away if you want another booking time.
               </p>
 
               <BookingEmailSummaryPanel palette={color}>

@@ -1,11 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { startCouponSweepSchedulerMock } = vi.hoisted(() => ({
+const {
+  startCouponSweepSchedulerMock,
+  startRangeLockCleanupSchedulerMock,
+} = vi.hoisted(() => ({
   startCouponSweepSchedulerMock: vi.fn(),
+  startRangeLockCleanupSchedulerMock: vi.fn(),
 }));
 
 vi.mock("@/services/coupon/coupon-sweep.scheduler", () => ({
   startCouponSweepScheduler: startCouponSweepSchedulerMock,
+}));
+vi.mock("@/services/booking/range-lock-cleanup.scheduler", () => ({
+  startRangeLockCleanupScheduler: startRangeLockCleanupSchedulerMock,
 }));
 
 import { register } from "@/instrumentation";
@@ -29,6 +36,7 @@ describe("instrumentation register", () => {
     await register();
 
     expect(startCouponSweepSchedulerMock).not.toHaveBeenCalled();
+    expect(startRangeLockCleanupSchedulerMock).not.toHaveBeenCalled();
   });
 
   it("starts scheduler on node runtime", async () => {
@@ -37,5 +45,6 @@ describe("instrumentation register", () => {
     await register();
 
     expect(startCouponSweepSchedulerMock).toHaveBeenCalledTimes(1);
+    expect(startRangeLockCleanupSchedulerMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,6 +6,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
+import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import {
+  RangeBookingSessionError,
+  requireActiveRangeBookingSession,
+} from "@/services/booking/range-booking-session.service";
 
 function isEditableBookingStatus(status: string) {
   return (
@@ -53,6 +58,31 @@ export async function POST(req: Request) {
         "INVALID_REQUEST",
         "Invalid occasion selected."
       );
+    }
+
+    const rangeIdentity = await getRangeBookingApiIdentity(bookingId);
+    if (rangeIdentity) {
+      const { booking } = await requireActiveRangeBookingSession(rangeIdentity);
+      if (!isEditableBookingStatus(booking.bookingStatus)) {
+        return bookingErrorResponse(
+          409,
+          "SESSION_EXPIRED",
+          BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
+        );
+      }
+      await prisma.booking.update({
+        where: { id: bookingId },
+        data: {
+          occasionKey: occasion.key,
+          occasionLabel: occasion.label,
+          occasionData:
+            typeof occasionData === "object" ? occasionData : {},
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        message: "Occasion updated successfully",
+      });
     }
 
     /* -----------------------------
@@ -123,6 +153,13 @@ export async function POST(req: Request) {
       message: "Occasion updated successfully",
     });
   } catch (error) {
+    if (error instanceof RangeBookingSessionError) {
+      return bookingErrorResponse(
+        error.code === "BOOKING_NOT_FOUND" ? 404 : 409,
+        error.code,
+        error.message
+      );
+    }
     console.error("BOOKING OCCASION UPDATE ERROR:", error);
 
     return bookingErrorResponse(

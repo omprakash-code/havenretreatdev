@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import {
   buildMinimumPayableMessage,
@@ -13,6 +14,11 @@ import { getRequiredAdvancePaymentAmount } from "@/lib/advance-payment";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
+import { verifyBookingSessionToken } from "@/services/booking/bookingSession.server";
+import {
+  RangeBookingSessionError,
+  requireActiveRangeBookingSession,
+} from "@/services/booking/range-booking-session.service";
 
 function isEditableBookingStatus(status: string) {
   return (
@@ -44,6 +50,10 @@ export async function POST(req: Request) {
       );
     }
 
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get("ds_booking_session")?.value ?? null;
+    const sessionPayload = sessionToken ? verifyBookingSessionToken(sessionToken) : null;
+
     const { totalDiscount, appliedCoupons } = await prisma.$transaction(async tx => {
       // 1. Fetch booking snapshot and guard finalized states first
       const booking = await tx.booking.findUnique({
@@ -62,7 +72,35 @@ export async function POST(req: Request) {
       if (!isEditableBookingStatus(booking.bookingStatus)) {
         throw new Error("BOOKING_INVALID_STATE");
       }
-      if (!booking.slot || booking.slot.status !== "LOCKED") {
+      if (!booking.theatre || !booking.theatreId) {
+        throw new Error("BOOKING_INVALID_STATE");
+      }
+      if (booking.slotId === null) {
+        if (
+          !sessionPayload ||
+          sessionPayload.bookingId !== booking.id ||
+          typeof sessionPayload.lockVersion !== "number"
+        ) {
+          throw new Error("BOOKING_INVALID_STATE");
+        }
+
+        try {
+          await requireActiveRangeBookingSession(
+            {
+              bookingId: booking.id,
+              lockOwner: sessionPayload.lockOwner,
+              lockVersion: sessionPayload.lockVersion,
+            },
+            new Date(),
+            tx
+          );
+        } catch (error) {
+          if (error instanceof RangeBookingSessionError) {
+            throw new Error("BOOKING_INVALID_STATE");
+          }
+          throw error;
+        }
+      } else if (!booking.slot || booking.slot.status !== "LOCKED") {
         throw new Error("SLOT_EXPIRED");
       }
 
@@ -104,13 +142,22 @@ export async function POST(req: Request) {
         booking.decorationAmount +
         productsTotal;
       const context = buildBookingCouponContext({
-        slot: {
-          id: booking.slot.id,
-          date: booking.slot.date,
-          startTime: booking.slot.startTime,
-          endTime: booking.slot.endTime,
-          durationMin: booking.slot.durationMin,
+        bookingSchedule: {
+          eventDate: booking.eventDate,
+          eventStartTime: booking.eventStartTime,
+          eventEndTime: booking.eventEndTime,
+          startsAtUtc: booking.startsAtUtc,
+          endsAtUtc: booking.endsAtUtc,
         },
+        slot: booking.slot
+          ? {
+              id: booking.slot.id,
+              date: booking.slot.date,
+              startTime: booking.slot.startTime,
+              endTime: booking.slot.endTime,
+              durationMin: booking.slot.durationMin,
+            }
+          : null,
         theatreId: booking.theatreId,
         locationId: booking.theatre.locationId,
         userId: resolvedUserId,

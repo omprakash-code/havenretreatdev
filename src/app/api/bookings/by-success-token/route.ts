@@ -1,4 +1,3 @@
-import { formatInTimeZone } from "date-fns-tz";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import {
   assignNumberDecorationDetails,
@@ -6,12 +5,9 @@ import {
 } from "@/lib/booking-celebration";
 import { prisma } from "@/lib/db";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
-import { formatSlotTime } from "@/lib/formatters";
-import { timeToMinutes } from "@/lib/time";
 import { verifySuccessToken } from "@/services/booking/successToken.server";
 import {
   resolveBookingDurationPricingConfig,
-  resolveSlotDurationHours,
 } from "@/lib/booking-duration-pricing";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
@@ -21,10 +17,9 @@ import {
   getPackageIncludedProductExtraQuantity,
   getPackageIncludedProductQuantity,
 } from "@/lib/package-included-products";
+import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 
-const IST_TIMEZONE = "Asia/Kolkata";
 const DEFAULT_ADVANCE = 750;
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
   try {
@@ -87,6 +82,12 @@ export async function GET(req: Request) {
           },
           orderBy: { confirmedAt: "asc" },
         },
+        theatre: {
+          include: {
+            location: true,
+          },
+        },
+        slot: true,
       },
     });
 
@@ -102,27 +103,29 @@ export async function GET(req: Request) {
       );
     }
 
-    const slot = await prisma.slot.findUnique({
-      where: { id: booking.slotId },
-    });
-    if (!slot) {
+    const schedule = resolvePresentedBookingSchedule({
+      eventDate: booking.eventDate,
+      eventStartTime: booking.eventStartTime,
+      eventEndTime: booking.eventEndTime,
+      startsAtUtc: booking.startsAtUtc,
+      endsAtUtc: booking.endsAtUtc,
+      timezone: booking.timezone,
+      theatreTimezone: booking.theatre?.timezone,
+      slot: booking.slot,
+    }, "dd MMM yyyy");
+
+    if (!schedule) {
       return bookingErrorResponse(
         404,
         "BOOKING_NOT_FOUND",
-        "Booking details not found."
+        "Booking schedule details not found."
       );
     }
 
-    const dateKey = formatInTimeZone(slot.date, IST_TIMEZONE, "yyyy-MM-dd");
-    let slotEndAt = new Date(`${dateKey}T${slot.endTime}:00+05:30`);
-    const isOvernight =
-      timeToMinutes(slot.endTime) <= timeToMinutes(slot.startTime);
-    if (isOvernight) {
-      slotEndAt = new Date(slotEndAt.getTime() + ONE_DAY_MS);
-    }
-
-    const tokenExpiryAt = new Date(slotEndAt.getTime() + ONE_DAY_MS);
-    if (Date.now() > tokenExpiryAt.getTime()) {
+    if (
+      schedule.successTokenExpiresAt &&
+      Date.now() > schedule.successTokenExpiresAt.getTime()
+    ) {
       return bookingErrorResponse(
         410,
         "TOKEN_EXPIRED",
@@ -130,9 +133,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const theatre = await prisma.theatre.findUnique({
-      where: { id: booking.theatreId },
-    });
+    const theatre = booking.theatre;
     if (!theatre) {
       return bookingErrorResponse(
         404,
@@ -141,9 +142,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const location = await prisma.location.findUnique({
-      where: { id: theatre.locationId },
-    });
+    const location = theatre.location;
 
     const productIds = [...new Set(booking.items.map((row) => row.productId))];
     const products = await prisma.product.findMany({
@@ -152,16 +151,12 @@ export async function GET(req: Request) {
     });
     const productImageMap = new Map(products.map((row) => [row.id, row.image]));
 
-    const formattedDate = formatInTimeZone(slot.date, IST_TIMEZONE, "dd MMM yyyy");
+    const formattedDate = schedule.date;
     const advance =
       booking.advancePaid !== null ? booking.advancePaid : DEFAULT_ADVANCE;
     const latestPayment = booking.payment[0] ?? null;
     const durationConfig = await resolveBookingDurationPricingConfig(prisma);
-    const durationHours = resolveSlotDurationHours({
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      durationMin: slot.durationMin,
-    });
+    const durationHours = schedule.durationHours;
     const extraDurationHours =
       durationHours !== null
         ? Math.max(durationHours - durationConfig.includedDurationHours, 0)
@@ -210,12 +205,12 @@ export async function GET(req: Request) {
       theatreName: theatre.name,
       theatreImage: theatre.images?.[0] ?? null,
       date: formattedDate,
-      timeSlot: formatSlotTime(slot.startTime, slot.endTime),
+      timeSlot: schedule.timeSlot,
       durationHours,
       includedDurationHours: durationConfig.includedDurationHours,
       extraDurationHours,
       locationName: location?.name ?? "—",
-      dateTime: `${formattedDate}, ${formatSlotTime(slot.startTime, slot.endTime)}`,
+      dateTime: schedule.dateTime,
       occasionLabel: booking.occasionLabel ?? undefined,
       occasionDetails: buildOccasionDetails(
         (booking.occasionData as Record<string, unknown> | null) ?? null

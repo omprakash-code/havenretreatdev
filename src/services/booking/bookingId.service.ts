@@ -1,20 +1,57 @@
-// src/services/booking/bookingId.service.ts  
-/* ---------------------------------
-    Generate Booking Reference
-  ---------------------------------- */
-  // Format: HRDDMMYYYYXXXX
-  // Where: DD = Day, MM = Month, YYYY = Year, XXXX = Daily counter
-  // Example: HR050920230001
+import type { Prisma } from "@prisma/client";
+import { formatInTimeZone } from "date-fns-tz";
 
-export function generateBookingRef(
-  date: Date,
-  dailyCount: number
+const BOOKING_REFERENCE_TIMEZONE = "America/New_York";
+const MAX_YEARLY_BOOKINGS = 99_999;
+
+type CounterRow = {
+  lastNumber: number;
+};
+
+/**
+ * Allocates a customer-facing booking reference.
+ *
+ * Format: HRMMDDYYYYNNNNN
+ * Example: HR0607202600001 = June 7, 2026, booking sequence 00001.
+ *
+ * The counter is shared across all booking creation paths and resets only
+ * when the Miami calendar year changes.
+ */
+export async function allocateBookingRef(
+  tx: Prisma.TransactionClient,
+  now = new Date()
 ) {
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
+  const year = Number(
+    formatInTimeZone(now, BOOKING_REFERENCE_TIMEZONE, "yyyy")
+  );
+  const datePart = formatInTimeZone(
+    now,
+    BOOKING_REFERENCE_TIMEZONE,
+    "MMddyyyy"
+  );
 
-  const counter = String(dailyCount).padStart(4, "0");
+  const rows = await tx.$queryRaw<CounterRow[]>`
+    INSERT INTO "BookingReferenceCounter" (
+      "year",
+      "lastNumber",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (${year}, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT ("year")
+    DO UPDATE SET
+      "lastNumber" = "BookingReferenceCounter"."lastNumber" + 1,
+      "updatedAt" = CURRENT_TIMESTAMP
+    RETURNING "lastNumber"
+  `;
 
-  return `HR${dd}${mm}${yyyy}${counter}`;
+  const sequence = rows[0]?.lastNumber;
+  if (!Number.isInteger(sequence) || sequence < 1) {
+    throw new Error("Unable to allocate a booking reference.");
+  }
+  if (sequence > MAX_YEARLY_BOOKINGS) {
+    throw new Error(`Booking reference capacity reached for ${year}.`);
+  }
+
+  return `HR${datePart}${String(sequence).padStart(5, "0")}`;
 }

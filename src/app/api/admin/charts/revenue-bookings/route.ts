@@ -54,14 +54,32 @@ export async function GET(req: Request) {
     const bookings = await prisma.booking.findMany({
       where: {
         paymentStatus: PaymentStatus.PAID,
-        createdAt: {
-          gte: startDayStartIST,
-          lt: endExclusiveIST,
-        },
+        OR: [
+          {
+            eventDate: {
+              gte: startDayStartIST,
+              lt: endExclusiveIST,
+            },
+          },
+          {
+            eventDate: null,
+            slot: {
+              date: {
+                gte: startDayStartIST,
+                lt: endExclusiveIST,
+              },
+            },
+          },
+        ],
       },
       select: {
-        createdAt: true,
+        eventDate: true,
         totalAmount: true,
+        slot: {
+          select: {
+            date: true,
+          },
+        },
       },
     });
 
@@ -83,7 +101,9 @@ export async function GET(req: Request) {
     }
 
     for (const booking of bookings) {
-      const key = formatInTimeZone(booking.createdAt, IST_TIMEZONE, "yyyy-MM-dd");
+      const scheduleDate = booking.eventDate ?? booking.slot?.date ?? null;
+      if (!scheduleDate) continue;
+      const key = formatInTimeZone(scheduleDate, IST_TIMEZONE, "yyyy-MM-dd");
       const row = rows.get(key);
       if (!row) continue;
 

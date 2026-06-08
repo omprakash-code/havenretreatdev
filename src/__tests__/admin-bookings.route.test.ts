@@ -54,16 +54,28 @@ describe("GET /api/admin/bookings", () => {
         bookingStatus: "INCOMPLETE",
         cancelledReason: null,
         createdAt: new Date("2026-03-09T07:48:00.000Z"),
+        eventDate: new Date("2026-03-21T00:00:00.000Z"),
+        eventStartTime: "14:30",
+        eventEndTime: "17:30",
+        startsAtUtc: new Date("2026-03-21T18:30:00.000Z"),
+        endsAtUtc: new Date("2026-03-21T21:30:00.000Z"),
+        timezone: "America/New_York",
         theatre: {
           id: "theatre-1",
           name: "Theatre 1",
+          timezone: "America/New_York",
+          location: {
+            name: "Miami",
+          },
         },
+        venue: null,
         slot: {
           date: new Date("2026-03-21T00:00:00.000Z"),
           startTime: "14:30",
           endTime: "17:30",
           status: "LOCKED",
         },
+        bookingLocks: [],
       },
     ]);
     (
@@ -100,12 +112,26 @@ describe("GET /api/admin/bookings", () => {
                   },
                 },
                 {
-                  slot: {
-                    status: "LOCKED",
-                    lockExpiresAt: {
-                      gt: expect.any(Date),
+                  OR: expect.arrayContaining([
+                    {
+                      slot: {
+                        status: "LOCKED",
+                        lockExpiresAt: {
+                          gt: expect.any(Date),
+                        },
+                      },
                     },
-                  },
+                    {
+                      bookingLocks: {
+                        some: {
+                          status: "ACTIVE",
+                          expiresAt: {
+                            gt: expect.any(Date),
+                          },
+                        },
+                      },
+                    },
+                  ]),
                 },
               ]),
             }),
@@ -140,12 +166,26 @@ describe("GET /api/admin/bookings", () => {
                         },
                       },
                       {
-                        slot: {
-                          status: "LOCKED",
-                          lockExpiresAt: {
-                            gt: expect.any(Date),
+                        OR: expect.arrayContaining([
+                          {
+                            slot: {
+                              status: "LOCKED",
+                              lockExpiresAt: {
+                                gt: expect.any(Date),
+                              },
+                            },
                           },
-                        },
+                          {
+                            bookingLocks: {
+                              some: {
+                                status: "ACTIVE",
+                                expiresAt: {
+                                  gt: expect.any(Date),
+                                },
+                              },
+                            },
+                          },
+                        ]),
                       },
                     ]),
                   }),

@@ -10,6 +10,10 @@ import {
 import { RESERVATION_TIMED_OUT_MESSAGE } from "@/lib/booking-session-expiry";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
+import {
+    RangeBookingSessionError,
+    requireActiveRangeBookingSession,
+} from "@/services/booking/range-booking-session.service";
 
 function clearBookingSessionCookie(cookieStore: Awaited<ReturnType<typeof cookies>>) {
     cookieStore.set("ds_booking_session", "", {
@@ -39,6 +43,67 @@ export async function GET() {
 
     const { bookingId, lockOwner } = payload;
 
+    if (typeof payload.lockVersion === "number") {
+        try {
+            const { booking, lock } = await requireActiveRangeBookingSession({
+                bookingId,
+                lockOwner,
+                lockVersion: payload.lockVersion,
+            });
+            const settings = await prisma.bookingSettings.findUnique({
+                where: { theatreId: booking.theatreId! },
+                select: { maximumGuests: true },
+            });
+            if (booking.bookingStatus === "CONFIRMED") {
+                return NextResponse.json({
+                    success: false,
+                    alreadyConfirmed: true,
+                    bookingRef: booking.bookingRef,
+                }, { status: 409 });
+            }
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    ...booking,
+                    slot: null,
+                    rangeSchedule: {
+                        eventDate: booking.eventDate,
+                        startTime: booking.eventStartTime,
+                        endTime: booking.eventEndTime,
+                        startsAtUtc: booking.startsAtUtc,
+                        endsAtUtc: booking.endsAtUtc,
+                        occupiedUntilUtc: booking.occupiedUntilUtc,
+                        timezone: booking.timezone,
+                        lockId: lock.id,
+                        lockExpiresAt: lock.expiresAt,
+                        lockVersion: lock.version,
+                        maximumGuests: settings?.maximumGuests ?? null,
+                    },
+                    appliedCoupons: booking.couponUsages.map((usage) => ({
+                        id: usage.coupon.id,
+                        code: getCouponDisplayCode(usage.coupon.code),
+                        discountAmount: usage.discountAmount ?? 0,
+                        status: usage.status,
+                    })),
+                },
+            });
+        } catch (error) {
+            if (error instanceof RangeBookingSessionError) {
+                clearBookingSessionCookie(cookieStore);
+                return NextResponse.json(
+                    {
+                        success: false,
+                        code: "SESSION_EXPIRED",
+                        message: RESERVATION_TIMED_OUT_MESSAGE,
+                    },
+                    { status: error.code === "BOOKING_NOT_FOUND" ? 404 : 409 }
+                );
+            }
+            throw error;
+        }
+    }
+
     const booking = await prisma.booking.findUnique({
         where: { id: bookingId },
         include: {
@@ -67,6 +132,18 @@ export async function GET() {
     if (!booking) {
         clearBookingSessionCookie(cookieStore);
         return NextResponse.json({ success: false }, { status: 404 });
+    }
+
+    if (!booking.slotId || !booking.slot) {
+        clearBookingSessionCookie(cookieStore);
+        return NextResponse.json(
+            {
+                success: false,
+                code: "SESSION_EXPIRED",
+                message: RESERVATION_TIMED_OUT_MESSAGE,
+            },
+            { status: 409 }
+        );
     }
 
     const now = new Date();

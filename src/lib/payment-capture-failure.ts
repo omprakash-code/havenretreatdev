@@ -31,8 +31,13 @@ export function isPaymentCapturedBookingFailure(input: {
     ) ||
     (
       input.bookingStatus === "ABANDONED" &&
-      input.paymentStatus === "PAID" &&
-      isPaymentCapturedBookingFailureReason(input.cancelledReason)
+      (
+        input.paymentStatus === "MANUAL_REVIEW" ||
+        (
+          input.paymentStatus === "PAID" &&
+          isPaymentCapturedBookingFailureReason(input.cancelledReason)
+        )
+      )
     )
   );
 }

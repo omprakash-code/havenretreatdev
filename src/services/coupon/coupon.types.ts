@@ -5,14 +5,26 @@ import type { CouponScopeDb } from "@/lib/coupon-scope";
    Core Evaluation Context (runtime booking snapshot)
 ====================================================== */
 
+export type CouponScheduleContext = {
+  date: Date
+  startTime: string
+  endTime: string
+  durationMin: number
+  startsAtUtc?: Date | null
+  endsAtUtc?: Date | null
+  source: 'BOOKING' | 'SLOT'
+}
+
 export type CouponEvaluationContext = {
-  slot: {
+  schedule?: CouponScheduleContext
+
+  slot?: {
     id: string
     date: Date              // Slot date (Timestamptz, IST-safe)
     startTime: string       // "22:00"
     endTime: string         // "02:00"
     durationMin: number
-  }
+  } | null
 
   theatreId: string
   locationId: string
