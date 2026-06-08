@@ -28,6 +28,7 @@ import {
   SLOT_EXPIRY_GRACE_MINUTES_KEY,
   SLOT_EXPIRY_MODE_KEY,
 } from "@/lib/slot-time";
+import { isAdminFeatureEnabled } from "@/config/admin-features";
 
 type SettingsResponse = {
   success: boolean;
@@ -500,7 +501,7 @@ export default function SettingsPageClient() {
               })}
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-neutral-200 pt-4">
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-2 pt-4">
               <button
                 type="button"
                 onClick={() => void saveSettings()}
@@ -514,6 +515,7 @@ export default function SettingsPageClient() {
         )}
       </section>
 
+      {isAdminFeatureEnabled("couponSettings") && (
       <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -1300,6 +1302,7 @@ export default function SettingsPageClient() {
           </>
         )}
       </section>
+      )}
 
       {showAdvanceConfirm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">

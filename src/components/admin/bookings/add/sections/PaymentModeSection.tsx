@@ -183,10 +183,12 @@ export function PaymentModeSection({
         </div>
       ) : (
         <>
-          <div className="mt-3">
-            <label className="mb-1 block text-xs font-medium text-slate-700">Collection Type</label>
-            <PaymentTypeToggle value={paymentType} onChange={onPaymentTypeChange} />
-          </div>
+          {mode === "edit" ? (
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-slate-700">Collection Type</label>
+              <PaymentTypeToggle value={paymentType} onChange={onPaymentTypeChange} />
+            </div>
+          ) : null}
 
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -216,7 +218,7 @@ export function PaymentModeSection({
                 Amount to Collect Now
                 {!isEditMode && paymentAmountMode === "ADVANCE" ? (
                   <span className="ml-1 font-normal text-slate-500">
-                    (Min Rs {minimumAdvanceAmount})
+                    (Min ${minimumAdvanceAmount})
                   </span>
                 ) : null}
               </label>
@@ -251,7 +253,7 @@ export function PaymentModeSection({
                     className={selectableInputClass}
                   >
                     <option value="CASH">Cash</option>
-                    <option value="BANK">Bank</option>
+                    <option value="BANK">Zelle / Bank Transfer</option>
                   </select>
                 </div>
 
@@ -266,7 +268,7 @@ export function PaymentModeSection({
                     value={offlineReference}
                     onChange={(event) => onOfflineReferenceChange(event.target.value)}
                     className={inputClass}
-                    placeholder="Transaction / UTR / bank reference"
+                    placeholder={offlineMethod === "BANK" ? "Zelle confirmation ID / bank reference" : "Optional reference"}
                   />
                   {errors.offlineReference && (
                     <p className="mt-1 text-xs text-red-600">{errors.offlineReference}</p>

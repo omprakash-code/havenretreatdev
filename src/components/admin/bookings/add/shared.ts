@@ -28,6 +28,7 @@ export type TheatreOption = {
   baseGuests: number;
   extraPersonPrice: number;
   decorationPrice: number;
+  basePrice?: number;
   slots: SlotOption[];
 };
 

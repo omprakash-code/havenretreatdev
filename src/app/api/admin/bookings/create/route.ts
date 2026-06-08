@@ -98,6 +98,7 @@ type CreateBookingPayload = {
   couponCode?: string;
   couponCodes?: string[];
   items?: CreateBookingItemPayload[];
+  specialInstructions?: string;
   payment?: {
     type?: PaymentType;
     offlineMethod?: OfflineMethod;
@@ -377,6 +378,7 @@ export async function POST(req: Request) {
     const email = emailRaw.length > 0 ? emailRaw : null;
     const guestCount = Number(body.guestCount ?? 0);
     const decorationRequired = Boolean(body.decorationRequired);
+    const specialInstructions = String(body.specialInstructions ?? "").trim() || null;
     const paymentType = body.payment.type;
     const createdByAdminId = authenticatedAdminId;
 
@@ -491,12 +493,44 @@ export async function POST(req: Request) {
             lockExpiresAt: null as Date | null,
             theatre: rangeContext.theatre,
           }
+        : adminRangeEnabled && rangeContext
+        ? {
+            id: "",
+            theatreId: rangeContext.theatre.id,
+            date: rangeContext.range.eventDate,
+            startTime: rangeStartTime,
+            endTime: rangeEndTime,
+            durationMin: rangeContext.range.durationMinutes,
+            basePrice: 0,
+            finalPrice: null as number | null,
+            decorationMandatory: false,
+            status: "AVAILABLE" as const,
+            lockedBy: null as string | null,
+            lockExpiresAt: null as Date | null,
+            theatre: rangeContext.theatre,
+          }
         : await tx.slot.findUnique({
             where: { id: body.slotId },
             include: {
               theatre: true,
             },
           });
+
+      if (adminRangeEnabled && rangeContext && !rangeContext.pricingSlot && slot) {
+        const template = await tx.slotTemplate.findFirst({
+          where: { theatreId: rangeContext.theatre.id, isActive: true },
+          orderBy: { startTime: "asc" },
+          select: { regularPrice: true, salePrice: true, decorationMandatory: true },
+        });
+        if (template) {
+          slot = {
+            ...slot,
+            basePrice: template.regularPrice,
+            finalPrice: template.salePrice ?? template.regularPrice,
+            decorationMandatory: template.decorationMandatory,
+          };
+        }
+      }
 
       if (!slot) {
         throw new AdminBookingError(
@@ -1094,6 +1128,7 @@ export async function POST(req: Request) {
         occasionKey,
         occasionLabel,
         occasionData: occasionJson,
+        specialInstructions,
         guestCount,
         decorationRequired: effectiveDecorationRequired,
         baseAmount: pricing.baseAmount,

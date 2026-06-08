@@ -2,7 +2,7 @@ import { useMemo, useRef } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { Calendar } from "@/components/icons";
-import TimeRangePicker from "@/components/booking/time-range/TimeRangePicker";
+import TimeRangePicker, { type UnavailableTimeRange } from "@/components/booking/time-range/TimeRangePicker";
 import { FieldTooltip } from "@/components/admin/bookings/add/FieldTooltip";
 import {
   inputClass,
@@ -11,7 +11,6 @@ import {
   type LocationOption,
   type TheatreOption,
 } from "@/components/admin/bookings/add/shared";
-import { formatISTDate } from "@/lib/formatters";
 
 type ScheduleSectionProps = {
   locationId: string;
@@ -27,16 +26,24 @@ type ScheduleSectionProps = {
   dateHoverHint: string;
   theatreHoverHint: string;
   slotHoverHint: string;
+  unavailableRanges?: UnavailableTimeRange[];
+  businessOpenTime?: string;
+  businessCloseTime?: string;
+  timezone?: string;
+  loadingAvailability?: boolean;
   onLocationDateChange: (nextLocationId: string, nextDate: string) => void;
   onTheatreSlotChange: (nextTheatreId: string, nextSlotId: string) => void;
   onTimeRangeChange: (nextStartTime: string | null, nextEndTime: string | null) => void;
 };
 
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
 function getFormattedDate(value: string) {
   if (!value) return "Select date";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "Invalid date";
-  return formatISTDate(parsed);
+  const parts = value.split("-").map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return "Invalid date";
+  const [year, month, day] = parts;
+  return `${String(day).padStart(2, "0")} ${MONTH_NAMES[month - 1]} ${year}`;
 }
 
 export function ScheduleSection({
@@ -53,6 +60,11 @@ export function ScheduleSection({
   dateHoverHint,
   theatreHoverHint,
   slotHoverHint,
+  unavailableRanges = [],
+  businessOpenTime = "09:00",
+  businessCloseTime = "23:00",
+  timezone = "America/New_York",
+  loadingAvailability = false,
   onLocationDateChange,
   onTheatreSlotChange,
   onTimeRangeChange,
@@ -61,7 +73,7 @@ export function ScheduleSection({
 
   const formattedDate = getFormattedDate(date);
   const isTheatreBlocked = !locationId || !date || loadingTheatres;
-  const isTimeRangeBlocked = !locationId || !date || !theatreId || loadingTheatres;
+  const isTimeRangeBlocked = !locationId || !date || !theatreId || loadingTheatres || loadingAvailability;
   const selectedDate = useMemo(() => {
     if (!date) return null;
     const parsed = new Date(`${date}T00:00:00`);
@@ -224,8 +236,15 @@ export function ScheduleSection({
                 selectedDate={selectedDate}
                 disabled={isTimeRangeBlocked}
                 variant="admin-field"
+                unavailableRanges={unavailableRanges}
+                businessOpenTime={businessOpenTime}
+                businessCloseTime={businessCloseTime}
+                timezone={timezone}
                 onChange={onTimeRangeChange}
               />
+              {loadingAvailability && (
+                <p className="mt-1 text-xs text-slate-500">Checking availability…</p>
+              )}
             </div>
           </FieldTooltip>
           {errors.slotId && <p className="mt-1 text-xs text-red-600">{errors.slotId}</p>}

@@ -7,9 +7,12 @@ import { toast } from "sonner";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
+  DEFAULT_EXTRA_HOURLY_RATE,
   DEFAULT_MINIMUM_BOOKING_DURATION_HOURS,
+  EXTRA_HOURLY_RATE_KEY,
   MINIMUM_BOOKING_DURATION_HOURS_KEY,
   parseAdvancePaymentAmount,
+  parseExtraHourlyRate,
   parseMinimumBookingDurationHours,
 } from "@/lib/app-settings";
 import { resolveCouponIdentityGate } from "@/lib/coupon-identity-gate";
@@ -26,6 +29,7 @@ import { OccasionSection } from "@/components/admin/bookings/add/sections/Occasi
 import { PaymentModeSection } from "@/components/admin/bookings/add/sections/PaymentModeSection";
 import { ProductsExtrasSection } from "@/components/admin/bookings/add/sections/ProductsExtrasSection";
 import { ScheduleSection } from "@/components/admin/bookings/add/sections/ScheduleSection";
+import type { UnavailableTimeRange } from "@/components/booking/time-range/TimeRangePicker";
 import ConfirmActionModal from "@/components/admin/drawer/ConfirmActionModal";
 import {  isValidPhone, normalizePhone,} from "@/lib/phone";
 import {
@@ -252,6 +256,13 @@ export function AdminAddBookingForm({
   const [minimumBookingDurationHours, setMinimumBookingDurationHours] = useState(
     DEFAULT_MINIMUM_BOOKING_DURATION_HOURS
   );
+  const [extraHourlyRate, setExtraHourlyRate] = useState(DEFAULT_EXTRA_HOURLY_RATE);
+  const [unavailableRanges, setUnavailableRanges] = useState<UnavailableTimeRange[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [businessOpenTime, setBusinessOpenTime] = useState("09:00");
+  const [businessCloseTime, setBusinessCloseTime] = useState("23:00");
+  const [bookingTimezone, setBookingTimezone] = useState("America/New_York");
+  const [specialInstructions, setSpecialInstructions] = useState("");
   const [customAdvanceAmount, setCustomAdvanceAmount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [paymentStatus, setPaymentStatus] = useState<
@@ -334,6 +345,11 @@ export function AdminAddBookingForm({
         setMinimumBookingDurationHours(
           parsedMinimumDuration ?? DEFAULT_MINIMUM_BOOKING_DURATION_HOURS
         );
+
+        const parsedExtraRate = parseExtraHourlyRate(
+          settingsJson?.data?.[EXTRA_HOURLY_RATE_KEY]
+        );
+        setExtraHourlyRate(parsedExtraRate ?? DEFAULT_EXTRA_HOURLY_RATE);
       } finally {
         if (!cancelled) setLoadingBootData(false);
       }
@@ -782,6 +798,7 @@ export function AdminAddBookingForm({
               packageId,
               name: String(eventPackage.name ?? "Unnamed Package"),
               baseGuests: guestLimit,
+              basePrice: packageAmount,
               slots: reservableTheatre.slots.map((slot) => ({
                 ...slot,
                 basePrice: packageAmount,
@@ -808,6 +825,49 @@ export function AdminAddBookingForm({
       cancelled = true;
     };
   }, [locationId, date, defaultAdvanceAmount, mode]);
+
+  useEffect(() => {
+    if (!locationId || !date) {
+      setUnavailableRanges([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadAvailability() {
+      setLoadingAvailability(true);
+      try {
+        const res = await fetch(
+          `/api/availability/time-ranges?locationId=${encodeURIComponent(locationId)}&date=${encodeURIComponent(date)}`,
+          { credentials: "include" }
+        );
+        const json = (await res.json().catch(() => null)) as {
+          success?: boolean;
+          data?: UnavailableTimeRange[];
+          theatres?: Array<{
+            businessOpenTime?: string;
+            businessCloseTime?: string;
+            timezone?: string;
+          }>;
+        } | null;
+        if (cancelled) return;
+        setUnavailableRanges(json?.success && Array.isArray(json.data) ? json.data : []);
+        const theatre = json?.theatres?.[0];
+        if (theatre?.businessOpenTime) setBusinessOpenTime(theatre.businessOpenTime);
+        if (theatre?.businessCloseTime) setBusinessCloseTime(theatre.businessCloseTime);
+        if (theatre?.timezone) setBookingTimezone(theatre.timezone);
+      } catch {
+        if (!cancelled) setUnavailableRanges([]);
+      } finally {
+        if (!cancelled) setLoadingAvailability(false);
+      }
+    }
+
+    void loadAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [locationId, date]);
 
   useEffect(() => {
     if (!theatreId) return;
@@ -1112,11 +1172,16 @@ export function AdminAddBookingForm({
   }, [selectedProductItems]);
 
   const pricingBase = useMemo<PricingSummary | null>(() => {
-    if (!selectedTheatre || !selectedSlot) return null;
+    if (!selectedTheatre) return null;
+    const hasRange = ADMIN_RANGE_BOOKING_ENABLED && Boolean(startTime) && Boolean(endTime);
+    if (!selectedSlot && !hasRange) return null;
+
+    const slotBasePrice = selectedSlot?.basePrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.basePrice ?? 0;
+    const slotFinalPrice = selectedSlot?.finalPrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.finalPrice ?? slotBasePrice;
 
     return calculateBookingPricing({
-      slotBasePrice: selectedSlot.basePrice,
-      slotFinalPrice: selectedSlot.finalPrice,
+      slotBasePrice,
+      slotFinalPrice,
       guestCount,
       theatreBaseGuests: selectedTheatre.baseGuests,
       theatreExtraPersonPrice: selectedTheatre.extraPersonPrice,
@@ -1130,6 +1195,8 @@ export function AdminAddBookingForm({
   }, [
     selectedTheatre,
     selectedSlot,
+    startTime,
+    endTime,
     isDecorationMandatory,
     guestCount,
     decorationRequired,
@@ -1152,7 +1219,11 @@ export function AdminAddBookingForm({
   }, [isEditMode, totalAfterDiscount, editAdvancePaidAlready]);
 
   const pricing = useMemo<PricingSummary | null>(() => {
-    if (!selectedTheatre || !selectedSlot || !pricingBase) return null;
+    const hasRange = ADMIN_RANGE_BOOKING_ENABLED && Boolean(startTime) && Boolean(endTime);
+    if (!selectedTheatre || (!selectedSlot && !hasRange) || !pricingBase) return null;
+
+    const slotBasePrice = selectedSlot?.basePrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.basePrice ?? 0;
+    const slotFinalPrice = selectedSlot?.finalPrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.finalPrice ?? slotBasePrice;
 
     const normalizedAdvanceInput = Math.max(customAdvanceAmount, 0);
     let desiredAdvance: number;
@@ -1174,8 +1245,8 @@ export function AdminAddBookingForm({
     }
 
     return calculateBookingPricing({
-      slotBasePrice: selectedSlot.basePrice,
-      slotFinalPrice: selectedSlot.finalPrice,
+      slotBasePrice,
+      slotFinalPrice,
       guestCount,
       theatreBaseGuests: selectedTheatre.baseGuests,
       theatreExtraPersonPrice: selectedTheatre.extraPersonPrice,
@@ -1190,6 +1261,8 @@ export function AdminAddBookingForm({
     pricingBase,
     selectedTheatre,
     selectedSlot,
+    startTime,
+    endTime,
     isDecorationMandatory,
     guestCount,
     decorationRequired,
@@ -1338,7 +1411,7 @@ export function AdminAddBookingForm({
 
   const previewCoupons = useCallback(async (couponCodes: string[]) => {
     if (!selectedSlot || !pricingBase) {
-      setCouponError("Select location, theatre and slot before applying coupon.");
+      setCouponError("Select location, package and time slot before applying coupon.");
       return { success: false, appliedCodes: new Set<string>() };
     }
 
@@ -2432,8 +2505,8 @@ export function AdminAddBookingForm({
         setPendingOnlineCreateBooking(null);
       },
       onModeMismatch: (pendingBookingRef) => {
-        toast.error(
-          `Online payment is pending for ${pendingBookingRef}. Complete it before changing payment mode.`
+        toast.warning(
+          `Booking ${pendingBookingRef} is incomplete. Click "Discard & Start New" to create a fresh booking.`
         );
       },
       onRetryPending: (pendingBookingRef) => {
@@ -2504,6 +2577,7 @@ export function AdminAddBookingForm({
         decorationRequired: effectiveDecorationRequired,
         occasionKey: occasionKey || undefined,
         occasionData,
+        specialInstructions: specialInstructions.trim() || undefined,
         couponCodes: appliedCoupons.map((coupon) => coupon.code),
         items: Object.entries(productSelections)
           .map(([selectionKey, selection]) => {
@@ -2604,8 +2678,8 @@ export function AdminAddBookingForm({
         {!isEditMode && pendingOnlineCreateBooking ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
             <p>
-              Booking <span className="font-semibold">{pendingOnlineCreateBooking.bookingRef}</span> is already
-              created and awaiting online payment. Use submit to retry payment for this booking.
+              Booking <span className="font-semibold">{pendingOnlineCreateBooking.bookingRef}</span> was created
+              but payment was not collected. Discard it to create a new booking.
             </p>
             <button
               type="button"
@@ -2615,7 +2689,7 @@ export function AdminAddBookingForm({
               disabled={submitting || discardingPendingOnlineCreateBooking}
               className="mt-2 inline-flex items-center rounded-md border border-amber-300 bg-white px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {discardingPendingOnlineCreateBooking ? "Discarding..." : "Discard Pending Booking"}
+              {discardingPendingOnlineCreateBooking ? "Discarding..." : "Discard & Start New"}
             </button>
           </div>
         ) : null}
@@ -2633,6 +2707,11 @@ export function AdminAddBookingForm({
           dateHoverHint={dateHoverHint}
           theatreHoverHint={theatreHoverHint}
           slotHoverHint={slotHoverHint}
+          unavailableRanges={unavailableRanges}
+          loadingAvailability={loadingAvailability}
+          businessOpenTime={businessOpenTime}
+          businessCloseTime={businessCloseTime}
+          timezone={bookingTimezone}
           onLocationDateChange={handleLocationDateChange}
           onTheatreSlotChange={handleTheatreSlotChange}
           onTimeRangeChange={handleTimeRangeChange}
@@ -2642,6 +2721,7 @@ export function AdminAddBookingForm({
           name={name}
           phone={phone}
           email={email}
+          specialInstructions={specialInstructions}
           errors={errors}
           lookingUpUser={lookingUpUser}
           existingUserId={existingUserId}
@@ -2654,6 +2734,7 @@ export function AdminAddBookingForm({
           onPhoneChange={(value) => setPhone(normalizePhone(value))}
           onPhoneBlur={handlePhoneBlur}
           onEmailChange={setEmail}
+          onSpecialInstructionsChange={setSpecialInstructions}
           onDecrementGuests={decrementGuests}
           onIncrementGuests={incrementGuests}
         />
@@ -2756,6 +2837,10 @@ export function AdminAddBookingForm({
           selectedTheatre={selectedTheatre}
           theatreId={theatreId}
           selectedSlot={selectedSlot}
+          startTime={startTime}
+          endTime={endTime}
+          includedDurationHours={minimumBookingDurationHours}
+          extraHourlyRate={extraHourlyRate}
           pricing={pricing}
           selectedProductItems={selectedProductItems}
           paymentAmountMode={paymentAmountMode}

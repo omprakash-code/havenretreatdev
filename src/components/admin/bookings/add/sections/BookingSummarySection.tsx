@@ -1,4 +1,5 @@
 import { formatSlotTime } from "@/lib/formatters";
+import { calculateDurationHours } from "@/lib/booking-time-range";
 import { ArrowRight } from "lucide-react";
 
 import {
@@ -24,6 +25,10 @@ type BookingSummarySectionProps = {
   selectedTheatre: TheatreOption | null;
   theatreId: string;
   selectedSlot: SlotOption | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  includedDurationHours?: number;
+  extraHourlyRate?: number;
   pricing: PricingSummary | null;
   selectedProductItems: SelectedProductSummaryItem[];
   paymentAmountMode: "ADVANCE" | "FULL" | "REMAINING";
@@ -78,6 +83,10 @@ export function BookingSummarySection({
   selectedTheatre,
   theatreId,
   selectedSlot,
+  startTime = null,
+  endTime = null,
+  includedDurationHours = 4,
+  extraHourlyRate = 0,
   pricing,
   selectedProductItems,
   paymentAmountMode,
@@ -95,8 +104,18 @@ export function BookingSummarySection({
   const hasDate = Boolean(date);
   const hasTheatre = Boolean(theatreId);
   const hasSlot = Boolean(selectedSlot);
+  const hasTimeRange = Boolean(!selectedSlot && startTime && endTime);
+  const effectiveStart = selectedSlot?.startTime ?? startTime;
+  const effectiveEnd = selectedSlot?.endTime ?? endTime;
+  const durationHours = calculateDurationHours(effectiveStart, effectiveEnd) ?? 0;
+  const extraDurationHours = Math.max(durationHours - includedDurationHours, 0);
+  const extraHoursCharge = Math.round(extraDurationHours * extraHourlyRate);
+  const showDurationBreakdown = (hasSlot || hasTimeRange) && durationHours > 0;
+
   const selectedSlotLabel = selectedSlot
     ? `${formatSlotTime(selectedSlot.startTime, selectedSlot.endTime)} (${selectedSlot.statusLabel || toTitleStatus(selectedSlot.status)})`
+    : hasTimeRange
+    ? formatSlotTime(startTime!, endTime!)
     : "";
 
   const slotAmount = pricing?.baseAmount ?? selectedSlot?.finalPrice ?? 0;
@@ -165,8 +184,34 @@ export function BookingSummarySection({
           {hasLocation && hasDate && hasTheatre ? (
             <SummaryRow label="Package" value={selectedTheatre?.name ?? "Selected"} />
           ) : null}
-          {hasLocation && hasDate && hasTheatre && hasSlot ? (
-            <SummaryRow label="Slot" value={selectedSlotLabel} />
+          {hasLocation && hasDate && hasTheatre && (hasSlot || hasTimeRange) ? (
+            <SummaryRow label="Time" value={selectedSlotLabel} />
+          ) : null}
+
+          {showDurationBreakdown ? (
+            <div className="rounded-md border border-slate-100 bg-slate-50 px-2.5 py-2 text-xs text-slate-600 space-y-0.5">
+              <div className="flex justify-between">
+                <span>Duration</span>
+                <span className="font-medium text-slate-800">
+                  {durationHours % 1 === 0 ? durationHours : durationHours.toFixed(1)} hrs
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Included in package</span>
+                <span className="font-medium text-slate-800">{includedDurationHours} hrs</span>
+              </div>
+              {extraDurationHours > 0 ? (
+                <div className="flex justify-between border-t border-slate-200 pt-0.5 mt-0.5">
+                  <span className="text-amber-700 font-medium">
+                    +{extraDurationHours % 1 === 0 ? extraDurationHours : extraDurationHours.toFixed(1)} extra hrs
+                    {extraHourlyRate > 0 ? ` · $${extraHourlyRate}/hr` : ""}
+                  </span>
+                  {extraHoursCharge > 0 ? (
+                    <span className="font-semibold text-amber-700">{formatCurrency(extraHoursCharge)}</span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {guidanceMessage ? (
@@ -176,11 +221,11 @@ export function BookingSummarySection({
             </div>
           ) : null}
 
-          {hasSlot ? (
+          {(hasSlot || (hasTimeRange && Boolean(pricing))) ? (
             <>
               <div className="my-3 border-t border-slate-200" />
 
-              <SummaryRow label="Slot price" value={formatCurrency(slotAmount)} />
+              <SummaryRow label={hasSlot ? "Slot price" : "Package price"} value={formatCurrency(slotAmount)} />
 
               {decorationAmount > 0 ? (
                 <SummaryRow

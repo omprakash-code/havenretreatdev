@@ -3,6 +3,7 @@ export const adminFeatures = {
   bookings: true,
   manualBooking: true,
   settings: true,
+  couponSettings: false,
   liveBookings: false,
   abandonedBookings: false,
   slots: false,

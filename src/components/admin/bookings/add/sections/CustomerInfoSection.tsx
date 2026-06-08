@@ -10,6 +10,7 @@ type CustomerInfoSectionProps = {
   name: string;
   phone: string;
   email: string;
+  specialInstructions: string;
   errors: Record<string, string>;
   lookingUpUser: boolean;
   existingUserId: string | null;
@@ -22,6 +23,7 @@ type CustomerInfoSectionProps = {
   onPhoneChange: (value: string) => void;
   onPhoneBlur: () => void;
   onEmailChange: (value: string) => void;
+  onSpecialInstructionsChange: (value: string) => void;
   onDecrementGuests: () => void;
   onIncrementGuests: () => void;
 };
@@ -30,6 +32,7 @@ export function CustomerInfoSection({
   name,
   phone,
   email,
+  specialInstructions,
   errors,
   lookingUpUser,
   existingUserId,
@@ -42,6 +45,7 @@ export function CustomerInfoSection({
   onPhoneChange,
   onPhoneBlur,
   onEmailChange,
+  onSpecialInstructionsChange,
   onDecrementGuests,
   onIncrementGuests,
 }: CustomerInfoSectionProps) {
@@ -83,15 +87,15 @@ export function CustomerInfoSection({
             value={phone}
             onChange={(event) => onPhoneChange(event.target.value)}
             onBlur={onPhoneBlur}
-            maxLength={10}
-            inputMode="numeric"
+            maxLength={11}
+            inputMode="tel"
             className={inputClass}
-            placeholder="10 digit phone"
+            placeholder="e.g. 3055550100"
           />
           {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
-          {lookingUpUser && <p className="mt-1 text-xs text-slate-500">Checking existing user...</p>}
+          {lookingUpUser && <p className="mt-1 text-xs text-slate-500">Looking up customer…</p>}
           {existingUserId && existingUserName && !lookingUpUser && (
-            <p className="mt-1 text-xs text-emerald-700">Existing user linked: {existingUserName}</p>
+            <p className="mt-1 text-xs text-emerald-700">Linked to existing customer: {existingUserName}</p>
           )}
         </div>
 
@@ -110,7 +114,7 @@ export function CustomerInfoSection({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-700">Extra Guest</label>
+          <label className="mb-1 block text-xs font-medium text-slate-700">Guest Count</label>
           <div className="flex h-11 items-center justify-between rounded-lg border border-slate-300 bg-white px-1 sm:h-10 sm:rounded-md">
             <button
               type="button"
@@ -148,13 +152,25 @@ export function CustomerInfoSection({
 
           {selectedTheatre ? (
             <p className="mt-1 text-xs text-slate-500">
-              {selectedTheatre.baseGuests} guest included · Max {selectedTheatre.capacity} guest
-              capacity for this theatre
+              {selectedTheatre.baseGuests} included · Max {selectedTheatre.capacity} for this venue
             </p>
           ) : (
-            <p className="mt-1 text-xs text-slate-500">Select theatre to manage guests</p>
+            <p className="mt-1 text-xs text-slate-500">Select a venue to manage guests</p>
           )}
         </div>
+      </div>
+
+      <div className="mt-3">
+        <label className="mb-1 block text-xs font-medium text-slate-700">
+          Admin Notes <span className="text-slate-400 font-normal">(internal)</span>
+        </label>
+        <textarea
+          value={specialInstructions}
+          onChange={(event) => onSpecialInstructionsChange(event.target.value)}
+          rows={2}
+          className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500/20 sm:rounded-md"
+          placeholder="Special requests, setup notes, anything the team should know…"
+        />
       </div>
     </section>
   );

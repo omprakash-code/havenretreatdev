@@ -29,6 +29,11 @@ export function formatISTDate(input: Date | string) {
   return formatInTimeZone(date, "Asia/Kolkata", "dd MMM yyyy");
 }
 
+export function formatETDate(input: Date | string) {
+  const date = typeof input === "string" ? new Date(input) : input;
+  return formatInTimeZone(date, "America/New_York", "dd MMM yyyy");
+}
+
 /**
  * Format date and time to IST timezone
  */
