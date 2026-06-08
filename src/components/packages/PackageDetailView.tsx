@@ -96,7 +96,6 @@ export default function PackageDetailView({
         <div className="lg:sticky lg:top-24 lg:self-start">
           <PackageCard
             eventPackage={eventPackage}
-            showDetailLink={false}
             defaultExpanded={false}
           />
 

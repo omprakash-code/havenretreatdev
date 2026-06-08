@@ -48,6 +48,6 @@ next-env.d.ts
 public/media/admin-uploads/
 
 /unused
-
+.backups
 # Private commercial scope and pricing reference
 /docs/private/admin-feature-pricing.md

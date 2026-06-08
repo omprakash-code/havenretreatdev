@@ -25,8 +25,8 @@ export function buildPackageSnapshot(eventPackage: PackageRecord) {
     decorationAmount: eventPackage.decorationAmount,
     cleaningAmount: eventPackage.cleaningAmount,
     subtotalAmount: eventPackage.subtotalAmount,
-    savingsAmount: eventPackage.savingsAmount,
-    finalAmount: eventPackage.finalAmount,
+    savingsAmount: 0,
+    finalAmount: eventPackage.subtotalAmount,
     features: eventPackage.features.map((feature) => ({
       group: feature.group,
       label: feature.label,
@@ -56,7 +56,7 @@ export async function buildInitialPricingSnapshot(
   const extraDurationAmount = Math.round(
     extraDurationHours * durationPricing.extraHourlyRate
   );
-  const packageAmount = toMoney(eventPackage.finalAmount);
+  const packageAmount = toMoney(eventPackage.subtotalAmount);
   const totalAmount = packageAmount + extraDurationAmount;
 
   return {

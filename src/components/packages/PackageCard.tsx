@@ -1,16 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, ChevronDown } from "@/components/icons";
+import { ChevronDown } from "@/components/icons";
 import PackageFeatureGroup from "@/components/packages/PackageFeatureGroup";
 import PackagePriceBreakdown from "@/components/packages/PackagePriceBreakdown";
 import type { EventPackageSummary } from "@/types/venue-package";
 
 type PackageCardProps = {
   eventPackage: EventPackageSummary;
-  showDetailLink?: boolean;
   defaultExpanded?: boolean;
   onBook?: (eventPackage: EventPackageSummary) => void;
   bookLabel?: string;
@@ -24,9 +22,14 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
+function getBadgeLabel(eventPackage: EventPackageSummary) {
+  if (eventPackage.isPopular) return "Most Popular";
+  if (eventPackage.guestLimit >= 50) return "For Larger Celebrations";
+  return "Best Value";
+}
+
 export default function PackageCard({
   eventPackage,
-  showDetailLink = true,
   defaultExpanded = false,
   onBook,
   bookLabel = "Book This Package",
@@ -45,27 +48,34 @@ export default function PackageCard({
   };
 
   return (
-    <article className="flex h-full flex-col border border-[#2f7e7a]/45 bg-white p-3">
-      <div className="bg-[#edf3f1] px-3 py-2 text-center text-sm font-medium text-[#2b2b2b]">
-        {eventPackage.isPopular ? "Most Popular" : `Up to ${eventPackage.guestLimit} Guests`}
+    <article className="flex h-full flex-col bg-white shadow-[0_18px_50px_rgba(16,24,40,0.08)]">
+      <div className="relative min-h-[180px] overflow-hidden bg-[url('/media/booking/success/pool-view.avif')] bg-cover bg-center px-3 pb-5 pt-3 text-center text-white">
+        <div className="absolute inset-0 bg-[#0b1f24]/62" />
+        <div className="relative z-10 flex h-full min-h-[152px] flex-col items-center justify-end pt-10">
+          <div
+            className={`absolute left-0 top-0 px-3 py-1.5 text-[0.65rem] font-extrabold uppercase tracking-[0.11em] ${
+              eventPackage.isPopular
+                ? "bg-[#347f7c] text-white"
+                : "bg-[#edf7f3] text-[#245e5b]"
+            }`}
+          >
+            {getBadgeLabel(eventPackage)}
+          </div>
+          <h2 className="font-playfair text-[1.55rem] font-semibold leading-tight drop-shadow-sm sm:text-[1.8rem]">
+            {eventPackage.name}
+          </h2>
+          <div className="mt-1 flex items-center justify-center gap-2">
+            <p className="text-[1.9rem] font-medium tracking-tight sm:text-[2.1rem]">
+              {formatCurrency(eventPackage.subtotalAmount)}
+            </p>
+          </div>
+          <p className="mt-2 text-sm font-semibold text-white/90">
+            Up to {eventPackage.guestLimit} Guests
+          </p>
+        </div>
       </div>
 
-      <div className="mt-3 bg-[#347f7c] px-4 py-4 text-center text-white">
-        <h2 className="font-playfair text-[2rem] font-semibold leading-tight">
-          {eventPackage.name}
-        </h2>
-        <p className="mt-1 text-base text-white/90">
-          Up to {eventPackage.guestLimit} Guests
-        </p>
-        <p className="mt-3 text-4xl font-semibold tracking-tight">
-          {formatCurrency(eventPackage.finalAmount)}
-        </p>
-        <p className="mt-2 text-sm text-white/90">
-          Save {formatCurrency(eventPackage.savingsAmount)} with package pricing
-        </p>
-      </div>
-
-      <div className="mt-4 flex-1">
+      <div className="flex flex-1 flex-col p-5">
         <PackageFeatureGroup
           title="Included"
           items={eventPackage.featureGroups.included}
@@ -105,23 +115,12 @@ export default function PackageCard({
           )}
         </div>
 
-        {showDetailLink ? (
-          <div className="mt-3">
-            <Link
-              href={`/packages/${eventPackage.slug}`}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[#347f7c] hover:text-[#245e5b]"
-            >
-              View full package page
-              <ArrowRight size={16} />
-            </Link>
-          </div>
-        ) : null}
       </div>
 
       <button
         type="button"
         onClick={handleBookPlaceholder}
-        className="mt-4 inline-flex w-full items-center justify-center bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#245e5b]"
+        className="mx-6 mb-6 mt-0 inline-flex items-center justify-center bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#245e5b]"
       >
         {bookLabel}
       </button>

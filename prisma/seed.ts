@@ -144,8 +144,8 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     decorationAmount: 400,
     cleaningAmount: 95,
     subtotalAmount: 1111,
-    savingsAmount: 111,
-    finalAmount: 1000,
+    savingsAmount: 0,
+    finalAmount: 1111,
     isPopular: false,
     sortOrder: 1,
     included: [
@@ -172,7 +172,6 @@ const PACKAGE_SEEDS: PackageSeed[] = [
       { label: "Chairs", value: "$72" },
       { label: "Decoration", value: "$400" },
       { label: "Cleaning", value: "$95" },
-      { label: "Before Savings", value: "$1,112" },
     ],
   },
   {
@@ -185,8 +184,8 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     decorationAmount: 400,
     cleaningAmount: 95,
     subtotalAmount: 1231,
-    savingsAmount: 123,
-    finalAmount: 1108,
+    savingsAmount: 0,
+    finalAmount: 1231,
     isPopular: true,
     sortOrder: 2,
     included: [
@@ -213,7 +212,6 @@ const PACKAGE_SEEDS: PackageSeed[] = [
       { label: "Chairs", value: "$96" },
       { label: "Decoration", value: "$400" },
       { label: "Cleaning", value: "$95" },
-      { label: "Before Savings", value: "$1,231" },
     ],
   },
   {
@@ -226,8 +224,8 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     decorationAmount: 400,
     cleaningAmount: 95,
     subtotalAmount: 1405,
-    savingsAmount: 140,
-    finalAmount: 1265,
+    savingsAmount: 0,
+    finalAmount: 1405,
     isPopular: false,
     sortOrder: 3,
     included: [
@@ -254,7 +252,6 @@ const PACKAGE_SEEDS: PackageSeed[] = [
       { label: "Chairs", value: "$120" },
       { label: "Decoration", value: "$400" },
       { label: "Cleaning", value: "$95" },
-      { label: "Before Savings", value: "$1,405" },
     ],
   },
 ];
