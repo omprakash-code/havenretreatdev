@@ -21,7 +21,7 @@ type BookingMutationPayloadCore = {
 };
 
 export const IST_TIMEZONE = "Asia/Kolkata";
-export const OFFLINE_METHODS = ["CASH", "UPI", "BANK"] as const;
+export const OFFLINE_METHODS = ["CASH", "BANK"] as const;
 export const PAYMENT_TYPES = ["OFFLINE", "ONLINE"] as const;
 export const PAYMENT_AMOUNT_MODES = ["ADVANCE", "FULL"] as const;
 

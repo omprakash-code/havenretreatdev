@@ -127,8 +127,8 @@ export default function BookingRow({
         {maskPhone(booking.customer?.phone)}
       </td>
 
-      {/* Theatre */}
-      <td className="px-3 py-3">{booking.theatre.name}</td>
+      {/* Package */}
+      <td className="px-3 py-3">{booking.package?.name ?? booking.theatre.name}</td>
 
       {/* Booking Date & Time */}
       <td className="px-3 py-3 whitespace-nowrap leading-tight">

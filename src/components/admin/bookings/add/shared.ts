@@ -21,6 +21,8 @@ export type SlotOption = {
 
 export type TheatreOption = {
   id: string;
+  theatreId?: string;
+  packageId?: string;
   name: string;
   capacity: number;
   baseGuests: number;

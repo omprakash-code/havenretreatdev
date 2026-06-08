@@ -30,6 +30,10 @@ export type AdminBooking = {
     timezone?: string | null;
     locationName?: string | null;
   };
+  package?: {
+    id: string | null;
+    name: string;
+  } | null;
   locationName?: string | null;
   theatreImage?: string | null;
 

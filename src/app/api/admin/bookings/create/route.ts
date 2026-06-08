@@ -81,6 +81,7 @@ type CreateBookingPayload = {
   locationId?: string;
   date?: string;
   theatreId?: string;
+  packageId?: string;
   slotId?: string;
   startTime?: string;
   endTime?: string;
@@ -424,11 +425,11 @@ export async function POST(req: Request) {
           "Invalid payment amount mode."
         );
       }
-      if ((offlineMethod === "UPI" || offlineMethod === "BANK") && !offlineReference) {
+      if (offlineMethod === "BANK" && !offlineReference) {
         throw new AdminBookingError(
           400,
           "OFFLINE_REFERENCE_REQUIRED",
-          "Reference ID is required for UPI or Bank payments."
+          "Reference ID is required for Bank payments."
         );
       }
     }
@@ -605,6 +606,30 @@ export async function POST(req: Request) {
           endTime: slot.endTime,
           context: "admin-booking-create",
         });
+      }
+
+      const selectedPackage = body.packageId
+        ? await tx.eventPackage.findFirst({
+            where: {
+              id: body.packageId,
+              isActive: true,
+              venue: { isActive: true },
+            },
+            include: {
+              venue: true,
+              features: {
+                orderBy: { sortOrder: "asc" },
+              },
+            },
+          })
+        : null;
+
+      if (body.packageId && !selectedPackage) {
+        throw new AdminBookingError(
+          400,
+          "INVALID_REQUEST",
+          "Select a valid active package."
+        );
       }
 
       const normalizedItemsMap = new Map<
@@ -859,12 +884,12 @@ export async function POST(req: Request) {
         : decorationRequired;
 
       const pricingBase = calculateBookingPricing({
-        slotBasePrice: slot.basePrice,
-        slotFinalPrice: slot.finalPrice,
+        slotBasePrice: selectedPackage?.subtotalAmount ?? slot.basePrice,
+        slotFinalPrice: selectedPackage?.subtotalAmount ?? slot.finalPrice,
         guestCount,
-        theatreBaseGuests: slot.theatre.baseGuests,
+        theatreBaseGuests: selectedPackage?.guestLimit ?? slot.theatre.baseGuests,
         theatreExtraPersonPrice: slot.theatre.extraPersonPrice,
-        theatreDecorationPrice: slot.theatre.decorationPrice,
+        theatreDecorationPrice: selectedPackage ? 0 : slot.theatre.decorationPrice,
         slotDecorationMandatory: slot.decorationMandatory,
         decorationRequired: effectiveDecorationRequired,
         productsAmount,
@@ -956,12 +981,12 @@ export async function POST(req: Request) {
       }
 
       const pricing = calculateBookingPricing({
-        slotBasePrice: slot.basePrice,
-        slotFinalPrice: slot.finalPrice,
+        slotBasePrice: selectedPackage?.subtotalAmount ?? slot.basePrice,
+        slotFinalPrice: selectedPackage?.subtotalAmount ?? slot.finalPrice,
         guestCount,
-        theatreBaseGuests: slot.theatre.baseGuests,
+        theatreBaseGuests: selectedPackage?.guestLimit ?? slot.theatre.baseGuests,
         theatreExtraPersonPrice: slot.theatre.extraPersonPrice,
-        theatreDecorationPrice: slot.theatre.decorationPrice,
+        theatreDecorationPrice: selectedPackage ? 0 : slot.theatre.decorationPrice,
         slotDecorationMandatory: slot.decorationMandatory,
         decorationRequired: effectiveDecorationRequired,
         productsAmount,
@@ -1014,6 +1039,8 @@ export async function POST(req: Request) {
         contactPhone: phone,
         contactEmail: email,
         theatreId: slot.theatreId,
+        venueId: selectedPackage?.venueId,
+        packageId: selectedPackage?.id,
         slotId: rangeContext ? null : slot.id,
         eventDate: rangeContext?.range.eventDate,
         eventStartTime: rangeContext ? rangeStartTime : undefined,
@@ -1023,6 +1050,47 @@ export async function POST(req: Request) {
         occupiedUntilUtc: rangeContext?.range.occupiedUntilUtc,
         bufferMinutes: rangeContext?.settings.bufferMinutes,
         timezone: rangeContext?.theatre.timezone,
+        packageSnapshot: selectedPackage
+          ? {
+              id: selectedPackage.id,
+              venueId: selectedPackage.venueId,
+              name: selectedPackage.name,
+              slug: selectedPackage.slug,
+              guestLimit: selectedPackage.guestLimit,
+              eventDurationHours: selectedPackage.eventDurationHours,
+              complimentarySetupHours:
+                selectedPackage.complimentarySetupHours,
+              rentalAmount: selectedPackage.rentalAmount,
+              decorationAmount: selectedPackage.decorationAmount,
+              cleaningAmount: selectedPackage.cleaningAmount,
+              subtotalAmount: selectedPackage.subtotalAmount,
+              savingsAmount: 0,
+              finalAmount: selectedPackage.subtotalAmount,
+              features: selectedPackage.features.map((feature) => ({
+                group: feature.group,
+                label: feature.label,
+                value: feature.value,
+                icon: feature.icon,
+                sortOrder: feature.sortOrder,
+              })),
+              venue: {
+                id: selectedPackage.venue.id,
+                name: selectedPackage.venue.name,
+                slug: selectedPackage.venue.slug,
+              },
+            }
+          : undefined,
+        pricingSnapshot: selectedPackage
+          ? {
+              packageAmount: selectedPackage.subtotalAmount,
+              packageGuestLimit: selectedPackage.guestLimit,
+              productsAmount: pricing.productsAmount,
+              discountAmount: pricing.discountAmount,
+              totalAmount: pricing.totalAmount,
+              advancePaid: pricing.advancePaid,
+              remainingPayable: pricing.remainingPayable,
+            }
+          : undefined,
         occasionKey,
         occasionLabel,
         occasionData: occasionJson,

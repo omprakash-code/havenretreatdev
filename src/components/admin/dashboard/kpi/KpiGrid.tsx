@@ -9,6 +9,8 @@ import {
 } from "@/components/icons";
 import KpiCard from "./KpiCard";
 
+const SHOW_LIVE_AND_ABANDONED_KPIS = false;
+
 type KpiData = {
   revenueLifetime: number;
   confirmedLifetime: number;
@@ -111,7 +113,7 @@ export default function KpiGrid() {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4 lg:gap-5">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 lg:gap-5">
       <KpiCard
         title="Total Revenue"
         value={`₹${data.revenueLifetime.toLocaleString()}`}
@@ -153,34 +155,38 @@ export default function KpiGrid() {
         icon={<CalendarCheck className="h-5 w-5" />}
       />
 
-      <KpiCard
-        title="Live Bookings"
-        value={String(data.liveBookings)}
-        delta={data.liveBookings > 0 ? "In progress" : ""}
-        trend="neutral"
-        accent="amber"
-        icon={<Activity className="h-5 w-5" />}
-      />
+      {SHOW_LIVE_AND_ABANDONED_KPIS ? (
+        <>
+          <KpiCard
+            title="Live Bookings"
+            value={String(data.liveBookings)}
+            delta={data.liveBookings > 0 ? "In progress" : ""}
+            trend="neutral"
+            accent="amber"
+            icon={<Activity className="h-5 w-5" />}
+          />
 
-      <KpiCard
-        title="Abandoned"
-        value={String(data.abandonedLifetime)}
-        delta={formatTrendDelta(
-          data.trends?.abandoned,
-          data.trends?.periodDays ?? 7,
-          "All time"
-        )}
-        trend={data.trends?.abandoned.direction ?? "neutral"}
-        tone={
-          data.trends?.abandoned.direction === "neutral"
-            ? "neutral"
-            : data.trends?.abandoned.direction === "down"
-            ? "good"
-            : "bad"
-        }
-        accent="red"
-        icon={<ShoppingCart className="h-5 w-5" />}
-      />
+          <KpiCard
+            title="Abandoned"
+            value={String(data.abandonedLifetime)}
+            delta={formatTrendDelta(
+              data.trends?.abandoned,
+              data.trends?.periodDays ?? 7,
+              "All time"
+            )}
+            trend={data.trends?.abandoned.direction ?? "neutral"}
+            tone={
+              data.trends?.abandoned.direction === "neutral"
+                ? "neutral"
+                : data.trends?.abandoned.direction === "down"
+                  ? "good"
+                  : "bad"
+            }
+            accent="red"
+            icon={<ShoppingCart className="h-5 w-5" />}
+          />
+        </>
+      ) : null}
       {/* Future scope: re-enable Coupon Health KPI after finalizing health signal UX. */}
 
     </div>

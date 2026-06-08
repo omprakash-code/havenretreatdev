@@ -178,7 +178,7 @@ export function ScheduleSection({
                   onTheatreSlotChange(event.target.value, "");
                 }}
                 disabled={isTheatreBlocked}
-                aria-label="Theatre"
+                aria-label="Package"
                 className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
               >
                 <option value="">{loadingTheatres ? "Loading packages..." : "Select package"}</option>

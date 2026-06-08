@@ -210,6 +210,7 @@ export async function GET(req: Request) {
       startsAtUtc: true,
       endsAtUtc: true,
       timezone: true,
+      packageSnapshot: true,
       theatre: {
         select: {
           id: true,
@@ -223,6 +224,12 @@ export async function GET(req: Request) {
         },
       },
       venue: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      eventPackage: {
         select: {
           id: true,
           name: true,
@@ -274,6 +281,16 @@ export async function GET(req: Request) {
         ]);
 
     const data = bookings.map((b, index) => {
+      const packageSnapshot =
+        b.packageSnapshot &&
+        typeof b.packageSnapshot === "object" &&
+        !Array.isArray(b.packageSnapshot)
+          ? b.packageSnapshot
+          : null;
+      const snapshotPackageName =
+        packageSnapshot && typeof packageSnapshot.name === "string"
+          ? packageSnapshot.name
+          : null;
       const schedule = presentReportingSchedule({
         eventDate: b.eventDate,
         eventStartTime: b.eventStartTime,
@@ -302,6 +319,14 @@ export async function GET(req: Request) {
           name: b.theatre?.name ?? b.venue?.name ?? "Haven Retreat",
           timezone: b.theatre?.timezone ?? null,
           locationName: b.theatre?.location?.name ?? b.venue?.name ?? null,
+        },
+        package: {
+          id: b.eventPackage?.id ?? null,
+          name:
+            b.eventPackage?.name ??
+            snapshotPackageName ??
+            b.theatre?.name ??
+            "Package unavailable",
         },
         eventDate: b.eventDate?.toISOString().slice(0, 10) ?? null,
         eventStartTime: b.eventStartTime,

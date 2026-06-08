@@ -163,7 +163,7 @@ export function BookingSummarySection({
           ) : null}
           {hasLocation && hasDate ? <SummaryRow label="Date" value={date} /> : null}
           {hasLocation && hasDate && hasTheatre ? (
-            <SummaryRow label="Theatre" value={selectedTheatre?.name ?? "Selected"} />
+            <SummaryRow label="Package" value={selectedTheatre?.name ?? "Selected"} />
           ) : null}
           {hasLocation && hasDate && hasTheatre && hasSlot ? (
             <SummaryRow label="Slot" value={selectedSlotLabel} />

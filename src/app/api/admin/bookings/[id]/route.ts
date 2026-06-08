@@ -670,11 +670,11 @@ export async function PATCH(
         );
       }
 
-      if ((offlineMethod === "UPI" || offlineMethod === "BANK") && !offlineReference) {
+      if (offlineMethod === "BANK" && !offlineReference) {
         throw new AdminBookingEditError(
           400,
           "OFFLINE_REFERENCE_REQUIRED",
-          "Reference ID is required for UPI or Bank payments."
+          "Reference ID is required for Bank payments."
         );
       }
     }

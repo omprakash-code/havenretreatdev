@@ -237,7 +237,7 @@ export function AdminAddBookingForm({
 
   const [paymentType, setPaymentType] = useState<"OFFLINE" | "ONLINE">("OFFLINE");
   const [paymentAmountMode, setPaymentAmountMode] = useState<"ADVANCE" | "FULL" | "REMAINING">("ADVANCE");
-  const [offlineMethod, setOfflineMethod] = useState<"CASH" | "UPI" | "BANK">("CASH");
+  const [offlineMethod, setOfflineMethod] = useState<"CASH" | "BANK">("CASH");
   const [offlineReference, setOfflineReference] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupons, setAppliedCoupons] = useState<AppliedAdminCoupon[]>([]);
@@ -437,9 +437,7 @@ export function AdminAddBookingForm({
 
         const normalizedOfflineMethod = booking.payment.offlineMethod;
         setOfflineMethod(
-          normalizedOfflineMethod === "UPI" || normalizedOfflineMethod === "BANK"
-            ? normalizedOfflineMethod
-            : "CASH"
+          normalizedOfflineMethod === "BANK" ? "BANK" : "CASH"
         );
         setOfflineReference(booking.payment.offlineReference ?? "");
         setPaymentStatus(booking.payment.status);
@@ -696,21 +694,36 @@ export function AdminAddBookingForm({
     async function loadTheatres() {
       try {
         setLoadingTheatres(true);
-        const res = await fetch(
-          `/api/theatres?locationId=${encodeURIComponent(locationId)}&date=${encodeURIComponent(date)}`,
-          { credentials: "include" }
-        );
-        const json = await res.json().catch(() => null);
+        const [theatresRes, packagesRes] = await Promise.all([
+          fetch(
+            `/api/theatres?locationId=${encodeURIComponent(locationId)}&date=${encodeURIComponent(date)}`,
+            { credentials: "include" }
+          ),
+          fetch("/api/packages", {
+            credentials: "include",
+            cache: "no-store",
+          }),
+        ]);
+        const [theatresJson, packagesJson] = await Promise.all([
+          theatresRes.json().catch(() => null),
+          packagesRes.json().catch(() => null),
+        ]);
         if (cancelled) return;
 
-        const apiTheatres = json?.data?.theatres;
-        if (!res.ok || !Array.isArray(apiTheatres)) {
+        const apiTheatres = theatresJson?.data?.theatres;
+        const apiPackages = packagesJson?.data;
+        if (
+          !theatresRes.ok ||
+          !packagesRes.ok ||
+          !Array.isArray(apiTheatres) ||
+          !Array.isArray(apiPackages)
+        ) {
           setTheatres([]);
-          toast.error("Failed to load theatres for selected date.");
+          toast.error("Failed to load packages for selected date.");
           return;
         }
 
-        const normalized: TheatreOption[] = apiTheatres.map((theatre: Record<string, unknown>) => {
+        const normalizedTheatres: TheatreOption[] = apiTheatres.map((theatre: Record<string, unknown>) => {
           const rawSlots = Array.isArray(theatre.slots) ? theatre.slots : [];
           const slots: SlotOption[] = rawSlots.map((slot) => {
             const startTime = String(slot.startTime ?? "");
@@ -747,11 +760,43 @@ export function AdminAddBookingForm({
           };
         });
 
-        setTheatres(normalized);
+        const reservableTheatre = normalizedTheatres[0];
+        if (!reservableTheatre) {
+          setTheatres([]);
+          toast.error("No reservable venue is available for the selected date.");
+          return;
+        }
+
+        const packageOptions: TheatreOption[] = apiPackages.map(
+          (eventPackage: Record<string, unknown>) => {
+            const packageId = String(eventPackage.id ?? "");
+            const packageAmount = Number(
+              eventPackage.subtotalAmount ?? eventPackage.finalAmount ?? 0
+            );
+            const guestLimit = Number(eventPackage.guestLimit ?? 0);
+
+            return {
+              ...reservableTheatre,
+              id: packageId,
+              theatreId: reservableTheatre.id,
+              packageId,
+              name: String(eventPackage.name ?? "Unnamed Package"),
+              baseGuests: guestLimit,
+              slots: reservableTheatre.slots.map((slot) => ({
+                ...slot,
+                basePrice: packageAmount,
+                finalPrice: packageAmount,
+                decorationMandatory: false,
+              })),
+            };
+          }
+        );
+
+        setTheatres(mode === "create" ? packageOptions : normalizedTheatres);
       } catch {
         if (!cancelled) {
           setTheatres([]);
-          toast.error("Failed to load theatres.");
+          toast.error("Failed to load packages.");
         }
       } finally {
         if (!cancelled) setLoadingTheatres(false);
@@ -762,7 +807,7 @@ export function AdminAddBookingForm({
     return () => {
       cancelled = true;
     };
-  }, [locationId, date, defaultAdvanceAmount]);
+  }, [locationId, date, defaultAdvanceAmount, mode]);
 
   useEffect(() => {
     if (!theatreId) return;
@@ -780,6 +825,8 @@ export function AdminAddBookingForm({
     () => theatres.find((theatre) => theatre.id === theatreId) ?? null,
     [theatreId, theatres]
   );
+  const selectedReservableTheatreId =
+    selectedTheatre?.theatreId ?? selectedTheatre?.id ?? "";
   const selectedLocation = useMemo(
     () => locations.find((location) => location.id === locationId) ?? null,
     [locations, locationId]
@@ -814,11 +861,18 @@ export function AdminAddBookingForm({
       getSlotHoverHint({
         locationId,
         date,
-        theatreId,
+        theatreId: selectedReservableTheatreId || theatreId,
         slotId,
         slotConflictMessage,
       }),
-    [locationId, date, theatreId, slotId, slotConflictMessage]
+    [
+      locationId,
+      date,
+      theatreId,
+      selectedReservableTheatreId,
+      slotId,
+      slotConflictMessage,
+    ]
   );
 
   const selectedOccasion = useMemo(
@@ -1521,7 +1575,7 @@ export function AdminAddBookingForm({
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
-        theatreId,
+        theatreId: selectedReservableTheatreId,
         date,
         startTime: nextStartTime,
         endTime: nextEndTime,
@@ -1845,7 +1899,7 @@ export function AdminAddBookingForm({
 
     if (!locationId) nextErrors.locationId = "Location is required.";
     if (!date) nextErrors.date = "Date is required.";
-    if (!theatreId) nextErrors.theatreId = "Theatre is required.";
+    if (!theatreId) nextErrors.theatreId = "Package is required.";
     if (!startTime || !endTime) nextErrors.slotId = "Event time is required.";
     if (startTime && endTime && !resolvedSlotId && !ADMIN_RANGE_BOOKING_ENABLED) {
       nextErrors.slotId = "Event time must be resolved before saving.";
@@ -1902,7 +1956,7 @@ export function AdminAddBookingForm({
     if (
       !isPaymentSectionLocked &&
       paymentType === "OFFLINE" &&
-      (offlineMethod === "UPI" || offlineMethod === "BANK") &&
+      offlineMethod === "BANK" &&
       !offlineReference.trim()
     ) {
       nextErrors.offlineReference = "Reference ID is required for this method.";
@@ -2435,7 +2489,8 @@ export function AdminAddBookingForm({
       const commonPayload = {
         locationId,
         date,
-        theatreId,
+        theatreId: selectedReservableTheatreId,
+        packageId: selectedTheatre?.packageId,
         slotId: resolvedSlotId,
         startTime,
         endTime,

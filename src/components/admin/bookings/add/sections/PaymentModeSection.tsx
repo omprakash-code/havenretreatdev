@@ -15,7 +15,7 @@ type PaymentModeSectionProps = {
   paymentAmountMode: "ADVANCE" | "FULL" | "REMAINING";
   amountPayNow: number;
   minimumAdvanceAmount: number;
-  offlineMethod: "CASH" | "UPI" | "BANK";
+  offlineMethod: "CASH" | "BANK";
   offlineReference: string;
   couponCode: string;
   appliedCoupons: Array<{
@@ -35,7 +35,7 @@ type PaymentModeSectionProps = {
   onPaymentTypeChange: (value: "OFFLINE" | "ONLINE") => void;
   onPaymentAmountModeChange: (value: "ADVANCE" | "FULL" | "REMAINING") => void;
   onAmountPayNowChange: (value: number) => void;
-  onOfflineMethodChange: (value: "CASH" | "UPI" | "BANK") => void;
+  onOfflineMethodChange: (value: "CASH" | "BANK") => void;
   onOfflineReferenceChange: (value: string) => void;
   onCouponCodeChange: (value: string) => void;
   onShowCouponInput: () => void;
@@ -247,11 +247,10 @@ export function PaymentModeSection({
                   </label>
                   <select
                     value={offlineMethod}
-                    onChange={(event) => onOfflineMethodChange(event.target.value as "CASH" | "UPI" | "BANK")}
+                    onChange={(event) => onOfflineMethodChange(event.target.value as "CASH" | "BANK")}
                     className={selectableInputClass}
                   >
                     <option value="CASH">Cash</option>
-                    <option value="UPI">UPI</option>
                     <option value="BANK">Bank</option>
                   </select>
                 </div>
@@ -259,7 +258,7 @@ export function PaymentModeSection({
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-700">
                     Reference ID{" "}
-                    {(offlineMethod === "UPI" || offlineMethod === "BANK") && (
+                    {offlineMethod === "BANK" && (
                       <span className="text-red-500">*</span>
                     )}
                   </label>
@@ -279,7 +278,7 @@ export function PaymentModeSection({
         </>
       )}
 
-      {!lockPaymentSection ? (
+      {mode === "edit" && !lockPaymentSection ? (
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-3.5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-slate-700">Coupon</p>
