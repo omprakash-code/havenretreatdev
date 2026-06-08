@@ -158,12 +158,12 @@ function buildMinimumAmountShortfallMessage(
   if (shortfall <= 0) return "";
 
   if (coupon?.scope === "PRODUCTS_ONLY") {
-    return `Add products worth at least ₹${shortfall} more to use this coupon.`;
+    return `Add products worth at least $${shortfall} more to use this coupon.`;
   }
   if (isSlotOnlyCouponScope(coupon?.scope)) {
-    return `Choose a slot with at least ₹${shortfall} more value to use this coupon.`;
+    return `Choose a slot with at least $${shortfall} more value to use this coupon.`;
   }
-  return `Add at least ₹${shortfall} more to your booking to use this coupon.`;
+  return `Add at least $${shortfall} more to your booking to use this coupon.`;
 }
 
 function buildZeroDiscountMessage(

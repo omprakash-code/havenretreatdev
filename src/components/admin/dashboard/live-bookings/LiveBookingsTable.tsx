@@ -47,11 +47,11 @@ export default function LiveBookingsTable({
         <thead className="bg-neutral-50 text-[#111827] text-[12px] uppercase tracking-wide">
           <tr className="h-14">
             <th className="pl-5 pr-3 text-left">#</th>
-            <th className="px-3 text-left">Booking ID</th>
+            <th className="px-3 text-left">Reference</th>
             <th className="px-3 text-left">Customer</th>
             <th className="px-3 text-left">Phone</th>
-            <th className="px-3 text-left">Theatre</th>
-            <th className="px-3 text-left">Booking Time</th>
+            <th className="px-3 text-left">Package</th>
+            <th className="px-3 text-left">Event Date &amp; Time</th>
             <th className="px-3 text-left">Amount</th>
             <th className="px-3 text-left w-[165px]">Status</th>
             <th className="px-3 text-left">Booking Date</th>

@@ -109,11 +109,11 @@ export default function ProductRow({
                           defaultVariant.salePrice !== undefined &&
                           defaultVariant.salePrice > 0 && (
                             <div className="text-xs line-through text-neutral-400">
-                                ₹{defaultVariant.regularPrice}
+                                ${defaultVariant.regularPrice}
                             </div>
                           )}
                         <div className="font-semibold">
-                            ₹{price}
+                            ${price}
                         </div>
                     </div>
                 ) : (

@@ -123,7 +123,7 @@ function ProductCardComponent({
 
             <div className="flex items-end justify-between gap-2">
               <p className="text-[12px] font-bold text-slate-900 sm:text-[13px]">
-                ₹{getVariantPrice(activeVariant)}
+                ${getVariantPrice(activeVariant)}
               </p>
 
               <div className="w-[70px] min-w-[70px] max-w-[70px] shrink-0">

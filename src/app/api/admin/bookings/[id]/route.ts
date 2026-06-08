@@ -241,6 +241,12 @@ export async function GET(
             images: true,
           },
         },
+        eventPackage: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         slot: {
           select: {
             id: true,
@@ -363,6 +369,21 @@ export async function GET(
       image: booking.theatre?.images?.[0] ?? booking.venue?.images?.[0] ?? null,
       locationName: booking.theatre?.location?.name ?? booking.venue?.name ?? "—",
     };
+    const packageSnapshot =
+      booking.packageSnapshot &&
+      typeof booking.packageSnapshot === "object" &&
+      !Array.isArray(booking.packageSnapshot)
+        ? (booking.packageSnapshot as Record<string, unknown>)
+        : null;
+    const snapshotPackageName =
+      packageSnapshot && typeof packageSnapshot.name === "string"
+        ? packageSnapshot.name
+        : null;
+    const resolvedPackageName =
+      booking.eventPackage?.name ??
+      snapshotPackageName ??
+      booking.theatre?.name ??
+      "Package unavailable";
     const schedule = presentReportingSchedule({
       eventDate: booking.eventDate,
       eventStartTime: booking.eventStartTime,
@@ -390,6 +411,10 @@ export async function GET(
             name: displaySpace.name,
             timezone: booking.theatre?.timezone ?? null,
             locationName: displaySpace.locationName,
+          },
+          package: {
+            id: booking.eventPackage?.id ?? null,
+            name: resolvedPackageName,
           },
           locationName: displaySpace.locationName,
           theatreImage: displaySpace.image,

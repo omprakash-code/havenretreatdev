@@ -164,19 +164,19 @@ export default function SlotDetails({ slot }: { slot: AdminSlot }) {
 
                                 <InfoRow
                                     label="Regular Price"
-                                    value={`₹${slot.pricing.regular.toLocaleString()}`}
+                                    value={`$${slot.pricing.regular.toLocaleString()}`}
                                 />
                                 {slot.pricing.sale != null && (
                                     <>
                                         <InfoRow
                                             label="Sale Price"
-                                            value={`₹${slot.pricing.sale.toLocaleString()}`}
+                                            value={`$${slot.pricing.sale.toLocaleString()}`}
                                         />
                                         <InfoRow
                                             label="Booking Price"
                                             value={
                                                 <span className="text-lg font-bold">
-                                                    ₹{slot.pricing.final.toLocaleString()}
+                                                    ${slot.pricing.final.toLocaleString()}
                                                 </span>
                                             }
                                         />

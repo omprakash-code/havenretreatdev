@@ -9,7 +9,7 @@ type SlotChipProps = {
   isLockedByMe?: boolean;
   lockRemainingSec?: number;
   isSpecial?: boolean;
-  specialText?: string; // e.g. "₹749 less"
+  specialText?: string; // e.g. "$749 less"
   onClick?: () => void;
 };
 

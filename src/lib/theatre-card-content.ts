@@ -77,7 +77,7 @@ export const DEFAULT_THEATRE_CARD_CONTENT: TheatreCardContent = {
   },
   decor: {
     enabled: true,
-    text: "Decor ₹{{decorationPrice}} Only",
+    text: "Decor ${{decorationPrice}} Only",
   },
   freeCancellation: {
     enabled: true,

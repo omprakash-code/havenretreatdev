@@ -142,13 +142,13 @@ export default function SlotOverviewTab({ slot }: { slot: AdminSlot }) {
               />
               <InfoRow
                 label="Template Regular Price"
-                value={`₹${slot.template.regularPrice.toLocaleString()}`}
+                value={`$${slot.template.regularPrice.toLocaleString()}`}
               />
               <InfoRow
                 label="Template Sale Price"
                 value={
                   slot.template.salePrice
-                    ? `₹${slot.template.salePrice.toLocaleString()}`
+                    ? `$${slot.template.salePrice.toLocaleString()}`
                     : "Not Defined"
                 }
               />
@@ -180,13 +180,13 @@ export default function SlotOverviewTab({ slot }: { slot: AdminSlot }) {
 
         <InfoRow
           label="Regular Price"
-          value={`₹${slot.pricing.regular.toLocaleString()}`}
+          value={`$${slot.pricing.regular.toLocaleString()}`}
         />
         <InfoRow
           label="Sale Price"
           value={
             slot.pricing.sale
-              ? `₹${slot.pricing.sale.toLocaleString()}`
+              ? `$${slot.pricing.sale.toLocaleString()}`
               : "Not Defined"
           }
         />
@@ -196,7 +196,7 @@ export default function SlotOverviewTab({ slot }: { slot: AdminSlot }) {
             label="Booking Price"
             value={
               <span className="text-lg font-bold">
-                ₹{slot.pricing.final.toLocaleString()}
+                ${slot.pricing.final.toLocaleString()}
               </span>
             }
           />

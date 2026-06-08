@@ -9,7 +9,7 @@ import { Phone } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsApp";
 
 import {
-  formatIST,
+  formatET,
   maskPhone,
 } from "@/lib/formatters";
 
@@ -61,7 +61,7 @@ export default function BookingRow({
       ? SLA_META[booking.sla.label]
       : null;
   const scheduleDateLabel =
-    booking.schedule?.dateLabel || formatIST(booking.slot.date).split(",")[0];
+    booking.schedule?.dateLabel || formatET(booking.slot.date).split(",")[0];
   const scheduleTimeLabel =
     booking.schedule?.timeLabel ||
     `${booking.slot.startTime} - ${booking.slot.endTime}`;
@@ -144,12 +144,12 @@ export default function BookingRow({
       {/* Amount */}
       <td className="px-3 py-3 whitespace-nowrap">
         <div className="font-semibold">
-          ₹{booking.pricing.total.toLocaleString()}
+          ${booking.pricing.total.toLocaleString()}
         </div>
 
         {booking.pricing.remainingPayable > 0 && (
           <div className="text-xs text-neutral-500">
-            ₹{booking.pricing.remainingPayable.toLocaleString()} due
+            ${booking.pricing.remainingPayable.toLocaleString()} due
           </div>
         )}
       </td>
@@ -174,9 +174,9 @@ export default function BookingRow({
 
       {/* Created At */}
       <td className="px-3 py-3 text-neutral-500 leading-tight whitespace-nowrap">
-        <div>{formatIST(booking.createdAt).split(",")[0]}</div>
+        <div>{formatET(booking.createdAt).split(",")[0]}</div>
         <div className="text-xs">
-          {formatIST(booking.createdAt).split(",")[1]}
+          {formatET(booking.createdAt).split(",")[1]}
         </div>
       </td>
 
@@ -194,7 +194,7 @@ export default function BookingRow({
               </a>
 
               <a
-                href={`https://wa.me/91${booking.customer.phone}`}
+                href={`https://wa.me/1${booking.customer.phone}`}
                 target="_blank"
                 title="WhatsApp customer"
                 className="text-green-600 hover:text-green-700"

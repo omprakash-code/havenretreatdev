@@ -65,7 +65,7 @@ function SummaryRow({
 }
 
 function formatCurrencySymbol(value: number) {
-  return `₹${value.toLocaleString()}`;
+  return `$${value.toLocaleString()}`;
 }
 
 export function BookingSummarySection({

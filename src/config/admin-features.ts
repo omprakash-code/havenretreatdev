@@ -13,7 +13,7 @@ export const adminFeatures = {
   payments: false,
   waitlist: false,
   contacts: false,
-  profile: false,
+  profile: true,
 } as const;
 
 export type AdminFeature = keyof typeof adminFeatures;

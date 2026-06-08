@@ -206,7 +206,7 @@ export default function BookingsFilters({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search ID, name, phone, theatre..."
+          placeholder="Search reference, name, phone, package..."
           className="h-10 w-full rounded-md border border-neutral-200 px-3 text-sm"
         />
       }
@@ -283,7 +283,7 @@ export default function BookingsFilters({
             onChange={(e) => setTheatre(e.target.value)}
             className="h-10 w-full rounded-md border border-neutral-200 px-3 text-sm"
           >
-            <option value="">All Theatres</option>
+            <option value="">All Packages</option>
             {theatres.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -297,7 +297,7 @@ export default function BookingsFilters({
             onChange={(e) => setSlot(e.target.value)}
             className="h-10 w-full rounded-md border border-neutral-200 px-3 text-sm"
           >
-            <option value="">All Slots</option>
+            <option value="">All Times</option>
             {slotOptions.map((s) => (
               <option key={s} value={s}>
                 {formatSlotLabel(s)}

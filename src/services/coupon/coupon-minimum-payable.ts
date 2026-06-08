@@ -20,5 +20,5 @@ export function isMinimumPayableSatisfied(input: {
 
 export function buildMinimumPayableMessage(minimumPayable: number) {
   const amount = Math.max(Number(minimumPayable) || 0, 0);
-  return `This coupon cannot be applied because minimum payable requirement is ₹${amount}.`;
+  return `This coupon cannot be applied because minimum payable requirement is $${amount}.`;
 }

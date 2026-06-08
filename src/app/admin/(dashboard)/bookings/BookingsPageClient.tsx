@@ -14,12 +14,11 @@ import { CalendarCheck, Plus, Search } from "@/components/icons";
 import { downloadBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
 import { mapAdminBookingToSuccessData } from "@/components/booking/success/mapAdminBookingToSuccessData";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import AdminEmptyState from "@/components/admin/shared/AdminEmptyState";
 
 const PAGE_SIZE = 40;
-const IST_TIMEZONE = "Asia/Kolkata";
-const IST_OFFSET_MINUTES = 330;
+const ET_TIMEZONE = "America/New_York";
 
 function shiftDateKey(dateKey: string, deltaDays: number) {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -32,28 +31,32 @@ function shiftDateKey(dateKey: string, deltaDays: number) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function getIstDayRange(dateKey: string) {
+function getEtDayRange(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
   if (!year || !month || !day) return null;
-  const startMs =
-    Date.UTC(year, month - 1, day, 0, 0, 0, 0) -
-    IST_OFFSET_MINUTES * 60 * 1000;
-  const endMs = startMs + 24 * 60 * 60 * 1000;
+  const startUtc = fromZonedTime(
+    new Date(year, month - 1, day, 0, 0, 0, 0),
+    ET_TIMEZONE
+  );
+  const endUtc = fromZonedTime(
+    new Date(year, month - 1, day + 1, 0, 0, 0, 0),
+    ET_TIMEZONE
+  );
   return {
-    dateFrom: new Date(startMs).toISOString(),
-    dateTo: new Date(endMs).toISOString(),
+    dateFrom: startUtc.toISOString(),
+    dateTo: endUtc.toISOString(),
   };
 }
 
 function getPresetRange(preset: DatePreset) {
   if (preset === "CUSTOM") return null;
-  const todayKey = formatInTimeZone(new Date(), IST_TIMEZONE, "yyyy-MM-dd");
+  const todayKey = formatInTimeZone(new Date(), ET_TIMEZONE, "yyyy-MM-dd");
 
   if (preset === "YESTERDAY") {
     const fromKey = shiftDateKey(todayKey, -1);
     const toKey = todayKey;
-    const fromRange = getIstDayRange(fromKey);
-    const toRange = getIstDayRange(toKey);
+    const fromRange = getEtDayRange(fromKey);
+    const toRange = getEtDayRange(toKey);
     if (!fromRange || !toRange) return null;
     return { dateFrom: fromRange.dateFrom, dateTo: toRange.dateFrom };
   }
@@ -70,8 +73,8 @@ function getPresetRange(preset: DatePreset) {
   if (lookbackDays == null) return null;
   const fromKey = shiftDateKey(todayKey, -lookbackDays);
   const toKey = shiftDateKey(todayKey, 1);
-  const fromRange = getIstDayRange(fromKey);
-  const toRange = getIstDayRange(toKey);
+  const fromRange = getEtDayRange(fromKey);
+  const toRange = getEtDayRange(toKey);
   if (!fromRange || !toRange) return null;
   return { dateFrom: fromRange.dateFrom, dateTo: toRange.dateFrom };
 }
@@ -210,7 +213,7 @@ export default function BookingsPage() {
       }
 
       if (customDate) {
-        const range = getIstDayRange(customDate);
+        const range = getEtDayRange(customDate);
         if (range) {
           params.set("dateFrom", range.dateFrom);
           params.set("dateTo", range.dateTo);

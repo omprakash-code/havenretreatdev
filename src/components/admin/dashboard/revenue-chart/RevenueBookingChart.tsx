@@ -34,9 +34,9 @@ type Props = {
 };
 
 function formatCompactCurrency(value: number) {
-  if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
-  if (value >= 1000) return `₹${(value / 1000).toFixed(0)}K`;
-  return `₹${Math.round(value)}`;
+  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
+  return `$${Math.round(value)}`;
 }
 
 export default function RevenueBookingsChart({ range }: Props) {
@@ -106,7 +106,7 @@ export default function RevenueBookingsChart({ range }: Props) {
             Revenue
           </p>
           <p className="text-lg font-semibold text-gray-900">
-            ₹{totals.revenue.toLocaleString()}
+            ${totals.revenue.toLocaleString()}
           </p>
         </div>
 
@@ -157,7 +157,7 @@ export default function RevenueBookingsChart({ range }: Props) {
           <Tooltip
             formatter={(value, name) => {
               if (name === "revenue") {
-                return [`₹${Number(value).toLocaleString()}`, "Revenue"];
+                return [`$${Number(value).toLocaleString()}`, "Revenue"];
               }
               return [Number(value), "Bookings"];
             }}

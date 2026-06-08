@@ -23,7 +23,7 @@ export default function KpiStrip() {
       <KpiCard label="🔥 Hot Leads" value={2} color="border-red-200 bg-red-50" />
       <KpiCard label="Abandoned Today" value={3} color="border-[#FFD700]/25 bg-[#FFD700]/8" />
       <KpiCard label="Confirmed Today" value={8} color="border-green-200 bg-green-50" />
-      <KpiCard label="Revenue Today" value="₹5,992" color="border-gray-200 bg-white" />
+      <KpiCard label="Revenue Today" value="$5,992" color="border-gray-200 bg-white" />
     </div>
   );
 }

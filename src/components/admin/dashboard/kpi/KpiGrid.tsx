@@ -116,12 +116,12 @@ export default function KpiGrid() {
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 lg:gap-5">
       <KpiCard
         title="Total Revenue"
-        value={`₹${data.revenueLifetime.toLocaleString()}`}
+        value={`$${data.revenueLifetime.toLocaleString()}`}
         delta={formatTrendDelta(
           data.trends?.revenue,
           data.trends?.periodDays ?? 7,
           "All time",
-          (amount) => `₹${amount.toLocaleString()}`
+          (amount) => `$${amount.toLocaleString()}`
         )}
         trend={data.trends?.revenue.direction ?? "neutral"}
         tone={

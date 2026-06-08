@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatIST } from "@/lib/formatters";
+import { formatET } from "@/lib/formatters";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 import Image from "next/image";
 import {
@@ -49,36 +49,38 @@ function toOccasionDisplayValue(value: unknown) {
   return "";
 }
 
-function humanizePaymentMethodTag(value: string | null | undefined) {
-  if (!value) return "—";
-
-  if (!value.startsWith("CHECKOUT_DISMISSED")) {
-    return value;
+function resolvePaymentMethod(
+  provider: string,
+  method: string | null
+): { label: string; isOffline: boolean } {
+  if (provider === "OFFLINE") {
+    if (method === "CASH") return { label: "Cash", isOffline: true };
+    if (method === "BANK") return { label: "Bank Transfer", isOffline: true };
+    return { label: "Manual / Offline", isOffline: true };
   }
-
-  const parts = value.split("|");
-  const source = parts.find((part) => part.startsWith("SRC:"));
-  const reason = parts.find((part) => part.startsWith("RSN:"));
-
-  const normalizeTag = (tag: string | undefined) =>
-    tag
-      ?.split(":")[1]
-      ?.toLowerCase()
-      .split("_")
-      .filter(Boolean)
-      .join(" ") ?? "";
-
-  const sourceText = normalizeTag(source);
-  const reasonText = normalizeTag(reason);
-
-  if (sourceText && reasonText) {
-    return `Checkout dismissed (${sourceText}, ${reasonText})`;
+  if (method?.startsWith("CHECKOUT_DISMISSED")) {
+    const parts = method.split("|");
+    const source = parts.find((p) => p.startsWith("SRC:"));
+    const reason = parts.find((p) => p.startsWith("RSN:"));
+    const normalize = (tag: string | undefined) =>
+      tag?.split(":")[1]?.toLowerCase().split("_").filter(Boolean).join(" ") ?? "";
+    const sourceText = normalize(source);
+    const reasonText = normalize(reason);
+    if (sourceText && reasonText) return { label: `Checkout dismissed (${sourceText}, ${reasonText})`, isOffline: false };
+    if (reasonText) return { label: `Checkout dismissed (${reasonText})`, isOffline: false };
+    return { label: "Checkout dismissed", isOffline: false };
   }
-  if (reasonText) {
-    return `Checkout dismissed (${reasonText})`;
-  }
+  return { label: "Online Payment", isOffline: false };
+}
 
-  return "Checkout dismissed";
+function resolvePaymentProvider(provider: string): string {
+  const map: Record<string, string> = {
+    OFFLINE: "Manual",
+    RAZORPAY: "Razorpay",
+    STRIPE: "Stripe",
+    SQUARE: "Square",
+  };
+  return map[provider] ?? provider;
 }
 
 function FieldRow({
@@ -251,7 +253,7 @@ function ProductCard({ item }: { item: AdminBooking["items"][0] }) {
 
       {/* Price */}
         <span className="text-sm font-semibold text-slate-900">
-          ₹{item.totalPrice.toLocaleString()}
+          ${item.totalPrice.toLocaleString()}
         </span>
     </div>
   );
@@ -263,8 +265,9 @@ type BookingDetailsProps = {
 
 export default function BookingDetails({ booking }: BookingDetailsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "payment">("overview");
+  const [showAgreementDetails, setShowAgreementDetails] = useState(false);
   const scheduleDateLabel =
-    booking.schedule?.dateLabel || formatIST(booking.slot.date).split(",")[0];
+    booking.schedule?.dateLabel || formatET(booking.slot.date).split(",")[0];
   const scheduleTimeLabel =
     booking.schedule?.timeLabel ||
     `${booking.slot.startTime} - ${booking.slot.endTime}`;
@@ -272,8 +275,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
   // Calculate products total
   const productsTotal = booking.items.reduce((sum, item) => sum + item.totalPrice, 0);
   const lockedAdvanceAmount = Math.max(booking.pricing.advancePaid, 0);
-  const hasCapturedAdvance =
-    booking.paymentStatus === "PAID" || booking.paymentStatus === "OFFLINE";
+  const hasCapturedAdvance = booking.paymentStatus === "PAID";
   const totalPaid = hasCapturedAdvance ? lockedAdvanceAmount : 0;
   const isFullyPaid =
     hasCapturedAdvance &&
@@ -462,7 +464,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       Call
                     </a>
                     <a
-                      href={`https://wa.me/91${booking.customer.phone}`}
+                      href={`https://wa.me/1${booking.customer.phone}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
@@ -510,7 +512,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       Package
                     </div>
                     <p className="text-sm font-semibold text-slate-900">
-                      {booking.theatre.name}
+                      {booking.package?.name ?? booking.theatre.name}
                     </p>
                   </div>
 
@@ -525,11 +527,6 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-xs text-slate-500">Reservation Status</span>
-                  <StatusBadge status={booking.slot.status} type="booking" />
-                </div>
-
                 <div className="space-y-2 border-t border-slate-200 pt-3">
                   <FieldRow label="Location">
                     {booking.theatre.locationName ?? booking.locationName ?? "—"}
@@ -537,14 +534,8 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   <FieldRow label="Decoration">
                     {booking.decorationRequired ? "Required" : "Not Required"}
                   </FieldRow>
-                  <FieldRow label="Slot ID">
-                    {booking.slot.id ? <MonoValue>{booking.slot.id}</MonoValue> : "—"}
-                  </FieldRow>
-                  <FieldRow label="Slot Price">
-                    ₹{(booking.slot.finalPrice ?? booking.slot.basePrice ?? booking.pricing.base).toLocaleString()}
-                  </FieldRow>
-                  <FieldRow label="Decoration Mandatory">
-                    {booking.slot.decorationMandatory ? "Yes" : "No"}
+                  <FieldRow label="Package Price">
+                    ${(booking.slot.finalPrice ?? booking.slot.basePrice ?? booking.pricing.base).toLocaleString()}
                   </FieldRow>
                 </div>
               </div>
@@ -588,7 +579,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   </h3>
 
                   {/* Product Grid - 2 per row */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {booking.items.map((item) => (
                       <ProductCard key={item.id} item={item} />
                     ))}
@@ -599,7 +590,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     <div className="flex items-center justify-between pt-3 border-t border-slate-200 mt-3">
                       <span className="text-sm font-medium text-slate-700">Products Total</span>
                       <span className="text-sm font-semibold text-slate-900">
-                        ₹{productsTotal.toLocaleString()}
+                        ${productsTotal.toLocaleString()}
                       </span>
                     </div>
                   )}
@@ -632,7 +623,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   <div className="flex items-start justify-between gap-4">
                     <span className="text-xs text-slate-500">Accepted At</span>
                     <span className="text-xs font-medium text-slate-900">
-                      {formatIST(booking.termsAcceptedAt)}
+                      {formatET(booking.termsAcceptedAt)}
                     </span>
                   </div>
                 )}
@@ -649,7 +640,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                         <p className="mb-1 text-xs text-slate-500">Signed At</p>
                         <p className="text-sm font-semibold text-slate-900">
-                          {formatIST(booking.signedAgreement.signedAt)}
+                          {formatET(booking.signedAgreement.signedAt)}
                         </p>
                       </div>
                     </div>
@@ -671,39 +662,46 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <FieldRow label="Agreement ID">
-                        <MonoValue>{booking.signedAgreement.id}</MonoValue>
-                      </FieldRow>
-                      <FieldRow label="Version">
-                        {booking.signedAgreement.agreementVersion ?? "—"}
-                      </FieldRow>
                       <FieldRow label="Signer Email">
                         {booking.signedAgreement.signerEmail || "—"}
                       </FieldRow>
-                      <FieldRow label="Confirmation Checkbox">
-                        {booking.signedAgreement.confirmationAccepted ? "Accepted" : "Not Accepted"}
-                      </FieldRow>
-                      <FieldRow label="IP Address">
-                        {booking.signedAgreement.ipAddress ?? "—"}
-                      </FieldRow>
-                      <FieldRow label="Payment Reference">
-                        {booking.signedAgreement.paymentReference ? (
-                          <MonoValue>{booking.signedAgreement.paymentReference}</MonoValue>
-                        ) : (
-                          "—"
-                        )}
-                      </FieldRow>
-                      <FieldRow label="PDF Generated">
-                        {booking.signedAgreement.pdfGeneratedAt
-                          ? formatIST(booking.signedAgreement.pdfGeneratedAt)
-                          : "—"}
-                      </FieldRow>
-                      <FieldRow label="User Agent">
-                        <span className="max-w-[260px] break-words text-right text-xs">
-                          {booking.signedAgreement.userAgent ?? "—"}
-                        </span>
-                      </FieldRow>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAgreementDetails((v) => !v)}
+                      className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2 transition-colors"
+                    >
+                      {showAgreementDetails ? "Hide technical details" : "Show technical details"}
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {showAgreementDetails && (
+                        <motion.div
+                          key="agreement-details"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.22, ease: "easeInOut" }}
+                          style={{ overflow: "hidden" }}
+                        >
+                          <div className="space-y-2 pt-1">
+                            <FieldRow label="Agreement ID">
+                              <MonoValue>{booking.signedAgreement.id}</MonoValue>
+                            </FieldRow>
+                            <FieldRow label="Agreement Version">
+                              {booking.signedAgreement.agreementVersion ?? "—"}
+                            </FieldRow>
+                            <FieldRow label="Confirmation Checkbox">
+                              {booking.signedAgreement.confirmationAccepted ? "Accepted" : "Not Accepted"}
+                            </FieldRow>
+                            <FieldRow label="IP Address">
+                              {booking.signedAgreement.ipAddress ?? "—"}
+                            </FieldRow>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
@@ -723,14 +721,11 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       {booking.bookingRef}
                     </span>
                   </div>
-                  <FieldRow label="Booking ID">
-                    <MonoValue>{booking.id}</MonoValue>
-                  </FieldRow>
 
                   <div className="flex items-start justify-between gap-4">
                     <span className="text-xs text-slate-500">Created</span>
                     <span className="text-sm font-medium text-slate-900">
-                      {formatIST(booking.createdAt)}
+                      {formatET(booking.createdAt)}
                     </span>
                   </div>
                   <div className="flex items-start justify-between gap-4">
@@ -779,9 +774,9 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
 
                 <div className="bg-slate-50 rounded-xl p-4 space-y-2.5">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Base Amount</span>
+                    <span className="text-sm text-slate-600">Venue Rental</span>
                     <span className="text-sm font-medium text-slate-900">
-                      ₹{booking.pricing.base.toLocaleString()}
+                      ${booking.pricing.base.toLocaleString()}
                     </span>
                   </div>
 
@@ -789,7 +784,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-600">Extra Guests</span>
                       <span className="text-sm font-medium text-slate-900">
-                        ₹{booking.pricing.extras.toLocaleString()}
+                        ${booking.pricing.extras.toLocaleString()}
                       </span>
                     </div>
                   )}
@@ -798,7 +793,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-600">Decoration</span>
                       <span className="text-sm font-medium text-slate-900">
-                        ₹{booking.pricing.decoration.toLocaleString()}
+                        ${booking.pricing.decoration.toLocaleString()}
                       </span>
                     </div>
                   )}
@@ -807,7 +802,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-600">Products</span>
                       <span className="text-sm font-medium text-slate-900">
-                        ₹{booking.pricing.products.toLocaleString()}
+                        ${booking.pricing.products.toLocaleString()}
                       </span>
                     </div>
                   )}
@@ -838,7 +833,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                         ) : null}
                       </div>
                       <span className="text-sm font-medium text-emerald-600">
-                        -₹{booking.pricing.discount.toLocaleString()}
+                        -${booking.pricing.discount.toLocaleString()}
                       </span>
                     </div>
                   )}
@@ -847,7 +842,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-semibold text-slate-900">Total Amount</span>
                       <span className="text-lg font-bold text-slate-900">
-                        ₹{booking.pricing.total.toLocaleString()}
+                        ${booking.pricing.total.toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -863,7 +858,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                       <p className="mb-1 text-xs text-emerald-700">Fully Paid</p>
                       <p className="text-lg font-semibold text-emerald-800">
-                        ₹{totalPaid.toLocaleString()}
+                        ${totalPaid.toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -898,7 +893,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                             : "text-slate-900"
                         }`}
                       >
-                        ₹{(hasCapturedAdvance ? totalPaid : lockedAdvanceAmount).toLocaleString()}
+                        ${(hasCapturedAdvance ? totalPaid : lockedAdvanceAmount).toLocaleString()}
                       </p>
                     </div>
 
@@ -916,114 +911,105 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                           isPaymentInProgress ? "text-orange-700" : "text-amber-700"
                         }`}
                       >
-                        {hasCapturedAdvance ? "Remaining" : "Remaining After Advance"}
+                        Balance Due
                       </p>
                       <p
                         className={`text-lg font-semibold ${
                           isPaymentInProgress ? "text-orange-800" : "text-amber-800"
                         }`}
                       >
-                        ₹{booking.pricing.remainingPayable.toLocaleString()}
+                        ${booking.pricing.remainingPayable.toLocaleString()}
                       </p>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Payment Status */}
-              <div className="pt-3 border-t border-slate-200">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-700">Payment Status:</span>
-                  {booking.paymentStatus ? (
-                    <StatusBadge status={booking.paymentStatus} type="payment" />
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
-                      <X size={12} />
-                      Payment Not Started
-                    </span>
-                  )}
-                  
-                </div>
-              </div>
-
               {/* Payment Details */}
-              {booking.paymentDetails && (
-                <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Payment Details</h3>
+              {booking.paymentDetails && (() => {
+                const resolved = resolvePaymentMethod(
+                  booking.paymentDetails.provider,
+                  booking.paymentDetails.method
+                );
+                return (
+                  <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-900">Payment Details</h3>
 
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-xs text-slate-500">Provider</span>
-                    <span className="text-sm font-medium text-slate-900">
-                      {booking.paymentDetails.provider}
-                    </span>
+                    {/* Payment method badge */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Payment Method</span>
+                      <span
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                          resolved.isOffline
+                            ? "bg-slate-100 text-slate-700"
+                            : "bg-sky-50 text-sky-700"
+                        }`}
+                      >
+                        {resolved.label}
+                      </span>
+                    </div>
+
+                    {/* Provider — only shown for online payments */}
+                    {!resolved.isOffline && (
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-xs text-slate-500">Provider</span>
+                        <span className="text-sm font-medium text-slate-900">
+                          {resolvePaymentProvider(booking.paymentDetails.provider)}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-xs text-slate-500">
+                        {booking.paymentDetails.status === "PAID" ? "Paid Amount" : "Attempt Amount"}
+                      </span>
+                      <span className="text-sm font-medium text-slate-900">
+                        ${booking.paymentDetails.amount.toLocaleString()}
+                      </span>
+                    </div>
+
+                    {booking.paymentDetails.transactionId && (
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-xs text-slate-500">Transaction ID</span>
+                        <MonoValue>{booking.paymentDetails.transactionId}</MonoValue>
+                      </div>
+                    )}
+
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-xs text-slate-500">Recorded At</span>
+                      <span className="text-sm font-medium text-slate-900">
+                        {formatET(booking.paymentDetails.createdAt)}
+                      </span>
+                    </div>
+
+                    {booking.paymentDetails.recordedByAdminId && (
+                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                        Recorded manually by admin
+                      </div>
+                    )}
                   </div>
+                );
+              })()}
 
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-xs text-slate-500">Method</span>
-                    <span className="text-sm font-medium text-slate-900">
-                      {humanizePaymentMethodTag(booking.paymentDetails.method)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-xs text-slate-500">
-                      {booking.paymentDetails.status === "PAID"
-                        ? "Paid Amount"
-                        : "Attempt Amount"}
-                    </span>
-                    <span className="text-sm font-medium text-slate-900">
-                      ₹{booking.paymentDetails.amount.toLocaleString()}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-xs text-slate-500">Reference / Transaction ID</span>
-                    <span className="text-xs font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded break-all">
-                      {booking.paymentDetails.transactionId ?? "—"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-xs text-slate-500">Recorded At</span>
-                    <span className="text-sm font-medium text-slate-900">
-                      {formatIST(booking.paymentDetails.createdAt)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Razorpay Details */}
-              {(booking.razorpayOrderId || booking.razorpayPaymentId || booking.razorpaySignature) && (
+              {/* Payment Gateway Details */}
+              {(booking.razorpayOrderId || booking.razorpayPaymentId) && (
                 <div className="border border-slate-200 rounded-lg p-4 space-y-3">
                   <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                     <CreditCard size={16} />
-                    Razorpay Details
+                    Payment Gateway
                   </h3>
 
                   {booking.razorpayOrderId && (
                     <div className="flex items-start justify-between gap-4">
-                      <span className="text-xs text-slate-500">Order ID</span>
-                      <span className="text-xs font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded break-all">
-                        {booking.razorpayOrderId}
-                      </span>
+                      <span className="text-xs text-slate-500">Gateway Order ID</span>
+                      <MonoValue>{booking.razorpayOrderId}</MonoValue>
                     </div>
                   )}
 
                   {booking.razorpayPaymentId && (
                     <div className="flex items-start justify-between gap-4">
-                      <span className="text-xs text-slate-500">Payment ID</span>
-                      <span className="text-xs font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded break-all">
-                        {booking.razorpayPaymentId}
-                      </span>
-                    </div>
-                  )}
-
-                  {booking.razorpaySignature && (
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-xs text-slate-500">Signature</span>
-                      <span className="max-w-[260px] break-all rounded bg-slate-100 px-2 py-1 text-xs font-mono text-slate-700">
-                        {booking.razorpaySignature}
-                      </span>
+                      <span className="text-xs text-slate-500">Gateway Payment ID</span>
+                      <MonoValue>{booking.razorpayPaymentId}</MonoValue>
                     </div>
                   )}
                 </div>

@@ -17,8 +17,8 @@ const HOME_COUPON_LIST: HomeCoupon[] = [
   {
     id: "save500",
     code: "SAVE500",
-    description: "Flat ₹500 off on eligible bookings",
-    badge: "FLAT ₹500",
+    description: "Flat $500 off on eligible bookings",
+    badge: "FLAT $500",
     terms: "Minimum booking amount may apply.",
     isActive: true,
     sortOrder: 2,
@@ -35,7 +35,7 @@ const HOME_COUPON_LIST: HomeCoupon[] = [
   {
     id: "first100",
     code: "FIRST100",
-    description: "₹100 off for first booking",
+    description: "$100 off for first booking",
     badge: "NEW USER",
     terms: "One-time use per customer.",
     isActive: true,
@@ -44,7 +44,7 @@ const HOME_COUPON_LIST: HomeCoupon[] = [
   {
     id: "party250",
     code: "PARTY250",
-    description: "Flat ₹250 off for weekday celebrations",
+    description: "Flat $250 off for weekday celebrations",
     badge: "WEEKDAY",
     terms: "Applicable Monday to Thursday.",
     isActive: true,

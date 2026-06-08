@@ -45,6 +45,14 @@ export function formatIST(input: Date | string) {
   return formatInTimeZone(date, "Asia/Kolkata", "dd MMM yyyy, hh:mm a");
 }
 
+/**
+ * Format date and time in Eastern Time (America/New_York) for Miami-based operations
+ */
+export function formatET(input: Date | string) {
+  const date = typeof input === "string" ? new Date(input) : input;
+  return formatInTimeZone(date, "America/New_York", "dd MMM yyyy, hh:mm a");
+}
+
 export function maskPhone(phone?: string | null) {
   if (!phone) return "XXXXXXXX";
   return phone;

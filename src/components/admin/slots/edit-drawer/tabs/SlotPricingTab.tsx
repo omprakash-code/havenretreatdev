@@ -139,7 +139,7 @@ const SlotPricingTab = forwardRef<SlotPricingTabHandle, SlotPricingTabProps>(
           <div>
             {discountAmount > 0 && (
               <div className="inline-block rounded bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700">
-                Discount applied: ₹{discountAmount.toLocaleString()}
+                Discount applied: ${discountAmount.toLocaleString()}
               </div>
             )}
 

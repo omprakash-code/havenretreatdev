@@ -99,7 +99,7 @@ export default function TermsModal({
               <div className="pr-1 sm:pr-2 text-xs sm:text-sm text-gray-700 space-y-5 sm:space-y-6">
                 <ul className="list-disc pl-5 space-y-1.5 sm:space-y-2">
                   <li>Outside food beverages not allowed</li>
-                  <li>Smoking/Drinking is NOT allowed inside the theater. If found, a fine of up to ₹2,000 will be charged.</li>
+                  <li>Smoking/Drinking is NOT allowed inside the theater. If found, a fine of up to $2,000 will be charged.</li>
                   <li>Any damage caused to the theater, including decorative materials like balloons, lights, etc., must be reimbursed.</li>
                   <li>Guests are requested to maintain cleanliness inside the theater to avoid cleaning charges.</li>
                   <li>Party poppers, snow sprays, cold fire, and any other similar items are strictly prohibited inside the theater.</li>

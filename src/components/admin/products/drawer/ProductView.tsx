@@ -51,7 +51,7 @@ export default function ProductView({ product, onClose, onEdit }: ProductViewPro
           <div>
             <p className="mb-1 text-xs text-slate-500">Default Price</p>
             <span className="inline-flex rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-slate-900">
-              {defaultPrice !== null ? `₹${defaultPrice}` : "—"}
+              {defaultPrice !== null ? `$${defaultPrice}` : "—"}
             </span>
           </div>
         </div>
@@ -136,10 +136,10 @@ export default function ProductView({ product, onClose, onEdit }: ProductViewPro
                     {variant.salePrice !== null &&
                       variant.salePrice !== undefined &&
                       variant.salePrice > 0 && (
-                      <p className="text-xs text-slate-400 line-through">₹{variant.regularPrice}</p>
+                      <p className="text-xs text-slate-400 line-through">${variant.regularPrice}</p>
                     )}
                     <p className="text-sm font-semibold text-slate-900">
-                      ₹
+                      $
                       {variant.salePrice !== null &&
                       variant.salePrice !== undefined &&
                       variant.salePrice > 0

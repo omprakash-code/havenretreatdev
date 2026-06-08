@@ -138,7 +138,7 @@ export default function HomeTheatreCard({
             </span>
             <span className="inline-flex items-center gap-1">
               <Balloon size={13} />
-              Decor ₹{decorationPrice} Only
+              Decor ${decorationPrice} Only
             </span>
             <span className="inline-flex items-center gap-1">
               <ShieldCheck size={13} />

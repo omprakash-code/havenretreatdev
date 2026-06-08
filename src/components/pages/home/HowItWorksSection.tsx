@@ -116,7 +116,7 @@ export default function HowItWorksSection() {
             leadingIcon={<WandSparkles className="text-[#FFD700]" size={20} />}
             className="px-5 sm:px-6 py-2.5 sm:py-3 bg-white border-[#FFD700]/35 text-black text-sm sm:text-base shadow-md hover:shadow-lg"
           >
-            Confirm booking with just ₹750
+            Confirm booking with just $750
           </HomeOutlineButton>
         </div>
 

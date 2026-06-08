@@ -10,7 +10,7 @@ export default function HomeTheatreSection() {
       title: "Theatre 1",
       images: ["/media/booking/theatres/theatre-1/theatre-1-1.png", "/media/booking/theatres/theatre-2/theatre-2-1.png"],
       capacity: 2,
-      price: "₹1,399",
+      price: "$1,399",
       location: "Pitampura, Delhi",
       mapUrl:
         "https://maps.google.com/?q=B-299, Outer Ring Rd, Block B, Saraswati Vihar, Pitampura, Delhi, 110034",
@@ -21,7 +21,7 @@ export default function HomeTheatreSection() {
       title: "Theatre 2",
       images: ["/media/booking/theatres/theatre-2/theatre-2-1.png", "/media/booking/theatres/theatre-3/theatre-3-1.png"],
       capacity: 6,
-      price: "₹1,599",
+      price: "$1,599",
       location: "Pitampura, Delhi",
       mapUrl:
         "https://maps.google.com/?q=B-299, Outer Ring Rd, Block B, Saraswati Vihar, Pitampura, Delhi, 110034",
@@ -32,7 +32,7 @@ export default function HomeTheatreSection() {
       title: "Theatre 3",
       images: ["/media/booking/theatres/theatre-3/theatre-3-1.png", "/media/booking/theatres/theatre-1/theatre-1-1.png"],
       capacity: 10,
-      price: "₹1,799",
+      price: "$1,799",
       location: "Pitampura, Delhi",
       mapUrl:
         "https://maps.google.com/?q=B-299, Outer Ring Rd, Block B, Saraswati Vihar, Pitampura, Delhi, 110034",

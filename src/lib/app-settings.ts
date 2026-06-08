@@ -69,7 +69,7 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
   [ADVANCE_PAYMENT_AMOUNT_KEY]: {
     label: "Advance Payment Amount",
     description:
-      "Amount collected at the time of booking confirmation. This is the minimum payment required to secure a slot. Example: ₹750.",
+      "Amount collected at the time of booking confirmation. This is the minimum payment required to secure a slot. Example: $750.",
     type: "number",
     placeholder: "750",
     defaultValue: "750",

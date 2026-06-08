@@ -1,5 +1,5 @@
 export const HAVEN_AGREEMENT_DEFAULT_TITLE = "Haven Retreat Event Rental Agreement";
-export const HAVEN_AGREEMENT_DEFAULT_VERSION = "v2";
+export const HAVEN_AGREEMENT_DEFAULT_VERSION = "v1";
 
 export const HAVEN_AGREEMENT_INTRO = [
   "This agreement is made between Haven Retreat (hereafter referred to as the \"Owner\") and the undersigned party renting the property (hereafter referred to as the \"Renter\"). By signing this agreement, the Renter agrees to comply with the following terms and conditions.",

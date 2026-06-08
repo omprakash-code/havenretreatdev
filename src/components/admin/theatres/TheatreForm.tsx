@@ -354,7 +354,7 @@ export default function TheatreForm({
                                             Additional Guest Charge <span className="text-red-500">*</span>
                                         </label>
                                         <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">₹</span>
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">$</span>
                                             <input
                                                 type="number"
                                                 min={0}
@@ -377,7 +377,7 @@ export default function TheatreForm({
                                             Decoration Price <span className="text-red-500">*</span>
                                         </label>
                                         <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">₹</span>
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">$</span>
                                             <input
                                                 type="number"
                                                 min={0}
@@ -412,7 +412,7 @@ export default function TheatreForm({
                                             content="Custom message shown at the bottom of theatre cards on the frontend."
                                         />
                                     </div>
-                                    <input {...register("footerMessage")} placeholder="e.g. For up to 2 people + ₹300 per extra person" className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-black focus:ring-1 focus:ring-black/5 focus:outline-none transition-all duration-200" />
+                                    <input {...register("footerMessage")} placeholder="e.g. For up to 2 people + $300 per extra person" className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-black focus:ring-1 focus:ring-black/5 focus:outline-none transition-all duration-200" />
                                 </div>
                             </div>
 
@@ -497,7 +497,7 @@ export default function TheatreForm({
                                                 {...register("cardContent.decor.text")}
                                                 disabled={!decorInfoEnabled}
                                                 className="w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 py-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                                                placeholder="Decor ₹{{decorationPrice}} Only"
+                                                placeholder="Decor ${{decorationPrice}} Only"
                                             />
                                         </div>
                                         {errors.cardContent?.decor?.text && (

@@ -105,10 +105,10 @@ export default function PaymentsTable({
               <td className="px-4 py-3">
                 <div className="space-y-0.5">
                   <p className="text-sm text-neutral-900">
-                    ₹{row.totalAmount.toLocaleString()}
+                    ${row.totalAmount.toLocaleString()}
                   </p>
                   <p className="text-sm font-semibold text-neutral-900">
-                    ₹{row.payableAmount.toLocaleString()}
+                    ${row.payableAmount.toLocaleString()}
                   </p>
                 </div>
               </td>

@@ -583,7 +583,7 @@ const PRODUCTS = [
    APPLICATION SETTINGS DATA
 --------------------------------- */
 const APP_SETTINGS = [
-  { key: "ADVANCE_PAYMENT_AMOUNT", value: "750" },
+  { key: "ADVANCE_PAYMENT_AMOUNT", value: "150" },
   { key: "BOOKING_LOCK_MINUTES", value: "10" },
   { key: "MINIMUM_BOOKING_DURATION_HOURS", value: "4" },
   { key: "EXTRA_HOURLY_RATE", value: "120" },

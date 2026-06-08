@@ -148,6 +148,7 @@ export async function GET() {
           ) AS abandoned_previous
         FROM "Booking" b
         LEFT JOIN "Slot" s ON s."id" = b."slotId"
+        WHERE b."cancelledReason" IS DISTINCT FROM 'ADMIN_SOFT_DELETED'
       `,
       getCouponAuditReport({ mismatchLimit: 0 }),
     ]);

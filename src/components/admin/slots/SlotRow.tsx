@@ -201,10 +201,10 @@ export default function SlotRow({
             </td>
 
             <td className="px-3 py-3 font-semibold whitespace-nowrap">
-                ₹{slot.pricing.final.toLocaleString()}
+                ${slot.pricing.final.toLocaleString()}
                 {slot.pricing.sale && (
                     <span className="ml-2 text-xs text-neutral-500 line-through">
-                        ₹{slot.pricing.regular}
+                        ${slot.pricing.regular}
                     </span>
                 )}
             </td>

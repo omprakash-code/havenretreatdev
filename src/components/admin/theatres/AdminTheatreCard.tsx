@@ -407,11 +407,11 @@ export default function AdminTheatreCard({
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-slate-600 sm:text-[12px]">
               <span className="inline-flex items-center gap-1">
                 <Balloon size={13} />
-                Decoration ₹{theatre.decorationPrice.toLocaleString()}
+                Decoration ${theatre.decorationPrice.toLocaleString()}
               </span>
               <span className="inline-flex items-center gap-1">
                 <Users size={13} />
-                Extra ₹{theatre.extraPersonPrice.toLocaleString()}/person
+                Extra ${theatre.extraPersonPrice.toLocaleString()}/person
               </span>
             </div>
             {/* Action buttons */}
