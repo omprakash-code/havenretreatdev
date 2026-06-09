@@ -88,10 +88,7 @@ export default function BookingHeaderControls({
     setLocation,
   } = useBooking();
 
-  const canEditDateAndLocation =
-    pathname === BOOKING_ROUTES.ROOT ||
-    pathname === BOOKING_ROUTES.PACKAGE ||
-    pathname === BOOKING_ROUTES.SCHEDULE;
+  const canEditDateAndLocation = pathname === BOOKING_ROUTES.ROOT;
   const isSelectorLocked = readOnly || !canEditDateAndLocation;
 
   const [dateMenuOpen, setDateMenuOpen] = useState(false);

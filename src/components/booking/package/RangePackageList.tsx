@@ -4,17 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { Clock } from "@/components/icons";
 import { Users, Sparkles, Timer, PartyPopper } from "lucide-react";
 import PackageCard from "@/components/packages/PackageCard";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { useBooking } from "@/context/BookingContext";
-import { formatDuration, formatISTTime } from "@/lib/formatters";
 import type { EventPackageSummary } from "@/types/venue-package";
 
 export default function RangePackageList() {
   const router = useRouter();
-  const { booking, hydrated } = useBooking();
+  const { hydrated } = useBooking();
   const [packages, setPackages] = useState<EventPackageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [navigating, setNavigating] = useState(false);
@@ -107,19 +105,6 @@ export default function RangePackageList() {
             Premium Package Selection
           </h1>
 
-          {booking.startTime && booking.endTime && booking.durationHours && (
-            <div className="mt-8 inline-flex max-w-full items-center justify-center gap-3 border border-[#c6ddcf] bg-white px-3 py-2 text-xs font-semibold text-[#245e5b] shadow-[0_14px_34px_rgba(16,24,40,0.06)] sm:gap-5 sm:px-3 sm:px-1.5 sm:text-sm">
-              <span className="inline-flex min-w-0 items-center gap-2 whitespace-nowrap">
-                <Clock size={16} className="shrink-0" />
-                {formatISTTime(booking.startTime)} -{" "}
-                {formatISTTime(booking.endTime)}
-              </span>
-              <span className="h-6 w-px shrink-0 bg-[#98a2b3]" />
-              <span className="shrink-0 whitespace-nowrap">
-                {formatDuration(booking.durationHours * 60)}
-              </span>
-            </div>
-          )}
         </div>
       </div>
 

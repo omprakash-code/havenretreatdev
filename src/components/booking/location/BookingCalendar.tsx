@@ -106,7 +106,7 @@ export default function BookingCalendar({
       className={`relative overflow-hidden border border-[#2f7e7a]/25 bg-white ${
         isInline
           ? "w-[min(92vw,310px)] p-3.5"
-          : "w-[min(92vw,380px)] p-4 sm:p-5"
+          : "w-[min(92vw,380px)] px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-3"
       }`}
     >
       {/* Header */}
@@ -155,7 +155,7 @@ export default function BookingCalendar({
       </div>
 
       {/* Calendar Grid */}
-      <div className="grid h-[238px] grid-cols-7 gap-1 text-center">
+      <div className="grid grid-cols-7 gap-1 text-center">
         {cells.map((cell, idx) => {
           const cellDate = new Date(
             year,
@@ -221,7 +221,7 @@ export default function BookingCalendar({
     isInline ? (
       calendarCard
     ) : (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 backdrop-blur-sm !mt-0">
         {calendarCard}
       </div>
     )

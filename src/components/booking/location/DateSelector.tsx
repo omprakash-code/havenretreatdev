@@ -53,14 +53,9 @@ export default function DateSelector({
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-[#101828]">
-          Select Date
-        </p>
-        <p className="hidden text-xs font-semibold text-[#245e5b] sm:block">
-          Today
-        </p>
-      </div>
+      <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-[#101828]">
+        Select Date
+      </p>
 
       <div className="grid grid-cols-5 gap-2 sm:gap-3">
         {datesLoading
@@ -122,11 +117,11 @@ export default function DateSelector({
               !hasLocation || noSlotsForLocation
                 ? "cursor-not-allowed bg-[#f6f8f7] text-[#98a2b3]"
                 : selectedDate && !isQuickDate(selectedDate)
-                  ? "bg-[#edf3f1] text-[#245e5b] shadow-[0_12px_24px_rgba(36,94,91,0.12)] ring-1 ring-[#9fbfba]"
+                  ? "bg-[#0d3b24] text-white shadow-[0_16px_30px_rgba(13,59,36,0.28)]"
                   : "bg-white text-[#101828] shadow-[0_6px_18px_rgba(16,24,40,0.04)] ring-1 ring-[#d7e4e1] hover:-translate-y-0.5 hover:bg-[#fbfdfc] hover:shadow-[0_14px_28px_rgba(16,24,40,0.08)] hover:ring-[#9fbfba] active:translate-y-0 active:scale-[0.99]"
             }`}
           >
-            <span className="flex justify-center text-[#245e5b]">
+            <span className={`flex justify-center ${selectedDate && !isQuickDate(selectedDate) ? "text-white" : "text-[#245e5b]"}`}>
               <Calendar size={17} className="sm:size-[18px]" />
             </span>
             <span className="mt-1 block text-[11px] font-semibold leading-tight sm:text-[12px]">
