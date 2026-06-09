@@ -121,11 +121,11 @@ export default function ContactPage() {
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-[#f6f8f7]">
       <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-0 sm:pt-5 pb-5">
-        <div className="grid grid-cols-1 gap-5 pt-4 lg:grid-cols-3 lg:items-stretch lg:gap-5">
+        <div className="grid grid-cols-1 gap-5 pt-4 lg:grid-cols-3 lg:items-start lg:gap-5">
           {/* LEFT */}
-          <div className="lg:col-span-2 h-full min-w-0">
+          <div className="lg:col-span-2 min-w-0">
             <StepIndicator currentStep={2} className="lg:hidden !px-2 !py-2" />
-            <div className="min-w-0 lg:h-full">
+            <div className="min-w-0">
               <ContactForm
                 formId={formId}
                 onSubmit={handleFormSubmit}

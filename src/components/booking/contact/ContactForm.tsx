@@ -346,7 +346,7 @@ export default function ContactForm({
       id={formId}
       autoComplete="on"
       onSubmit={onSubmit}
-      className="h-auto w-full min-w-0 border border-[#2f7e7a]/30 bg-white p-4 shadow-sm sm:p-6 md:p-8 lg:h-full"
+      className="w-full min-w-0 border border-[#2f7e7a]/30 bg-white p-4 shadow-sm sm:p-6 md:p-8"
     >
       <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="flex min-w-0 items-center gap-2 text-1xl font-bold text-[#1f2937]">
@@ -418,7 +418,6 @@ export default function ContactForm({
           >
             {form.mobile.length}/10 digits
           </p>
-          <p className="mt-1 text-xs text-gray-400">We may send booking updates via WhatsApp or SMS.</p>
         </div>
 
 
@@ -442,7 +441,6 @@ export default function ContactForm({
               });
             }}
           />
-          <p className="mt-1 text-xs text-gray-400">We&apos;ll send your booking confirmation here.</p>
         </div>
       </div>
 
@@ -542,16 +540,13 @@ export default function ContactForm({
             )}
           </div>
 
-          {/* Price hint */}
-          {!decorationForced && decorationSelected && theatre.decorationPrice > 0 && (
-            <p className="text-xs text-gray-500 mb-2"> Make your experience more special.
-            </p>
-          )}
-          {decorationForced && (
-            <p className="mb-2 text-xs text-gray-500">
-              Decor setup included for this package slot.
-            </p>
-          )}
+          <p className="mb-2 text-xs text-gray-500">
+            {decorationForced
+              ? "Decor setup included for this package slot."
+              : decorationSelected && theatre.decorationPrice > 0
+              ? "Make your experience more special."
+              : " "}
+          </p>
 
           {/* Decoration Toggle – matches Quantity style */}
           <div
