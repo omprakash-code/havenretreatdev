@@ -137,6 +137,30 @@ export default function RangePackageList() {
             />
           ))}
         </div>
+
+        <div className="mt-8 border border-[#d7e4e1] bg-white px-6 py-6 text-center">
+          <p className="text-base font-semibold text-[#1f2937]">
+            Don&apos;t see exactly what you need?
+          </p>
+          <p className="mt-1 text-sm text-[#667085]">
+            Every package is fully customizable - guest count, décor, timing, and more.
+            We&apos;ll build the perfect setup for your event.
+          </p>
+          <a
+            href="https://havenretreatmiami.com/contact-us/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group mt-4 inline-flex items-center border border-[#2f7e7a]/40 bg-[#edf3f1] px-5 py-2.5 text-sm font-semibold text-[#245e5b] transition hover:bg-[#dceee9]"
+          >
+            Contact us to customize
+            <span
+              aria-hidden="true"
+              className="ml-1.5 inline-block translate-x-[-6px] opacity-0 transition-all duration-200 ease-out group-hover:translate-x-0 group-hover:opacity-100"
+            >
+              →
+            </span>
+          </a>
+        </div>
       </div>
     </section>
   );
