@@ -404,6 +404,7 @@ export async function createOrReplaceRangeBookingLock(
           totalAmount: pricingSnapshot.totalAmount,
           advancePaid: 0,
           remainingPayable: pricingSnapshot.remainingPayable,
+          decorationRequired: true,
           bookingStatus: "INCOMPLETE",
           paymentStatus: null,
         },
@@ -433,6 +434,7 @@ export async function createOrReplaceRangeBookingLock(
           totalAmount: pricingSnapshot.totalAmount,
           advancePaid: 0,
           remainingPayable: pricingSnapshot.remainingPayable,
+          decorationRequired: true,
           bookingStatus: "INCOMPLETE",
         },
       });

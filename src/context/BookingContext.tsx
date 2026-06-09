@@ -590,9 +590,12 @@ const loadBooking = async () => {
         (sum, item) => sum + item.totalPrice,
         0
       );
+      const decoration = booking.decorationRequired
+        ? Math.max(Number(booking.theatre.decorationPrice) || 0, 0)
+        : 0;
       const discount = Math.max(0, Number(booking.couponDiscount) || 0);
       const total = Math.max(
-        packageBase + extraHours + extras + products - discount,
+        packageBase + extraHours + extras + decoration + products - discount,
         0
       );
       const resolvedAdvance =
@@ -614,7 +617,7 @@ const loadBooking = async () => {
         extraHours,
         extras,
         products,
-        decoration: 0,
+        decoration,
         discount,
         total,
         advancePay: resolvedAdvance,

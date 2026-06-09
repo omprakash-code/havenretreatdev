@@ -9,7 +9,10 @@ type Extra = {
   productName: string;
   variantLabel: string;
   quantity: number;
+  unitPrice: number;
   totalPrice: number;
+  includedQuantity?: number | null;
+  extraQuantity?: number | null;
   image?: string | null;
   numberLabel?: string | null;
   numberValue?: string | null;
@@ -95,7 +98,18 @@ export default function ExtrasShowcase({
 
               <div className="text-right shrink-0">
                 <p className="text-xs font-semibold text-zinc-900/60">
-                  {item.totalPrice <= 0 ? "Included" : formatCurrency(item.totalPrice)}
+                  {(() => {
+                    const includedQty = Math.max(Number(item.includedQuantity ?? 0), 0);
+                    const extraQty =
+                      item.extraQuantity ??
+                      (item.unitPrice > 0
+                        ? Math.max(Math.round(item.totalPrice / item.unitPrice), 0)
+                        : 0);
+                    const isEffectivelyIncluded = extraQty === 0 && includedQty > 0;
+                    return isEffectivelyIncluded || item.totalPrice <= 0
+                      ? "Included"
+                      : formatCurrency(item.totalPrice);
+                  })()}
                 </p>
               </div>
             </div>

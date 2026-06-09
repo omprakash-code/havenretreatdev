@@ -199,6 +199,51 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
 
   const rows: SectionRow[] = [];
 
+  const packageAmount = data.packageAmount ?? 0;
+  if (packageAmount > 0) {
+    rows.push({
+      label: "Package",
+      value: formatCurrency(packageAmount),
+    });
+  }
+
+  const extraDurationAmount = data.extraDurationAmount ?? 0;
+  const extraDurationHours = data.extraDurationHours ?? 0;
+  if (extraDurationAmount > 0) {
+    const rateLabel =
+      extraDurationHours > 0
+        ? ` (${formatHourValue(extraDurationHours)} × ${formatCurrency(Math.round(extraDurationAmount / extraDurationHours))}/hr)`
+        : "";
+    rows.push({
+      label: `Extra Hours${rateLabel}`,
+      value: formatCurrency(extraDurationAmount),
+    });
+  }
+
+  if (extraGuestAmount > 0) {
+    rows.push({
+      label: `Extra Guests (${extraGuestCount} × ${formatCurrency(extraPersonPrice)})`,
+      value: formatCurrency(extraGuestAmount),
+    });
+  }
+
+  data.items
+    .filter((item) =>
+      item.extraQuantity !== null && item.extraQuantity !== undefined
+        ? item.extraQuantity > 0
+        : item.totalPrice > 0
+    )
+    .forEach((item) => {
+      const chargedQuantity =
+        item.extraQuantity ??
+        (item.unitPrice > 0 ? Math.max(Math.round(item.totalPrice / item.unitPrice), 1) : item.quantity);
+
+      rows.push({
+        label: `${sanitizeDisplayText(item.productName)} (${chargedQuantity} × ${formatCurrency(item.unitPrice)})`,
+        value: formatCurrency(item.totalPrice),
+      });
+    });
+
   if (showDiscountBreakdown) {
     rows.push({
       label: "Subtotal (Before Discount)",
@@ -211,39 +256,6 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
       tone: "success",
     });
   }
-
-  const extrasAmount = data.extrasAmount ?? 0;
-  const extraDurationHours = data.extraDurationHours ?? 0;
-  if (extrasAmount > 0) {
-    const rateLabel =
-      extraDurationHours > 0
-        ? ` (${formatHourValue(extraDurationHours)} × ${formatCurrency(Math.round(extrasAmount / extraDurationHours))}/hr)`
-        : "";
-    rows.push({
-      label: `Extra Hours${rateLabel}`,
-      value: formatCurrency(extrasAmount),
-    });
-  }
-
-  if (extraGuestAmount > 0) {
-    rows.push({
-      label: `Extra Guests (${extraGuestCount} × ${formatCurrency(extraPersonPrice)})`,
-      value: formatCurrency(extraGuestAmount),
-    });
-  }
-
-  data.items
-    .filter((item) => item.totalPrice > 0)
-    .forEach((item) => {
-      const chargedQuantity =
-        item.extraQuantity ??
-        (item.unitPrice > 0 ? Math.max(Math.round(item.totalPrice / item.unitPrice), 1) : item.quantity);
-
-      rows.push({
-        label: `${sanitizeDisplayText(item.productName)} (${chargedQuantity} × ${formatCurrency(item.unitPrice)})`,
-        value: formatCurrency(item.totalPrice),
-      });
-    });
 
   rows.push({
     label: showDiscountBreakdown
@@ -789,12 +801,13 @@ function drawProductCard(
     y + 16.4
   );
 
+  const isEffectivelyIncluded = extraQuantity === 0 && includedQuantity > 0;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.6);
-  const priceColor = item.totalPrice <= 0 ? COLORS.textMuted : COLORS.textStrong;
+  const priceColor = (isEffectivelyIncluded || item.totalPrice <= 0) ? COLORS.textMuted : COLORS.textStrong;
   doc.setTextColor(priceColor[0], priceColor[1], priceColor[2]);
   doc.text(
-    item.totalPrice <= 0 ? "Included" : formatCurrency(item.totalPrice),
+    isEffectivelyIncluded || item.totalPrice <= 0 ? "Included" : formatCurrency(item.totalPrice),
     x + w - 2,
     y + h - 2.2,
     { align: "right" }

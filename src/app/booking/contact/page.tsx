@@ -9,10 +9,11 @@ import StepIndicator from "@/components/booking/steps/StepIndicator";
 import { useContactSubmit } from "@/hooks/booking/useContactSubmit";
 import MobileStickyAction from "@/components/booking/global/MobileStickyAction";
 import { BOOKING_ROUTES } from "@/constants/routes";
+import { ensurePackageIncludedProducts } from "@/lib/package-included-products";
 
 export default function ContactPage() {
   const router = useRouter();
-  const { booking, setContact, hydrated } = useBooking();
+  const { booking, setContact, setBookingItems, hydrated } = useBooking();
   const { submitContact } = useContactSubmit();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,6 +50,37 @@ export default function ContactPage() {
       setCouponIdentityPhone(booking.contact.phone);
     }
   }, [booking.contact?.phone, couponIdentityPhone]);
+
+  const locationId = booking.location?.id ?? "";
+  const selectedPackageKey = booking.theatre
+    ? `${booking.theatre.id}:${booking.theatre.baseGuests}`
+    : "";
+
+  useEffect(() => {
+    if (!hydrated || !locationId || !booking.theatre) return;
+    let cancelled = false;
+
+    fetch(`/api/products?bookingCategory=add-ons&locationId=${locationId}`, {
+      cache: "no-store",
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (cancelled || !json.success) return;
+        const products = json.data ?? [];
+        setBookingItems((currentItems) =>
+          ensurePackageIncludedProducts({
+            currentItems,
+            products,
+            selectedPackage: booking.theatre,
+          })
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, locationId, selectedPackageKey]);
 
   const handleDecorationChange = useCallback((value: boolean) => {
     decorationRequiredRef.current = value;

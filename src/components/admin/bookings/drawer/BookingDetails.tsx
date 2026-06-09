@@ -252,8 +252,8 @@ function ProductCard({ item }: { item: AdminBooking["items"][0] }) {
       </div>
 
       {/* Price */}
-        <span className="text-sm font-semibold text-slate-900">
-          ${item.totalPrice.toLocaleString()}
+        <span className={`text-sm font-semibold ${item.totalPrice <= 0 ? "text-slate-400" : "text-slate-900"}`}>
+          {item.totalPrice <= 0 ? "Included" : `$${item.totalPrice.toLocaleString()}`}
         </span>
     </div>
   );
@@ -531,12 +531,6 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   <FieldRow label="Location">
                     {booking.theatre.locationName ?? booking.locationName ?? "—"}
                   </FieldRow>
-                  <FieldRow label="Decoration">
-                    {booking.decorationRequired ? "Required" : "Not Required"}
-                  </FieldRow>
-                  <FieldRow label="Package Price">
-                    ${(booking.slot.finalPrice ?? booking.slot.basePrice ?? booking.pricing.base).toLocaleString()}
-                  </FieldRow>
                 </div>
               </div>
 
@@ -661,12 +655,6 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <FieldRow label="Signer Email">
-                        {booking.signedAgreement.signerEmail || "—"}
-                      </FieldRow>
-                    </div>
-
                     <button
                       type="button"
                       onClick={() => setShowAgreementDetails((v) => !v)}
@@ -773,12 +761,36 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                 <h3 className="text-sm font-semibold text-slate-900">Pricing Breakdown</h3>
 
                 <div className="bg-slate-50 rounded-xl p-4 space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-600">Venue Rental</span>
-                    <span className="text-sm font-medium text-slate-900">
-                      ${booking.pricing.base.toLocaleString()}
-                    </span>
-                  </div>
+                  {booking.pricing.packageAmount != null ? (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600">Package</span>
+                        <span className="text-sm font-medium text-slate-900">
+                          ${booking.pricing.packageAmount.toLocaleString()}
+                        </span>
+                      </div>
+                      {(booking.pricing.extraDurationAmount ?? 0) > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-600">
+                            Extra Hours
+                            {(booking.pricing.extraDurationHours ?? 0) > 0
+                              ? ` (${booking.pricing.extraDurationHours}h)`
+                              : ""}
+                          </span>
+                          <span className="text-sm font-medium text-slate-900">
+                            ${booking.pricing.extraDurationAmount!.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600">Venue Rental</span>
+                      <span className="text-sm font-medium text-slate-900">
+                        ${booking.pricing.base.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
 
                   {booking.pricing.extras > 0 && (
                     <div className="flex justify-between items-center">
@@ -958,15 +970,6 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                         </span>
                       </div>
                     )}
-
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-xs text-slate-500">
-                        {booking.paymentDetails.status === "PAID" ? "Paid Amount" : "Attempt Amount"}
-                      </span>
-                      <span className="text-sm font-medium text-slate-900">
-                        ${booking.paymentDetails.amount.toLocaleString()}
-                      </span>
-                    </div>
 
                     {booking.paymentDetails.transactionId && (
                       <div className="flex items-start justify-between gap-4">

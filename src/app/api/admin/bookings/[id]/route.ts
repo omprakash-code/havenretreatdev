@@ -395,6 +395,33 @@ export async function GET(
       slot: booking.slot,
     });
 
+    const isRangeBooking = booking.slotId === null;
+    const pricingSnap =
+      isRangeBooking &&
+      booking.pricingSnapshot &&
+      typeof booking.pricingSnapshot === "object" &&
+      !Array.isArray(booking.pricingSnapshot)
+        ? (booking.pricingSnapshot as Record<string, unknown>)
+        : null;
+    const rangePackageAmount = pricingSnap ? Math.max(0, Number(pricingSnap.packageAmount ?? 0)) : 0;
+    const rangeExtraDurationAmount = pricingSnap ? Math.max(0, Number(pricingSnap.extraDurationAmount ?? 0)) : 0;
+    const rangeExtraDurationHours = pricingSnap ? Math.max(0, Number(pricingSnap.extraDurationHours ?? 0)) : 0;
+    const legacySlotPrice = !isRangeBooking
+      ? (booking.slot?.finalPrice ?? booking.slot?.basePrice ?? null)
+      : null;
+    const legacyExtraHoursAmount =
+      legacySlotPrice !== null
+        ? Math.max(0, booking.baseAmount - legacySlotPrice)
+        : 0;
+    const effectivePackageAmount = rangePackageAmount > 0
+      ? rangePackageAmount
+      : legacySlotPrice ?? null;
+    const effectiveExtraDurationAmount = rangeExtraDurationAmount > 0
+      ? rangeExtraDurationAmount
+      : legacyExtraHoursAmount > 0
+      ? legacyExtraHoursAmount
+      : null;
+
     if (view === "drawer") {
       return NextResponse.json({
         success: true,
@@ -446,6 +473,9 @@ export async function GET(
             total: booking.totalAmount,
             advancePaid: booking.advancePaid,
             remainingPayable: booking.remainingPayable,
+            packageAmount: effectivePackageAmount,
+            extraDurationAmount: effectiveExtraDurationAmount,
+            extraDurationHours: rangeExtraDurationHours > 0 ? rangeExtraDurationHours : null,
           },
           items: booking.items.map((item) => {
             const isLedItem = isNumberDecorationProduct({

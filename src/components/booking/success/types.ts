@@ -53,6 +53,8 @@ export type BookingSuccessData = {
   extraGuestCount?: number | null;
   extraPersonPrice?: number | null;
   decorationRequired?: boolean;
+  packageAmount?: number | null;
+  extraDurationAmount?: number | null;
   extrasAmount?: number | null;
   totalAmount: number;
   advancePaid: number;

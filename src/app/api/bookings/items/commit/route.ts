@@ -214,7 +214,10 @@ export async function POST(req: Request) {
         decorationMandatory: false,
       };
       const effectiveItemsMap = new Map(normalizedItemsMap);
-      const packageIncludedProducts = resolvePackageIncludedProducts(theatre);
+      const includedProductSource = isRangeBooking
+        ? { capacity: resolveRangePackageGuestLimit(booking.packageSnapshot) }
+        : theatre;
+      const packageIncludedProducts = resolvePackageIncludedProducts(includedProductSource);
       const packageIncludedProductSlugs = Object.keys(packageIncludedProducts);
 
       if (packageIncludedProductSlugs.length > 0) {
@@ -306,7 +309,7 @@ export async function POST(req: Request) {
 
         const unitPrice = getVariantUnitPrice(variant);
         const totalPrice = getPackageIncludedProductTotalPrice({
-          source: theatre,
+          source: includedProductSource,
           product: {
             slug: variant.product.slug,
             name: variant.product.name,

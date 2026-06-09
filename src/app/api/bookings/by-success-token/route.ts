@@ -14,6 +14,9 @@ import {
   resolvePackageIncludedGuestCount,
 } from "@/lib/package-guest-pricing";
 import {
+  resolveRangePackageGuestLimit,
+} from "@/services/booking/range-booking-pricing.service";
+import {
   getPackageIncludedProductExtraQuantity,
   getPackageIncludedProductQuantity,
 } from "@/lib/package-included-products";
@@ -161,8 +164,23 @@ export async function GET(req: Request) {
       durationHours !== null
         ? Math.max(durationHours - durationConfig.includedDurationHours, 0)
         : null;
-    const includedGuestCount = resolvePackageIncludedGuestCount(theatre);
+    const isRangeBooking = booking.slotId === null;
+    const packageGuestLimit = isRangeBooking
+      ? resolveRangePackageGuestLimit(booking.packageSnapshot)
+      : resolvePackageIncludedGuestCount(theatre);
+    const includedProductSource = isRangeBooking
+      ? { capacity: packageGuestLimit }
+      : theatre;
+    const includedGuestCount = isRangeBooking
+      ? packageGuestLimit
+      : resolvePackageIncludedGuestCount(theatre);
     const extraGuestCount = Math.max(booking.guestCount - includedGuestCount, 0);
+    const packageAmount = isRangeBooking
+      ? Number((booking.pricingSnapshot as { packageAmount?: number } | null)?.packageAmount ?? 0)
+      : Number(booking.baseAmount ?? 0);
+    const extraDurationAmount = isRangeBooking
+      ? Number((booking.pricingSnapshot as { extraDurationAmount?: number } | null)?.extraDurationAmount ?? 0)
+      : 0;
 
     const items = assignNumberDecorationDetails(
       booking.items.map((item) => ({
@@ -174,12 +192,12 @@ export async function GET(req: Request) {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
-        includedQuantity: getPackageIncludedProductQuantity(theatre, {
+        includedQuantity: getPackageIncludedProductQuantity(includedProductSource, {
           slug: item.product?.slug,
           name: item.productName,
         }),
         extraQuantity: getPackageIncludedProductExtraQuantity(
-          theatre,
+          includedProductSource,
           {
             slug: item.product?.slug,
             name: item.productName,
@@ -222,6 +240,8 @@ export async function GET(req: Request) {
       extraGuestCount,
       extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
       decorationRequired: booking.decorationRequired,
+      packageAmount,
+      extraDurationAmount: extraDurationAmount > 0 ? extraDurationAmount : undefined,
       extrasAmount: booking.extrasAmount,
       totalAmount: booking.totalAmount,
       discountAmount: booking.discountAmount,

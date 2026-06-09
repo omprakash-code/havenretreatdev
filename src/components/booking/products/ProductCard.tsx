@@ -242,10 +242,6 @@ export default function ProductCard({
           </div>
           {outOfStock ? (
             <p className="mt-1 text-[10px] sm:text-xs text-gray-500">Out of stock</p>
-          ) : isPackageIncluded && extraQuantity > 0 ? (
-            <p className="mt-1 text-[10px] sm:text-xs text-gray-500">
-              {extraQuantity} extra charged
-            </p>
           ) : null}
         </div>
 

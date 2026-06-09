@@ -211,6 +211,7 @@ export async function GET(req: Request) {
       endsAtUtc: true,
       timezone: true,
       packageSnapshot: true,
+      pricingSnapshot: true,
       theatre: {
         select: {
           id: true,
@@ -241,6 +242,8 @@ export async function GET(req: Request) {
           startTime: true,
           endTime: true,
           status: true,
+          basePrice: true,
+          finalPrice: true,
         },
       },
       bookingLocks: {
@@ -291,6 +294,32 @@ export async function GET(req: Request) {
         packageSnapshot && typeof packageSnapshot.name === "string"
           ? packageSnapshot.name
           : null;
+      const isRangeBooking = b.slot === null;
+      const pricingSnap =
+        isRangeBooking &&
+        b.pricingSnapshot &&
+        typeof b.pricingSnapshot === "object" &&
+        !Array.isArray(b.pricingSnapshot)
+          ? (b.pricingSnapshot as Record<string, unknown>)
+          : null;
+      const rangePackageAmount = pricingSnap ? Math.max(0, Number(pricingSnap.packageAmount ?? 0)) : 0;
+      const rangeExtraDurationAmount = pricingSnap ? Math.max(0, Number(pricingSnap.extraDurationAmount ?? 0)) : 0;
+      // For legacy slot bookings: derive extra hours from slot price vs baseAmount
+      const legacySlotPrice = !isRangeBooking
+        ? (b.slot?.finalPrice ?? b.slot?.basePrice ?? null)
+        : null;
+      const legacyExtraHoursAmount =
+        legacySlotPrice !== null
+          ? Math.max(0, b.baseAmount - legacySlotPrice)
+          : 0;
+      const effectivePackageAmount = rangePackageAmount > 0
+        ? rangePackageAmount
+        : legacySlotPrice ?? null;
+      const effectiveExtraDurationAmount = rangeExtraDurationAmount > 0
+        ? rangeExtraDurationAmount
+        : legacyExtraHoursAmount > 0
+        ? legacyExtraHoursAmount
+        : null;
       const schedule = presentReportingSchedule({
         eventDate: b.eventDate,
         eventStartTime: b.eventStartTime,
@@ -354,6 +383,8 @@ export async function GET(req: Request) {
           total: b.totalAmount,
           advancePaid: b.advancePaid,
           remainingPayable: b.remainingPayable,
+          packageAmount: effectivePackageAmount,
+          extraDurationAmount: effectiveExtraDurationAmount,
         },
 
         paymentStatus: b.paymentStatus,

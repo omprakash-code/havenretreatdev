@@ -76,6 +76,9 @@ export type AdminBooking = {
     total: number;
     advancePaid: number;
     remainingPayable: number;
+    packageAmount?: number | null;
+    extraDurationAmount?: number | null;
+    extraDurationHours?: number | null;
   };
 
   items: AdminBookingItem[];

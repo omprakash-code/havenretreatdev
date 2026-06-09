@@ -23,6 +23,7 @@ type ProductSource = {
 };
 
 const PACKAGE_PRODUCT_QUANTITIES_BY_CAPACITY: Record<number, Record<string, number>> = {
+  20: { tables: 2, chairs: 16 },
   30: { tables: 3, chairs: 24 },
   40: { tables: 4, chairs: 32 },
   50: { tables: 6, chairs: 40 },
@@ -32,9 +33,10 @@ const PACKAGE_PRODUCT_QUANTITIES_BY_NAME: Array<{
   match: string;
   products: Record<string, number>;
 }> = [
-  { match: "essential", products: { tables: 3, chairs: 24 } },
-  { match: "celebration", products: { tables: 4, chairs: 32 } },
-  { match: "signature", products: { tables: 6, chairs: 40 } },
+  { match: "starter", products: { tables: 2, chairs: 16 } },
+  { match: "classic", products: { tables: 3, chairs: 24 } },
+  { match: "premium", products: { tables: 4, chairs: 32 } },
+  { match: "grand", products: { tables: 6, chairs: 40 } },
 ];
 
 function normalizeSlug(value: string | null | undefined) {
@@ -48,7 +50,7 @@ function normalizeSlug(value: string | null | undefined) {
 export function resolvePackageIncludedProducts(
   source: PackageSource | null | undefined
 ) {
-  const capacity = Number(source?.capacity ?? 0);
+  const capacity = Number((source as { baseGuests?: number } | null | undefined)?.baseGuests ?? source?.capacity ?? 0);
   if (Number.isFinite(capacity)) {
     const byCapacity =
       PACKAGE_PRODUCT_QUANTITIES_BY_CAPACITY[Math.trunc(capacity)];

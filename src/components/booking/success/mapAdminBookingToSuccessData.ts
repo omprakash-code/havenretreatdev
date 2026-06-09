@@ -60,6 +60,7 @@ export function mapAdminBookingToSuccessData(
     occasionDetails: buildOccasionDetails(booking.occasionData),
     guestCount: booking.guestCount,
     decorationRequired: booking.decorationRequired,
+    packageAmount: booking.pricing.base,
     extrasAmount: booking.pricing.extras,
     totalAmount: booking.pricing.total,
     advancePaid: booking.pricing.advancePaid,
