@@ -44,24 +44,24 @@ There are **two paths** depending on whether the guest opts into decoration.
 ### Path A — With Decoration
 
 ```
-Date & Time → Package → Contact (decoration = Yes) → Occasion & Details → Extras → Agreement → Payment → Confirmed
+Package → Date & Time → Contact (decoration = Yes) → Occasion & Details → Extras → Agreement → Payment → Confirmed
 ```
 
 ### Path B — Without Decoration
 
 ```
-Date & Time → Package → Contact (decoration = No) → Agreement → Payment → Confirmed
+Package → Date & Time → Contact (decoration = No) → Agreement → Payment → Confirmed
 ```
 
 ---
 
-### Step 1 — Date & Time (`/booking`)
-
-The guest selects a location (Miami), picks an available date on the calendar, then sets a custom start and end time using the range time picker. A 4-hour minimum is enforced. The system holds a temporary time lock while the guest continues checkout.
-
-### Step 2 — Package (`/booking/package`)
+### Step 1 — Package (`/booking/package`)
 
 The guest selects from the four available packages based on their expected guest count. Each package card shows the included features, per-hour rate, and the 4-hour starting price.
+
+### Step 2 — Date & Time (`/booking/schedule`)
+
+The guest selects a location (Miami), picks an available date on the calendar, then sets a custom start and end time using the range time picker. A 4-hour minimum is enforced. The system holds a temporary time lock when the guest continues.
 
 ### Step 3 — Contact (`/booking/contact`)
 
@@ -153,8 +153,8 @@ The admin panel at `/admin` covers:
 src/
 ├── app/
 │   ├── booking/              # Customer booking flow
-│   │   ├── page.tsx          # Step 1: Date & time selection
-│   │   ├── package/          # Step 2: Package selection
+│   │   ├── package/          # Step 1: Package selection
+│   │   ├── schedule/         # Step 2: Date & time selection
 │   │   ├── contact/          # Step 3: Contact info + decoration choice
 │   │   ├── occasion/         # Step 4: Occasion (decoration path only)
 │   │   ├── extras/[category] # Step 5: Product add-ons (decoration path only)
