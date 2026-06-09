@@ -70,6 +70,7 @@ export default function ContactForm({
     name: booking.contact?.name ?? "",
     mobile: booking.contact?.phone ?? "",
     email: booking.contact?.email ?? "",
+    notes: "",
   }));
 
 
@@ -97,19 +98,19 @@ export default function ContactForm({
     v.trim().length < 2 ? "Enter full name" : "";
 
   const validateMobile = (v: string) => {
-    if (!/^\d+$/.test(v)) return "Enter Mobile numbers";
+    if (!/^\d+$/.test(v)) return "Enter your mobile number";
     if (v.length !== 10) return "Mobile must be 10 digits";
     return "";
   };
 
-  const normalizeIndianMobile = (input: string) => {
+  const normalizeUSMobile = (input: string) => {
     const digits = input.replace(/\D/g, "");
 
     if (digits.length === 0) return "";
     if (digits.length <= 10) return digits;
 
-    // Handle values like +91XXXXXXXXXX, 0XXXXXXXXXX, or long pasted/autofill strings.
-    if (digits.length === 11 && digits.startsWith("0")) {
+    // Handle +1XXXXXXXXXX (country code) or long pasted/autofill strings.
+    if (digits.length === 11 && digits.startsWith("1")) {
       return digits.slice(1);
     }
 
@@ -286,10 +287,6 @@ export default function ContactForm({
     if (initializedDecorationSlotRef.current === slotId) return;
     initializedDecorationSlotRef.current = slotId;
 
-    if (!decorationForced && !booking.decorationRequired) {
-      onDecorationChange?.(true);
-      setDecorationRequired(true);
-    }
   }, [
     booking.slot?.id,
     booking.decorationRequired,
@@ -398,14 +395,14 @@ export default function ContactForm({
             type="tel"
             autoComplete="tel-national"
             prefix={
-              <span className="text-sm font-medium text-gray-400">+91</span>
+              <span className="text-sm font-medium text-gray-400">+1</span>
             }
             placeholder="Enter 10-digit mobile number"
             value={form.mobile}
             inputMode="numeric"
             error={errors.mobile}
             onChange={(v) => {
-              const digits = normalizeIndianMobile(v);
+              const digits = normalizeUSMobile(v);
               setForm({ ...form, mobile: digits });
               setErrors({
                 ...errors,
@@ -421,28 +418,32 @@ export default function ContactForm({
           >
             {form.mobile.length}/10 digits
           </p>
+          <p className="mt-1 text-xs text-gray-400">We may send booking updates via WhatsApp or SMS.</p>
         </div>
 
 
-        <Field
-          ref={emailRef}
-          label="Email Address"
-          required
-          name="email"
-          type="email"
-          autoComplete="email"
-          icon={<Mail size={16} className="text-gray-400" />}
-          placeholder="you@example.com"
-          value={form.email}
-          error={errors.email}
-          onChange={(v) => {
-            setForm({ ...form, email: v });
-            setErrors({
-              ...errors,
-              email: validateEmail(v),
-            });
-          }}
-        />
+        <div>
+          <Field
+            ref={emailRef}
+            label="Email Address"
+            required
+            name="email"
+            type="email"
+            autoComplete="email"
+            icon={<Mail size={16} className="text-gray-400" />}
+            placeholder="you@example.com"
+            value={form.email}
+            error={errors.email}
+            onChange={(v) => {
+              setForm({ ...form, email: v });
+              setErrors({
+                ...errors,
+                email: validateEmail(v),
+              });
+            }}
+          />
+          <p className="mt-1 text-xs text-gray-400">We&apos;ll send your booking confirmation here.</p>
+        </div>
       </div>
 
       {/* People + Decoration */}
@@ -454,7 +455,7 @@ export default function ContactForm({
           </label>
 
           <p className="text-xs text-gray-500 mb-2">
-            {baseGuests} included with package · Extra people {formatCurrency(PACKAGE_EXTRA_PERSON_PRICE)}/person
+            Up to {baseGuests} guests included · {formatCurrency(PACKAGE_EXTRA_PERSON_PRICE)}/person for each additional guest
           </p>
 
           <div className="flex h-12 items-center justify-between border border-[#d7e4e1] bg-[#f8fbfa] px-1 sm:px-2">
@@ -536,7 +537,7 @@ export default function ContactForm({
               </span>
             ) : (
               <span className="text-xs font-medium text-gray-500">
-                {`(Just ${formatCurrency(Math.max(theatre?.decorationPrice ?? 0, 0))})`}
+                {`(Starting at ${formatCurrency(Math.max(theatre?.decorationPrice ?? 0, 0))})`}
               </span>
             )}
           </div>
@@ -661,8 +662,27 @@ export default function ContactForm({
               </div>
             )}
 
+          <p className="mt-2 text-[11px] text-gray-400 leading-relaxed">
+            No confetti or loose props allowed on the property. See agreement for full decor policy.
+          </p>
+
         </div>
       </div>
+      <div className="mt-6 border-t border-black/10 pt-5 md:pt-6">
+        <label className="mb-1 block text-sm font-medium text-[#1f2937]">
+          Special Requests
+          <span className="ml-1.5 text-xs font-normal text-gray-400">(Optional)</span>
+        </label>
+        <textarea
+          name="special_requests"
+          rows={3}
+          placeholder="Any special setup, accessibility needs, or notes for Haven Retreat…"
+          value={form.notes}
+          onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          className="w-full border border-[#d7e4e1] bg-[#f8fbfa] px-3 py-2.5 text-sm text-[#1f2937] placeholder-gray-400 transition focus:border-[#347f7c] focus:outline-none focus:ring-1 focus:ring-[#347f7c] resize-none"
+        />
+      </div>
+
       <button type="submit" className="hidden" aria-hidden="true" />
     </form>
   );

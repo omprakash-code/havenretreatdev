@@ -2,6 +2,7 @@ export const BOOKING_ROUTES = {
   ROOT: "/booking",
   PACKAGE: "/booking/package",
   THEATRE: "/booking/package",
+  CONTACT: "/booking/contact",
   DETAILS: "/booking/details",
   OCCASION: "/booking/occasion",
   EXTRAS: (category: string) => `/booking/extras/${category}`,

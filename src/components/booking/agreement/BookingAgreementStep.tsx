@@ -43,12 +43,12 @@ const ACKNOWLEDGMENT_ITEMS = [
   {
     key: "damage",
     title: "Cleaning & Property Damage",
-    body: "I understand the cleaning policy, floor damage fees, confetti restrictions, and responsibility for property damage.",
+    body: "I understand the cleaning policy, floor damage fees, the no-confetti / no-loose-props rule, and my responsibility for any property damage.",
   },
   {
     key: "payment",
     title: "Payment, Cancellation & Weather",
-    body: "I understand the payment deadlines, deposit policy, rescheduling rules, and rain-or-shine policy.",
+    body: "I understand the $150 non-refundable deposit policy, payment deadlines, rescheduling rules, and rain-or-shine policy.",
   },
   {
     key: "conduct",
@@ -315,7 +315,15 @@ export default function BookingAgreementStep({
 
                 <button
                   type="button"
-                  onClick={() => router.push(BOOKING_ROUTES.EXTRAS("add-ons"))}
+                  onClick={() => {
+                    const decorationActive =
+                      booking.decorationRequired || booking.slot?.decorationMandatory;
+                    router.push(
+                      decorationActive
+                        ? BOOKING_ROUTES.EXTRAS("add-ons")
+                        : BOOKING_ROUTES.CONTACT
+                    );
+                  }}
                   className="inline-flex shrink-0 cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
                 >
                   <ChevronLeft size={14} />

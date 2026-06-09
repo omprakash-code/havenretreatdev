@@ -8,9 +8,7 @@ import BookingEmailHeader from "@/emails/components/BookingEmailHeader";
 import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
 import { resolveBookingEmailTheme } from "@/emails/theme/booking-email-theme";
 
-export type AdminBookingConfirmationEmailProps = BookingConfirmationEmailProps & {
-  confirmationSource?: string;
-};
+export type AdminBookingConfirmationEmailProps = BookingConfirmationEmailProps;
 
 const moneyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -53,7 +51,6 @@ export default function AdminBookingConfirmationEmail({
   paymentMethod,
   paymentStatus,
   paymentReference,
-  confirmationSource,
 }: AdminBookingConfirmationEmailProps) {
   return (
     <div
@@ -118,7 +115,7 @@ export default function AdminBookingConfirmationEmail({
                       />
                     ) : null}
                     <BookingEmailDataRow
-                      label="Venue"
+                      label="Package"
                       value={theatreName}
                       labelColor={color.textSecondary}
                     />
@@ -217,14 +214,14 @@ export default function AdminBookingConfirmationEmail({
                       label="Remaining"
                       value={formatMoney(remainingPayable)}
                       labelColor={color.textSecondary}
-                      last={!paymentType && !paymentMethod && !paymentStatus && !paymentReference && !confirmationSource}
+                      last={!paymentType && !paymentMethod && !paymentStatus && !paymentReference}
                     />
                     {paymentType ? (
                       <BookingEmailDataRow
                         label="Payment Type"
                         value={paymentType}
                         labelColor={color.textSecondary}
-                        last={!paymentMethod && !paymentStatus && !paymentReference && !confirmationSource}
+                        last={!paymentMethod && !paymentStatus && !paymentReference}
                       />
                     ) : null}
                     {paymentMethod ? (
@@ -232,7 +229,7 @@ export default function AdminBookingConfirmationEmail({
                         label="Payment Method"
                         value={paymentMethod}
                         labelColor={color.textSecondary}
-                        last={!paymentStatus && !paymentReference && !confirmationSource}
+                        last={!paymentStatus && !paymentReference}
                       />
                     ) : null}
                     {paymentStatus ? (
@@ -240,21 +237,13 @@ export default function AdminBookingConfirmationEmail({
                         label="Payment Status"
                         value={paymentStatus}
                         labelColor={color.textSecondary}
-                        last={!paymentReference && !confirmationSource}
+                        last={!paymentReference}
                       />
                     ) : null}
                     {paymentReference ? (
                       <BookingEmailDataRow
                         label="Reference"
                         value={paymentReference}
-                        labelColor={color.textSecondary}
-                        last={!confirmationSource}
-                      />
-                    ) : null}
-                    {confirmationSource ? (
-                      <BookingEmailDataRow
-                        label="Source"
-                        value={confirmationSource}
                         labelColor={color.textSecondary}
                         last
                       />

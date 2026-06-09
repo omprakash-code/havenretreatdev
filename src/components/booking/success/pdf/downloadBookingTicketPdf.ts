@@ -34,7 +34,7 @@ const COLORS = {
   textStrong: [15, 23, 42] as const,
   textNormal: [51, 65, 85] as const,
   textMuted: [100, 116, 139] as const,
-  textSuccess: [5, 150, 105] as const,
+  textSuccess: [52, 127, 124] as const,
 };
 
 const SUCCESS_VENUE_IMAGE = "/media/booking/success/pool-view.avif";
@@ -212,9 +212,22 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     });
   }
 
+  const extrasAmount = data.extrasAmount ?? 0;
+  const extraDurationHours = data.extraDurationHours ?? 0;
+  if (extrasAmount > 0) {
+    const rateLabel =
+      extraDurationHours > 0
+        ? ` (${formatHourValue(extraDurationHours)} × ${formatCurrency(Math.round(extrasAmount / extraDurationHours))}/hr)`
+        : "";
+    rows.push({
+      label: `Extra Hours${rateLabel}`,
+      value: formatCurrency(extrasAmount),
+    });
+  }
+
   if (extraGuestAmount > 0) {
     rows.push({
-      label: `Extra Guests (${extraGuestCount} x ${formatCurrency(extraPersonPrice)})`,
+      label: `Extra Guests (${extraGuestCount} × ${formatCurrency(extraPersonPrice)})`,
       value: formatCurrency(extraGuestAmount),
     });
   }
@@ -227,7 +240,7 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
         (item.unitPrice > 0 ? Math.max(Math.round(item.totalPrice / item.unitPrice), 1) : item.quantity);
 
       rows.push({
-        label: `${sanitizeDisplayText(item.productName)} (${chargedQuantity} x ${formatCurrency(item.unitPrice)})`,
+        label: `${sanitizeDisplayText(item.productName)} (${chargedQuantity} × ${formatCurrency(item.unitPrice)})`,
         value: formatCurrency(item.totalPrice),
       });
     });
@@ -292,7 +305,7 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
 
 function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage | null) {
   const { doc, marginX, contentWidth } = layout;
-  const h = 34;
+  const h = 22;
 
   ensureSpace(layout, h + 2);
 
@@ -300,7 +313,7 @@ function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage 
   setDraw(doc, COLORS.border);
   doc.rect(marginX, layout.y, contentWidth, h, "FD");
 
-  const logoSize = 29.8;
+  const logoSize = 17;
   const innerAlignX = marginX + 2.6;
   const innerAlignRight = marginX + contentWidth - 2.6;
   const logoX = innerAlignX;
@@ -313,28 +326,28 @@ function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage 
   const textX = logoX + logoSize + 2.4;
   doc.setFont("helvetica", "bold");
   setText(doc, COLORS.textStrong);
-  doc.setFontSize(13.6);
-  doc.text("HAVEN RETREAT", textX, layout.y + 14.6);
-  doc.setFontSize(10.6);
-  doc.text("Booking Receipt", textX, layout.y + 20.4);
+  doc.setFontSize(12);
+  doc.text("HAVEN RETREAT", textX, layout.y + 9);
+  doc.setFontSize(9);
+  doc.text("Booking Receipt", textX, layout.y + 15);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.8);
+  doc.setFontSize(8);
   setText(doc, COLORS.textStrong);
   doc.text(
     `Booking ID: ${sanitizeDisplayText(data.bookingRef)}`,
     innerAlignRight,
-    layout.y + 14.6,
+    layout.y + 9,
     { align: "right" }
   );
   doc.text(
     `Issued: ${formatISTDateTime(new Date())}`,
     innerAlignRight,
-    layout.y + 20.4,
+    layout.y + 15,
     { align: "right" }
   );
 
-  layout.y += h + 2.4;
+  layout.y += h + 1.5;
 }
 
 function drawVenueHero(

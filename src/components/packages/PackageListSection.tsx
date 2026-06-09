@@ -35,6 +35,16 @@ export default function PackageListSection({
             <PackageCard key={eventPackage.id} eventPackage={eventPackage} />
           ))}
         </div>
+
+        <div className="mt-8 border border-[#e4e7ec] bg-white px-6 py-6 text-center">
+          <p className="text-sm font-semibold text-[#1f2937]">Looking for something different?</p>
+          <p className="mt-1 text-sm text-[#667085]">
+            All packages can be customized to fit your vision — guest count, décor, and more.{" "}
+            <a href="/contact" className="font-medium text-[#347f7c] hover:underline">
+              Contact us to discuss.
+            </a>
+          </p>
+        </div>
       </div>
     </section>
   );

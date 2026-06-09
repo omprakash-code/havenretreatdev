@@ -4,6 +4,7 @@ import {
   verifySquareWebhookSignature,
 } from "@/lib/square/server";
 import { finalizeSquarePayment } from "@/services/booking/square-payment-finalizer.service";
+import { sendRangeBookingConfirmationEmails } from "@/services/booking/range-booking-confirmation-email.service";
 
 type SquareWebhookPayload = {
   type?: string;
@@ -77,6 +78,20 @@ export async function POST(req: Request) {
       amount: Math.round(Number(payment.amount_money?.amount ?? 0) / 100),
       providerPayload: payload as never,
     });
+
+    if (
+      (result.status === "CONFIRMED" || result.status === "ALREADY_CONFIRMED") &&
+      result.bookingId &&
+      result.successToken
+    ) {
+      void sendRangeBookingConfirmationEmails({
+        bookingId: result.bookingId,
+        successToken: result.successToken,
+        confirmationSource: "SQUARE_WEBHOOK",
+      }).catch((err) => {
+        console.error("SQUARE_WEBHOOK_EMAIL_FAILED", err);
+      });
+    }
 
     return Response.json({ success: true, result });
   } catch (error) {

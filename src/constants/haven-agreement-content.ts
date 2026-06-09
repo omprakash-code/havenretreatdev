@@ -147,7 +147,7 @@ export const HAVEN_AGREEMENT_SECTIONS = [
     eyebrow: "Section 17",
     title: "17. DEPOSIT AND RESCHEDULING POLICY",
     body: [
-      "Deposits are non-refundable.",
+      "A $150 non-refundable deposit is required to confirm your booking.",
       "Events may be rescheduled with at least 72 hours notice if a new date is available.",
       "Less than 72 hours notice results in forfeiture of the deposit.",
     ],

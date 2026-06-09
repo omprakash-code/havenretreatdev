@@ -53,6 +53,7 @@ export type EventPackageSummary = {
   guestLimit: number;
   eventDurationHours: number;
   complimentarySetupHours: number;
+  hourlyRate: number;
   rentalAmount: number;
   decorationAmount: number;
   cleaningAmount: number;

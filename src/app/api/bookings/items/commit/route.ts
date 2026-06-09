@@ -424,6 +424,10 @@ export async function POST(req: Request) {
         ? true
         : requestedDecorationRequired;
       const durationPricing = await resolveBookingDurationPricingConfig(tx);
+      const packageHourlyRate =
+        (booking.packageSnapshot as { hourlyRate?: number } | null)?.hourlyRate;
+      const effectiveExtraHourlyRate =
+        packageHourlyRate || durationPricing.extraHourlyRate;
       const durationHours = resolveSlotDurationHours({
         startTime: slot.startTime,
         endTime: slot.endTime,
@@ -452,7 +456,7 @@ export async function POST(req: Request) {
             slotFinalPrice: slot.finalPrice,
             durationHours,
             includedDurationHours: durationPricing.includedDurationHours,
-            extraHourlyRate: durationPricing.extraHourlyRate,
+            extraHourlyRate: effectiveExtraHourlyRate,
             guestCount: requestedGuestCount,
             theatreBaseGuests: includedGuestCount,
             theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,

@@ -67,6 +67,7 @@ export default function SelectLocationScreen({ onContinue }: Props) {
     timezone: string;
   } | null>(null);
   const [datesLoading, setDatesLoading] = useState(false);
+  const [lowestPackageRate, setLowestPackageRate] = useState<number | null>(null);
   const noSlotsForLocation = booking.location && !datesLoading && availableDates.length === 0;
   const venueTimezone = rangeSettings?.timezone ?? DEFAULT_VENUE_TIMEZONE;
 
@@ -123,6 +124,20 @@ export default function SelectLocationScreen({ onContinue }: Props) {
     fetchLocations();
   }, []);
 
+
+  useEffect(() => {
+    fetch("/api/packages")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          const rates: number[] = json.data
+            .map((p: { hourlyRate?: number }) => p.hourlyRate)
+            .filter((r: unknown): r is number => typeof r === "number" && r > 0);
+          if (rates.length > 0) setLowestPackageRate(Math.min(...rates));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   /* -------------------------------------
    Auto select first location (ONLY ONCE)
@@ -373,12 +388,19 @@ export default function SelectLocationScreen({ onContinue }: Props) {
         subtitle={booking.location?.name ?? "Miami"}
         rateLabel={
           <>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#347f7c] mb-0.5">
+              Starting at
+            </p>
             <p className="text-2xl font-bold leading-none tracking-[-0.05em] text-[#101828]">
               {new Intl.NumberFormat("en-US", {
                 style: "currency",
                 currency: "USD",
                 maximumFractionDigits: 0,
-              }).format(extraHourlyRate)}
+              }).format(
+                booking.theatre?.hourlyRate ||
+                lowestPackageRate ||
+                extraHourlyRate
+              )}
               <span className="ml-1 text-sm font-medium tracking-normal text-[#101828]">
                 /hr
               </span>

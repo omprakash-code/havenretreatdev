@@ -83,7 +83,7 @@ const THEATRE = {
   capacity: 50,
   baseGuests: 30,
   extraPersonPrice: 25,
-  decorationPrice: 0,
+  decorationPrice: 375,
   hasFood: true,
   menuFile: "/documents/menus/havenretreat-menu.pdf",
   mapUrl: "https://maps.app.goo.gl/JS3stLbATdCEjDG96",
@@ -119,6 +119,7 @@ type PackageSeed = {
   slug: string;
   shortDescription: string;
   guestLimit: number;
+  hourlyRate: number;
   rentalAmount: number;
   decorationAmount: number;
   cleaningAmount: number;
@@ -128,130 +129,142 @@ type PackageSeed = {
   isPopular: boolean;
   sortOrder: number;
   included: string[];
-  decoration: string[];
+  decoration?: string[];
   cleaning: string[];
   priceBreakdown: Array<{ label: string; value: string }>;
 };
 
 const PACKAGE_SEEDS: PackageSeed[] = [
+  // --------------- Starter: up to 20 guests, $110/hr ---------------
   {
-    name: "Essential Package",
-    slug: "essential-package",
-    shortDescription:
-      "Flexible event package for intimate gatherings and styled celebrations.",
-    guestLimit: 30,
-    rentalAmount: 500,
-    decorationAmount: 400,
-    cleaningAmount: 95,
-    subtotalAmount: 1111,
+    name: "Starter Package",
+    slug: "starter-package",
+    shortDescription: "Up to 20 guests · $110/hr · 4-hour minimum",
+    guestLimit: 20,
+    hourlyRate: 110,
+    rentalAmount: 440,
+    decorationAmount: 0,
+    cleaningAmount: 50,
+    subtotalAmount: 568,
     savingsAmount: 0,
-    finalAmount: 1111,
+    finalAmount: 568,
     isPopular: false,
     sortOrder: 1,
     included: [
       "4 Hour Event Rental",
-      "1 Complimentary Setup Hour",
       "Private Pool & Backyard Access",
-      "Coolers included",
-      "Speaker system included",
-      "Wifi",
-      "3 Tables with black or white spandex",
-      "24 Chairs setup",
-      "Decoration included",
-      "Standard event cleaning",
+      "Coolers Included",
+      "Speaker System Included",
+      "WiFi",
+      "2 Tables with Black or White Spandex",
+      "16 Chairs Setup",
+      "Standard Cleaning Included",
     ],
-    decoration: [
-      "Two balloon arches (custom color theme)",
-      "LED Happy Birthday sign",
-      "Cake stand included",
-    ],
-    cleaning: ["Event cleaning", "Trash removal included"],
+    cleaning: ["Event Cleaning", "Trash Removal Included"],
     priceBreakdown: [
-      { label: "Rental", value: "$500" },
-      { label: "Tables", value: "$45" },
-      { label: "Chairs", value: "$72" },
-      { label: "Decoration", value: "$400" },
-      { label: "Cleaning", value: "$95" },
+      { label: "Rental ($110/hr × 4 hrs)", value: "$440" },
+      { label: "Tables & Chairs", value: "$78" },
+      { label: "Cleaning Fee", value: "$50" },
+      { label: "4-Hour Total", value: "$568" },
     ],
   },
+  // --------------- Classic: up to 30 guests, $125/hr ---------------
   {
-    name: "Celebration Package",
-    slug: "celebration-package",
-    shortDescription:
-      "Most popular package for birthdays, showers, and medium-sized celebrations.",
-    guestLimit: 40,
-    rentalAmount: 580,
-    decorationAmount: 400,
-    cleaningAmount: 95,
-    subtotalAmount: 1231,
+    name: "Classic Package",
+    slug: "classic-package",
+    shortDescription: "Up to 30 guests · $125/hr · 4-hour minimum",
+    guestLimit: 30,
+    hourlyRate: 125,
+    rentalAmount: 500,
+    decorationAmount: 0,
+    cleaningAmount: 75,
+    subtotalAmount: 692,
     savingsAmount: 0,
-    finalAmount: 1231,
+    finalAmount: 692,
     isPopular: true,
     sortOrder: 2,
     included: [
       "4 Hour Event Rental",
-      "1 Complimentary Setup Hour",
       "Private Pool & Backyard Access",
-      "Coolers included",
-      "Speaker system included",
-      "Wifi",
-      "4 Tables with black or white spandex",
-      "32 Chairs setup",
-      "Decoration included",
-      "Standard event cleaning",
+      "Coolers Included",
+      "Speaker System Included",
+      "WiFi",
+      "3 Tables with Black or White Spandex",
+      "24 Chairs Setup",
+      "Standard Cleaning Included",
     ],
-    decoration: [
-      "Two balloon arches (custom color theme)",
-      "LED Happy Birthday sign",
-      "Cake stand included",
-    ],
-    cleaning: ["Event cleaning", "Trash removal included"],
+    cleaning: ["Event Cleaning", "Trash Removal Included"],
     priceBreakdown: [
-      { label: "Rental", value: "$580" },
-      { label: "Tables", value: "$60" },
-      { label: "Chairs", value: "$96" },
-      { label: "Decoration", value: "$400" },
-      { label: "Cleaning", value: "$95" },
+      { label: "Rental ($125/hr × 4 hrs)", value: "$500" },
+      { label: "Tables & Chairs", value: "$117" },
+      { label: "Cleaning Fee", value: "$75" },
+      { label: "4-Hour Total", value: "$692" },
     ],
   },
+  // --------------- Premium: up to 40 guests, $150/hr ---------------
   {
-    name: "Signature Package",
-    slug: "signature-package",
-    shortDescription:
-      "Larger-format package designed for elevated celebrations and fuller guest counts.",
-    guestLimit: 50,
-    rentalAmount: 700,
-    decorationAmount: 400,
-    cleaningAmount: 95,
-    subtotalAmount: 1405,
+    name: "Premium Package",
+    slug: "premium-package",
+    shortDescription: "Up to 40 guests · $150/hr · 4-hour minimum",
+    guestLimit: 40,
+    hourlyRate: 150,
+    rentalAmount: 600,
+    decorationAmount: 0,
+    cleaningAmount: 85,
+    subtotalAmount: 841,
     savingsAmount: 0,
-    finalAmount: 1405,
+    finalAmount: 841,
     isPopular: false,
     sortOrder: 3,
     included: [
       "4 Hour Event Rental",
-      "1 Complimentary Setup Hour",
       "Private Pool & Backyard Access",
-      "Coolers included",
-      "Speaker system included",
-      "Wifi",
-      "6 Tables with black or white spandex",
-      "40 Chairs setup",
-      "Decoration included",
-      "Standard event cleaning",
+      "Coolers Included",
+      "Speaker System Included",
+      "WiFi",
+      "4 Tables with Black or White Spandex",
+      "32 Chairs Setup",
+      "Standard Cleaning Included",
     ],
-    decoration: [
-      "Two balloon arches (custom color theme)",
-      "LED Happy Birthday sign",
-      "Cake stand included",
-    ],
-    cleaning: ["Event cleaning", "Trash removal included"],
+    cleaning: ["Event Cleaning", "Trash Removal Included"],
     priceBreakdown: [
-      { label: "Rental", value: "$700" },
-      { label: "Tables", value: "$90" },
-      { label: "Chairs", value: "$120" },
-      { label: "Decoration", value: "$400" },
-      { label: "Cleaning", value: "$95" },
+      { label: "Rental ($150/hr × 4 hrs)", value: "$600" },
+      { label: "Tables & Chairs", value: "$156" },
+      { label: "Cleaning Fee", value: "$85" },
+      { label: "4-Hour Total", value: "$841" },
+    ],
+  },
+  // --------------- Grand: up to 50 guests, $175/hr ---------------
+  {
+    name: "Grand Package",
+    slug: "grand-package",
+    shortDescription: "Up to 50 guests · $175/hr · 4-hour minimum",
+    guestLimit: 50,
+    hourlyRate: 175,
+    rentalAmount: 700,
+    decorationAmount: 0,
+    cleaningAmount: 95,
+    subtotalAmount: 990,
+    savingsAmount: 0,
+    finalAmount: 990,
+    isPopular: false,
+    sortOrder: 4,
+    included: [
+      "4 Hour Event Rental",
+      "Private Pool & Backyard Access",
+      "Coolers Included",
+      "Speaker System Included",
+      "WiFi",
+      "5 Tables with Black or White Spandex",
+      "40 Chairs Setup",
+      "Standard Cleaning Included",
+    ],
+    cleaning: ["Event Cleaning", "Trash Removal Included"],
+    priceBreakdown: [
+      { label: "Rental ($175/hr × 4 hrs)", value: "$700" },
+      { label: "Tables & Chairs", value: "$195" },
+      { label: "Cleaning Fee", value: "$95" },
+      { label: "4-Hour Total", value: "$990" },
     ],
   },
 ];
@@ -577,6 +590,16 @@ const PRODUCTS = [
     sortOrder: 10,
     variant: { label: "Per Booking", regularPrice: 50 },
   },
+  {
+    name: "Balloon Décor Package",
+    slug: "balloon-decor-package",
+    image: "/media/booking/products/add-ons/balloon-arch.avif",
+    description:
+      "Balloon décor package starting at $375. Includes up to 3 balloon colors of your choice, balloon arch design, cake cylinders/pedestals, and basic setup & styling.",
+    stock: 4,
+    sortOrder: 11,
+    variant: { label: "Per Setup", regularPrice: 375 },
+  },
 ] as const;
 
 /* --------------------------------
@@ -628,7 +651,7 @@ function featureRows(packageId: string, seed: PackageSeed) {
 
   return [
     ...groupRows(PackageFeatureGroup.INCLUDED, seed.included),
-    ...groupRows(PackageFeatureGroup.DECORATION, seed.decoration),
+    ...groupRows(PackageFeatureGroup.DECORATION, seed.decoration ?? []),
     ...groupRows(PackageFeatureGroup.CLEANING, seed.cleaning),
     ...seed.priceBreakdown.map((row) => ({
       packageId,
@@ -776,6 +799,7 @@ async function seedVenuePackages() {
         guestLimit: seed.guestLimit,
         eventDurationHours: 4,
         complimentarySetupHours: 1,
+        hourlyRate: seed.hourlyRate,
         rentalAmount: seed.rentalAmount,
         decorationAmount: seed.decorationAmount,
         cleaningAmount: seed.cleaningAmount,
@@ -794,6 +818,7 @@ async function seedVenuePackages() {
         guestLimit: seed.guestLimit,
         eventDurationHours: 4,
         complimentarySetupHours: 1,
+        hourlyRate: seed.hourlyRate,
         rentalAmount: seed.rentalAmount,
         decorationAmount: seed.decorationAmount,
         cleaningAmount: seed.cleaningAmount,
@@ -844,7 +869,7 @@ async function seedVenuePackages() {
       (total, seed) =>
         total +
         seed.included.length +
-        seed.decoration.length +
+        (seed.decoration?.length ?? 0) +
         seed.cleaning.length +
         seed.priceBreakdown.length,
       0
@@ -1048,6 +1073,7 @@ async function main() {
     bookingSettings: 1,
     venues: 1,
     eventPackages: PACKAGE_SEEDS.length,
+    packageSlugs: PACKAGE_SEEDS.map((p) => p.slug),
     eventAddons: 1,
     occasions: OCCASIONS.length,
     occasionFields: OCCASIONS.reduce(

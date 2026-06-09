@@ -54,6 +54,7 @@ export type SelectedTheatre = {
   baseGuests: number;
   extraPersonPrice: number;
   decorationPrice: number;
+  hourlyRate?: number;
 };
 
 export type BookingPricing = {
@@ -457,7 +458,7 @@ const loadBooking = async () => {
         theatre: data.theatre
           ? {
               id: data.theatre.id,
-              name: data.theatre.name,
+              name: (data.packageSnapshot as { name?: string } | null)?.name ?? data.theatre.name,
               capacity:
                 data.rangeSchedule?.maximumGuests ?? data.theatre.capacity,
               basePrice: data.baseAmount ?? data.slot?.basePrice ?? 0,
@@ -465,8 +466,8 @@ const loadBooking = async () => {
                 Number(data.packageSnapshot?.guestLimit) ||
                 resolvePackageIncludedGuestCount(data.theatre),
               extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
-              decorationPrice:
-                data.theatre.decorationPrice,
+              decorationPrice: data.theatre.decorationPrice,
+              hourlyRate: Number(data.packageSnapshot?.hourlyRate) || undefined,
             }
           : null,
         slot: data.rangeSchedule
@@ -621,7 +622,8 @@ const loadBooking = async () => {
         minimumBookingDurationHours,
       0
     );
-    const extraHours = Math.round(extraDurationHours * extraHourlyRate);
+    const packageHourlyRate = booking.theatre.hourlyRate ?? extraHourlyRate;
+    const extraHours = Math.round(extraDurationHours * packageHourlyRate);
 
     const extras =
       Math.max(
@@ -657,7 +659,7 @@ const loadBooking = async () => {
       base,
       packageBase: base,
       extraDurationHours,
-      extraHourlyRate,
+      extraHourlyRate: packageHourlyRate,
       extraHours,
       extras,
       products,

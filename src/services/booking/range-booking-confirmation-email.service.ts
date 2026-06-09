@@ -1,31 +1,23 @@
+import { Prisma } from "@prisma/client";
+
 import type {
   BookingConfirmationAddonItem,
   BookingConfirmationDetail,
   BookingConfirmationEmailProps,
 } from "@/emails/BookingConfirmationEmail";
-import AdminBookingConfirmationEmail from "@/emails/AdminBookingConfirmationEmail";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
-import { sendEmail } from "@/services/email.service";
-import { resolveAdminBookingNotificationRecipients } from "@/services/booking/booking-notification-recipients.service";
-
-type SendAdminBookingConfirmationEmailParams = {
-  bookingRef: string;
-  emailData: BookingConfirmationEmailProps;
-  confirmationSource?: string;
-};
+import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
+import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
 
 function stringifyOccasionValue(value: Prisma.JsonValue): string {
   if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) {
     return value
       .map((item) => stringifyOccasionValue(item as Prisma.JsonValue))
-      .filter((item) => item.length > 0)
+      .filter((v) => v.length > 0)
       .join(", ");
   }
   return "";
@@ -33,11 +25,7 @@ function stringifyOccasionValue(value: Prisma.JsonValue): string {
 
 function isOccasionNumberKey(key: string) {
   const normalized = key.trim().toLowerCase().replace(/[_\-\s]+/g, "");
-  return (
-    normalized === "lednumber" ||
-    normalized === "ledno" ||
-    normalized === "led"
-  );
+  return normalized === "lednumber" || normalized === "ledno" || normalized === "led";
 }
 
 function buildOccasionDetails(
@@ -46,14 +34,10 @@ function buildOccasionDetails(
   if (!occasionData || typeof occasionData !== "object" || Array.isArray(occasionData)) {
     return [];
   }
-
   const source = occasionData as Record<string, Prisma.JsonValue>;
   return Object.entries(source)
     .filter(([label]) => !isOccasionNumberKey(label))
-    .map(([label, value]) => ({
-      label,
-      value: stringifyOccasionValue(value),
-    }))
+    .map(([label, value]) => ({ label, value: stringifyOccasionValue(value) }))
     .filter((entry) => entry.value.length > 0);
 }
 
@@ -62,9 +46,7 @@ function extractNumberValues(value: Prisma.JsonValue): string[] {
     const clean = value.trim();
     return clean ? [clean] : [];
   }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return [String(value)];
-  }
+  if (typeof value === "number" && Number.isFinite(value)) return [String(value)];
   if (Array.isArray(value)) {
     return value
       .map((entry) => String(entry ?? "").trim())
@@ -73,52 +55,35 @@ function extractNumberValues(value: Prisma.JsonValue): string[] {
   return [];
 }
 
-function extractLedNumbersFromOccasionData(
-  occasionData: Prisma.JsonValue | null
-) {
+function extractLedNumbers(occasionData: Prisma.JsonValue | null): string[] {
   if (!occasionData || typeof occasionData !== "object" || Array.isArray(occasionData)) {
-    return [] as string[];
+    return [];
   }
-
   const source = occasionData as Record<string, Prisma.JsonValue>;
   const directKeys = ["ledNumber", "led_number", "ledNo", "ledno", "led"];
-
   for (const key of directKeys) {
     if (key in source) {
       const values = extractNumberValues(source[key]);
-      if (values.length > 0) {
-        return values;
-      }
+      if (values.length > 0) return values;
     }
   }
-
   for (const [key, value] of Object.entries(source)) {
     if (!isOccasionNumberKey(key)) continue;
     const values = extractNumberValues(value);
-    if (values.length > 0) {
-      return values;
-    }
+    if (values.length > 0) return values;
   }
-
-  return [] as string[];
+  return [];
 }
 
-function buildAddonItemsWithNumberValues(
-  bookingItems: Array<{
-    productName: string;
-    variantLabel: string;
-    quantity: number;
-    totalPrice: number;
-  }>,
+function buildAddonItems(
+  items: Array<{ productName: string; variantLabel: string; quantity: number; totalPrice: number }>,
   occasionData: Prisma.JsonValue | null
 ): BookingConfirmationAddonItem[] {
-  const ledNumbers = extractLedNumbersFromOccasionData(occasionData);
+  const ledNumbers = extractLedNumbers(occasionData);
   let ledIndex = 0;
-
-  return bookingItems.map((item) => {
+  return items.map((item) => {
     const isNumberItem = isNumberDecorationProduct({ name: item.productName });
     const numberValue = isNumberItem ? ledNumbers[ledIndex++] : undefined;
-
     return {
       name: item.productName,
       variantLabel: item.variantLabel,
@@ -129,41 +94,19 @@ function buildAddonItemsWithNumberValues(
   });
 }
 
-export async function sendAdminBookingConfirmationEmail({
-  bookingRef,
-  emailData,
+export async function sendRangeBookingConfirmationEmails({
+  bookingId,
+  successToken,
   confirmationSource,
-}: SendAdminBookingConfirmationEmailParams) {
-  const recipients = resolveAdminBookingNotificationRecipients();
-  if (recipients.length === 0) {
-    return { sentCount: 0 };
-  }
-
-  await Promise.allSettled(
-    recipients.map((to) =>
-      sendEmail({
-        to,
-        subject: `New Booking - Haven Retreat | ${bookingRef}`,
-        react: AdminBookingConfirmationEmail(emailData),
-      })
-    )
-  );
-
-  return { sentCount: recipients.length };
-}
-
-export async function sendAdminBookingConfirmationEmailByBookingId(
-  bookingId: string,
-  confirmationSource?: string
-) {
+}: {
+  bookingId: string;
+  successToken: string;
+  confirmationSource?: string;
+}) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: {
-      theatre: {
-        include: {
-          location: true,
-        },
-      },
+      theatre: { include: { location: true } },
       slot: true,
       items: {
         select: {
@@ -180,9 +123,7 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     },
   });
 
-  if (!booking || booking.bookingStatus !== "CONFIRMED") {
-    return { sentCount: 0 };
-  }
+  if (!booking || booking.bookingStatus !== "CONFIRMED") return;
 
   const schedule = resolvePresentedBookingSchedule({
     eventDate: booking.eventDate,
@@ -195,15 +136,16 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     slot: booking.slot,
   });
 
-  if (!schedule) {
-    return { sentCount: 0 };
-  }
+  if (!schedule) return;
 
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");
+  const successUrl = `${baseUrl}/booking/success?t=${encodeURIComponent(successToken)}`;
   const latestPayment = booking.payment[0];
-  const addonItems = buildAddonItemsWithNumberValues(
+  const addonItems = buildAddonItems(
     booking.items,
-    (booking.occasionData as Prisma.JsonValue | null) ?? null
+    booking.occasionData as Prisma.JsonValue | null
   );
+
   const emailData: BookingConfirmationEmailProps = {
     bookingRef: booking.bookingRef,
     customerName: booking.contactName ?? "Guest",
@@ -218,23 +160,47 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     timeSlot: schedule.timeSlot,
     guestCount: booking.guestCount,
     occasionLabel: booking.occasionLabel ?? undefined,
-    occasionDetails: buildOccasionDetails(
-      (booking.occasionData as Prisma.JsonValue | null) ?? null
-    ),
+    occasionDetails: buildOccasionDetails(booking.occasionData as Prisma.JsonValue | null),
     addonItems,
-    paymentType: latestPayment?.provider ?? undefined,
-    paymentMethod: latestPayment?.method ?? undefined,
+    paymentType: booking.paymentProvider ?? latestPayment?.provider ?? undefined,
+    paymentMethod: latestPayment?.method ?? "ONLINE",
     paymentStatus: booking.paymentStatus ?? latestPayment?.status ?? undefined,
-    paymentReference: latestPayment?.transactionId ?? booking.razorpayPaymentId ?? undefined,
+    paymentReference: booking.paymentTransactionId ?? latestPayment?.transactionId ?? undefined,
+    baseAmount: booking.baseAmount,
+    extrasAmount: booking.extrasAmount,
+    productsAmount: booking.productsAmount,
+    decorationAmount: booking.decorationAmount,
+    discountAmount: booking.discountAmount,
     totalAmount: booking.totalAmount,
     advancePaid: booking.advancePaid,
     remainingPayable: booking.remainingPayable,
-    successUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/booking/success`,
+    successUrl,
   };
 
-  return sendAdminBookingConfirmationEmail({
-    bookingRef: booking.bookingRef,
-    emailData,
-    confirmationSource,
-  });
+  if (booking.contactEmail && !booking.confirmationEmailSent) {
+    try {
+      await sendBookingConfirmationEmail({
+        to: booking.contactEmail,
+        bookingRef: booking.bookingRef,
+        emailData,
+        theme: process.env.BOOKING_EMAIL_THEME,
+      });
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { confirmationEmailSent: true },
+      });
+    } catch (err) {
+      console.error("RANGE_BOOKING_CUSTOMER_EMAIL_FAILED", err);
+    }
+  }
+
+  try {
+    await sendAdminBookingConfirmationEmail({
+      bookingRef: booking.bookingRef,
+      emailData,
+      confirmationSource,
+    });
+  } catch (err) {
+    console.error("RANGE_BOOKING_ADMIN_EMAIL_FAILED", err);
+  }
 }

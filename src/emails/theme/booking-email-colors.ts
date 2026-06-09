@@ -1,5 +1,5 @@
 export const bookingEmailColors = {
-  brandAccent: "#FFC72C",
+  brandAccent: "#347f7c",
   success: "#22c55e",
   dark: {
     pageBg: "#0d1117",

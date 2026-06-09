@@ -65,12 +65,23 @@ export default function PackageCard({
             {eventPackage.name}
           </h2>
           <div className="mt-1 flex items-center justify-center gap-2">
-            <p className="text-[1.9rem] font-medium tracking-tight sm:text-[2.1rem]">
-              {formatCurrency(eventPackage.subtotalAmount)}
-            </p>
+            {eventPackage.hourlyRate > 0 ? (
+              <p className="text-[1.9rem] font-medium tracking-tight sm:text-[2.1rem]">
+                {formatCurrency(eventPackage.hourlyRate)}<span className="text-base font-normal opacity-80">/hr</span>
+              </p>
+            ) : (
+              <p className="text-[1.9rem] font-medium tracking-tight sm:text-[2.1rem]">
+                {formatCurrency(eventPackage.subtotalAmount)}
+              </p>
+            )}
           </div>
-          <p className="mt-2 text-sm font-semibold text-white/90">
+          <p className="mt-1 text-sm font-semibold text-white/90">
             Up to {eventPackage.guestLimit} Guests
+            {eventPackage.hourlyRate > 0 && (
+              <span className="ml-1.5 font-normal opacity-75 text-xs">
+                · Starting at {formatCurrency(eventPackage.subtotalAmount)} for 4 hrs
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -95,24 +106,30 @@ export default function PackageCard({
             />
           </button>
 
-          {expanded && (
-            <div className="space-y-4 border-t border-[#e4e7ec] px-3 py-3">
-              <PackageFeatureGroup
-                title="Decoration Included"
-                items={eventPackage.featureGroups.decoration}
-                compact
-              />
-              <PackageFeatureGroup
-                title="Cleaning"
-                items={eventPackage.featureGroups.cleaning}
-                compact
-              />
-              <PackagePriceBreakdown
-                items={eventPackage.featureGroups.priceBreakdown}
-                compact
-              />
+          <div
+            className={`grid transition-all duration-300 ease-in-out ${
+              expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="space-y-4 border-t border-[#e4e7ec] px-3 py-3">
+                <PackageFeatureGroup
+                  title="Decoration Included"
+                  items={eventPackage.featureGroups.decoration}
+                  compact
+                />
+                <PackageFeatureGroup
+                  title="Cleaning"
+                  items={eventPackage.featureGroups.cleaning}
+                  compact
+                />
+                <PackagePriceBreakdown
+                  items={eventPackage.featureGroups.priceBreakdown}
+                  compact
+                />
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
       </div>

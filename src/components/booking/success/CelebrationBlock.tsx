@@ -23,8 +23,11 @@ export default function CelebrationBlock({
             : "rounded-xl border border-zinc-200 bg-white py-3 text-center"
         }
       >
-        <p className="text-sm text-slate-700 font-light">
-          Your event package is reserved
+        <p className="text-sm font-semibold text-slate-800">
+          Booking request received
+        </p>
+        <p className="mt-1 text-xs text-slate-500 font-light">
+          Haven Retreat will review and confirm your event shortly.
         </p>
       </motion.div>
     );
@@ -70,6 +73,9 @@ export default function CelebrationBlock({
           </h3>
           <p className="text-slate-600 text-xs sm:text-sm">
             Everything is set for your special day
+          </p>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Haven Retreat will confirm your booking shortly.
           </p>
         </motion.div>
       </div>

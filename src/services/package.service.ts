@@ -79,6 +79,7 @@ async function mapPackageSummary(
     guestLimit: record.guestLimit,
     eventDurationHours: record.eventDurationHours,
     complimentarySetupHours: record.complimentarySetupHours,
+    hourlyRate: record.hourlyRate,
     rentalAmount: record.rentalAmount,
     decorationAmount: record.decorationAmount,
     cleaningAmount: record.cleaningAmount,

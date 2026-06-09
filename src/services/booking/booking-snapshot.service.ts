@@ -53,8 +53,10 @@ export async function buildInitialPricingSnapshot(
     durationHours - eventPackage.eventDurationHours,
     0
   );
+  const effectiveHourlyRate =
+    toMoney(eventPackage.hourlyRate) || durationPricing.extraHourlyRate;
   const extraDurationAmount = Math.round(
-    extraDurationHours * durationPricing.extraHourlyRate
+    extraDurationHours * effectiveHourlyRate
   );
   const packageAmount = toMoney(eventPackage.subtotalAmount);
   const totalAmount = packageAmount + extraDurationAmount;
@@ -65,7 +67,7 @@ export async function buildInitialPricingSnapshot(
     includedDurationHours: eventPackage.eventDurationHours,
     bookedDurationHours: durationHours,
     extraDurationHours,
-    extraHourlyRate: durationPricing.extraHourlyRate,
+    extraHourlyRate: effectiveHourlyRate,
     extraDurationAmount,
     extraGuestCount: 0,
     extraGuestAmount: 0,

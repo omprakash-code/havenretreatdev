@@ -85,6 +85,7 @@ model EventPackage {
   guestLimit              Int
   eventDurationHours      Int
   complimentarySetupHours Int    @default(0)
+  hourlyRate              Int    @default(0)
   rentalAmount            Int
   decorationAmount        Int    @default(0)
   cleaningAmount          Int    @default(0)
@@ -158,7 +159,7 @@ model EventAddon {
   // Relations
   venue          Venue?          @relation(fields: [venueId], references: [id])
   eventPackage   EventPackage?   @relation(fields: [packageId], references: [id])
-  bookingAddons  BookingAddon[]
+  // bookingAddons  BookingAddon[]  // TODO(Phase 2): Uncomment when BookingAddon is activated
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -475,7 +476,7 @@ model Booking {
 
   couponUsages CouponUsage[]
   signedAgreements SignedAgreement[]
-  bookingAddons   BookingAddon[]
+  // bookingAddons BookingAddon[] // TODO(Phase 2): Event addon line items — not yet in use
   bookingLocks    BookingLock[]
 
   createdAt DateTime @default(now())
@@ -630,25 +631,30 @@ model BookingItem {
   @@index([variantId])
 }
 
-model BookingAddon {
-  id            String @id @default(cuid())
-  bookingId     String
-  addonId       String
-  snapshotName  String
-  quantity      Int    @default(1)
-  snapshotPrice Int
-  totalPrice    Int
-
-  booking Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  addon   EventAddon @relation(fields: [addonId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([bookingId])
-  @@index([addonId])
-  @@unique([bookingId, addonId])
-}
+// =======================================================
+// TODO(Phase 2): BookingAddon — Event addon line items on bookings.
+// Activate once the Venue addon selection flow is built into the booking UI.
+// Re-enable bookingAddons relation on Booking and EventAddon when uncommented.
+// =======================================================
+// model BookingAddon {
+//   id            String @id @default(cuid())
+//   bookingId     String
+//   addonId       String
+//   snapshotName  String
+//   quantity      Int    @default(1)
+//   snapshotPrice Int
+//   totalPrice    Int
+//
+//   booking Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+//   addon   EventAddon @relation(fields: [addonId], references: [id])
+//
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+//
+//   @@index([bookingId])
+//   @@index([addonId])
+//   @@unique([bookingId, addonId])
+// }
 
 model SignedAgreement {
   id                  String @id @default(cuid())

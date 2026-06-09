@@ -202,7 +202,9 @@ export async function GET(req: Request) {
         phone: booking.contactPhone,
         email: booking.contactEmail ?? undefined,
       },
-      theatreName: theatre.name,
+      theatreName:
+        (booking.packageSnapshot as { name?: string } | null)?.name ??
+        theatre.name,
       theatreImage: theatre.images?.[0] ?? null,
       date: formattedDate,
       timeSlot: schedule.timeSlot,
@@ -220,6 +222,7 @@ export async function GET(req: Request) {
       extraGuestCount,
       extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
       decorationRequired: booking.decorationRequired,
+      extrasAmount: booking.extrasAmount,
       totalAmount: booking.totalAmount,
       discountAmount: booking.discountAmount,
       advancePaid: advance,

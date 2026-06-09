@@ -408,6 +408,7 @@ export default function BookingSummary({
      (never NaN / undefined)
   ------------------------------ */
   const basePrice = Number(pricing.base) || 0;
+  const packageBasePrice = Number(pricing.packageBase) || 0;
   const extraHoursPrice = Number(pricing.extraHours) || 0;
   const extraDurationHours = Number(pricing.extraDurationHours) || 0;
   const extraHourlyRate = Number(pricing.extraHourlyRate) || 0;
@@ -691,7 +692,7 @@ export default function BookingSummary({
                     <span>
                       <span className="block">Package</span>
                       <span className="mt-0.5 block text-xs font-normal text-gray-400">
-                        {formatCurrency(basePrice)} · {formatDurationHours(includedRentalHours * 60)} included
+                        {formatCurrency(packageBasePrice)} · {formatDurationHours(includedRentalHours * 60)} included
                       </span>
                     </span>
                   </span>
