@@ -9,13 +9,13 @@ export default function RootLayout({
 }) {
 
   return (
-   <>
+   <div className="flex min-h-screen flex-col">
     <BookingHeader />
-    <main className="flow-root">
+    <main className="flow-root flex-1">
       <BookingSessionExpiredBanner />
       {children}
     </main>
     <BookingFooter />
-   </>
+   </div>
   );
 }

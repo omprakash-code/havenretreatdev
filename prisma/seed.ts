@@ -602,7 +602,7 @@ const PRODUCTS = [
 --------------------------------- */
 const APP_SETTINGS = [
   { key: "ADVANCE_PAYMENT_AMOUNT", value: "150" },
-  { key: "BOOKING_LOCK_MINUTES", value: "10" },
+  { key: "BOOKING_LOCK_MINUTES", value: "20" },
   { key: "MINIMUM_BOOKING_DURATION_HOURS", value: "4" },
   { key: "EXTRA_HOURLY_RATE", value: "120" },
   { key: "SLOT_EXPIRY_MODE", value: "START_TIME" },

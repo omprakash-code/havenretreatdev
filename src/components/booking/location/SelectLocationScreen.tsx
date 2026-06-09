@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { MapPin } from "@/components/icons";
 import BookingCalendar from "@/components/booking/location/BookingCalendar";
@@ -280,6 +280,11 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
 
 
 
+  const pickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    pickerRef.current?.scrollIntoView({ behavior: "instant", block: "center" });
+  }, []);
+
   /* -----------------------------
      People count animation
   ------------------------------ */
@@ -457,7 +462,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
           </div>
         )}
 
-        <div className="space-y-5">
+        <div ref={pickerRef} className="space-y-5">
           <DateSelector
             datesLoading={datesLoading}
             noSlotsForLocation={noSlotsForLocation}

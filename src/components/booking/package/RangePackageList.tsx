@@ -51,17 +51,17 @@ export default function RangePackageList() {
 
   if (loading) {
     return (
-      <section className="bg-white">
+      <section className="bg-white min-h-[calc(100vh-120px)]">
         <div className="px-4 py-10 text-center sm:py-8 lg:py-12">
-          <div className="mx-auto max-w-5xl">
-            <div className="mx-auto h-8 w-72 animate-pulse rounded bg-gray-200 sm:h-10 sm:w-96" />
+          <div className="mx-auto max-w-5xl space-y-3">
+            <div className="mx-auto h-8 w-64 animate-pulse rounded bg-gray-200 sm:h-10 sm:w-[420px]" />
+            <div className="mx-auto h-5 w-40 animate-pulse rounded bg-gray-200 sm:w-56" />
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-4 pb-12 sm:pb-16 lg:pb-20">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map((i) => (
+            {[0, 1, 2, 3].map((i) => (
               <div key={i} className="flex flex-col bg-white shadow-[0_18px_50px_rgba(16,24,40,0.08)]">
-                {/* card header */}
                 <div className="min-h-[180px] animate-pulse bg-gray-200 px-3 pb-5 pt-3">
                   <div className="h-5 w-24 rounded bg-gray-300" />
                   <div className="mt-auto flex flex-col items-center justify-end pt-16">
@@ -70,7 +70,6 @@ export default function RangePackageList() {
                     <div className="mt-2 h-4 w-36 rounded bg-gray-300" />
                   </div>
                 </div>
-                {/* card body */}
                 <div className="flex flex-1 flex-col p-5">
                   <div className="h-3.5 w-16 animate-pulse rounded bg-gray-200" />
                   <div className="mt-3 space-y-2">
@@ -83,7 +82,6 @@ export default function RangePackageList() {
                   </div>
                   <div className="mt-4 h-10 w-full animate-pulse rounded bg-gray-100" />
                 </div>
-                {/* card button */}
                 <div className="mx-6 mb-6 h-10 animate-pulse rounded bg-gray-200" />
               </div>
             ))}
