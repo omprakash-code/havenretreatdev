@@ -182,7 +182,7 @@ export default function CinematicHero() {
             animate={{ scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <span className="relative block">Your Haven Retreat Booking Is Confirmed</span>
+            <span className="relative block">We&apos;ve Received Your Booking Request</span>
           </motion.h1>
         </motion.div>
 
@@ -193,7 +193,7 @@ export default function CinematicHero() {
           transition={{ duration: 0.8, delay: 0.6 }}
           className="text-xs sm:text-sm md:text-base text-slate-700 font-light tracking-wide"
         >
-          Your private venue is reserved. Get ready for a relaxed poolside celebration.
+          Haven Retreat will review your request and reach out to confirm your event.
         </motion.p>
 
         {/* Animated Divider */}

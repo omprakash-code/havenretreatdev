@@ -1031,7 +1031,7 @@ async function seedAgreementTemplate() {
     where: {
       title_version: {
         title: "Haven Retreat Event Rental Agreement",
-        version: "v2",
+        version: "v1",
       },
     },
     update: {
@@ -1040,7 +1040,7 @@ async function seedAgreementTemplate() {
     },
     create: {
       title: "Haven Retreat Event Rental Agreement",
-      version: "v2",
+      version: "v1",
       content,
       isActive: true,
     },
@@ -1048,7 +1048,7 @@ async function seedAgreementTemplate() {
 
   console.log("Agreement template seeded", {
     agreementTemplates: 1,
-    version: "v2",
+    version: "v1",
   });
 }
 
