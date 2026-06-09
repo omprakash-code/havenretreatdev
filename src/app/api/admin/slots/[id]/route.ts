@@ -1,6 +1,13 @@
+// INACTIVE — SlotTemplate / Slot admin is not used in the active admin panel.
+// Set FEATURE_DISABLED to false to re-enable.
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+
+const FEATURE_DISABLED = true;
+function featureDisabled() {
+  return NextResponse.json({ success: false, code: "FEATURE_DISABLED" }, { status: 404 });
+}
 import { timeToMinutes, addMinutesToTime } from "@/lib/time";
 import { isSlotExpiredInIST, type SlotExpiryConfig } from "@/lib/slot-time";
 import type { Slot, SlotTemplate, Theatre, Booking, SlotStatus } from "@prisma/client";
@@ -161,6 +168,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const adminId = await getAuthenticatedAdminIdFromCookies();
     if (!adminId) {
@@ -223,6 +231,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const adminId = await getAuthenticatedAdminIdFromCookies();
     if (!adminId) {
@@ -625,6 +634,7 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const adminId = await getAuthenticatedAdminIdFromCookies();
     if (!adminId) {

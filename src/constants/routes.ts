@@ -2,6 +2,7 @@ export const BOOKING_ROUTES = {
   ROOT: "/booking",
   PACKAGE: "/booking/package",
   THEATRE: "/booking/package",
+  SCHEDULE: "/booking/schedule",
   CONTACT: "/booking/contact",
   DETAILS: "/booking/details",
   OCCASION: "/booking/occasion",

@@ -8,47 +8,25 @@ import { Clock } from "@/components/icons";
 import PackageCard from "@/components/packages/PackageCard";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { useBooking } from "@/context/BookingContext";
-import { toDateKeyString } from "@/lib/date";
 import { formatDuration, formatISTTime } from "@/lib/formatters";
-import type { Theatre } from "@/types/theatre";
 import type { EventPackageSummary } from "@/types/venue-package";
 
 export default function RangePackageList() {
   const router = useRouter();
-  const { booking, hydrated, refreshBooking } = useBooking();
+  const { booking, hydrated } = useBooking();
   const [packages, setPackages] = useState<EventPackageSummary[]>([]);
-  const [theatre, setTheatre] = useState<Theatre | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lockingPackageId, setLockingPackageId] = useState<string | null>(null);
+  const [navigating, setNavigating] = useState(false);
 
   useEffect(() => {
     if (!hydrated) return;
-    if (
-      !booking.location ||
-      !booking.date ||
-      !booking.startTime ||
-      !booking.endTime
-    ) {
-      router.replace(BOOKING_ROUTES.ROOT);
-      return;
-    }
 
     let cancelled = false;
-    void Promise.all([
-      fetch("/api/packages", { cache: "no-store" }).then((res) => res.json()),
-      fetch(
-        `/api/theatres?locationId=${encodeURIComponent(
-          booking.location.id
-        )}&catalog=1`,
-        { credentials: "include", cache: "no-store" }
-      ).then((res) => res.json()),
-    ])
-      .then(([packageResult, theatreResult]) => {
+    fetch("/api/packages", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((result) => {
         if (cancelled) return;
-        setPackages(
-          Array.isArray(packageResult?.data) ? packageResult.data : []
-        );
-        setTheatre(theatreResult?.data?.theatres?.[0] ?? null);
+        setPackages(Array.isArray(result?.data) ? result.data : []);
       })
       .catch(() => {
         if (!cancelled) toast.error("Unable to load packages.");
@@ -60,53 +38,14 @@ export default function RangePackageList() {
     return () => {
       cancelled = true;
     };
-  }, [
-    booking.date,
-    booking.endTime,
-    booking.location,
-    booking.startTime,
-    hydrated,
-    router,
-  ]);
+  }, [hydrated]);
 
-  async function selectPackage(eventPackage: EventPackageSummary) {
-    if (
-      lockingPackageId ||
-      !theatre ||
-      !booking.date ||
-      !booking.startTime ||
-      !booking.endTime
-    ) {
-      return;
-    }
-
-    setLockingPackageId(eventPackage.id);
-    try {
-      const res = await fetch("/api/booking-locks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          theatreId: theatre.id,
-          packageId: eventPackage.id,
-          eventDate: toDateKeyString(booking.date),
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-        }),
-      });
-      const result = await res.json().catch(() => null);
-      if (!res.ok || !result?.success) {
-        toast.error(
-          result?.message || "This time is no longer available."
-        );
-        return;
-      }
-
-      await refreshBooking();
-      router.push("/booking/contact");
-    } finally {
-      setLockingPackageId(null);
-    }
+  function selectPackage(eventPackage: EventPackageSummary) {
+    if (navigating) return;
+    setNavigating(true);
+    sessionStorage.setItem("hr_pending_package_id", eventPackage.id);
+    sessionStorage.setItem("hr_pending_package_rate", String(eventPackage.hourlyRate ?? 0));
+    router.push(BOOKING_ROUTES.SCHEDULE);
   }
 
   if (loading) {
@@ -117,7 +56,7 @@ export default function RangePackageList() {
     );
   }
 
-  if (!theatre || packages.length === 0) {
+  if (packages.length === 0) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-sm text-gray-500">
         No active packages are available.
@@ -157,9 +96,7 @@ export default function RangePackageList() {
               eventPackage={eventPackage}
               onBook={selectPackage}
               bookLabel={
-                lockingPackageId === eventPackage.id
-                  ? "Reserving..."
-                  : "Continue with This Package"
+                navigating ? "Just a moment..." : "Continue with This Package"
               }
             />
           ))}

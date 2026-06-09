@@ -164,8 +164,10 @@ type BookingState = {
   rangePricingSnapshot?: {
     packageAmount?: number;
     extraDurationAmount?: number;
+    extraDurationHours?: number;
     extraHourlyRate?: number;
     includedDurationHours?: number;
+    bookedDurationHours?: number;
     extraGuestPrice?: number;
   };
   location: Location | null;
@@ -597,14 +599,17 @@ const loadBooking = async () => {
         booking.advancePaidSnapshot && booking.advancePaidSnapshot > 0
           ? booking.advancePaidSnapshot
           : configuredAdvanceAmount;
+      // Prefer server-calculated extra hours from the pricing snapshot; fall back to
+      // local context state so the display is correct even if durationHours is stale.
+      const snapshotExtraDurationHours = Number(snapshot.extraDurationHours ?? 0) || 0;
+      const localExtraDurationHours = Math.max(
+        (booking.durationHours ?? 0) - Number(snapshot.includedDurationHours ?? 0),
+        0
+      );
       return {
         base: packageBase + extraHours,
         packageBase,
-        extraDurationHours: Math.max(
-          (booking.durationHours ?? 0) -
-            Number(snapshot.includedDurationHours ?? 0),
-          0
-        ),
+        extraDurationHours: snapshotExtraDurationHours > 0 ? snapshotExtraDurationHours : localExtraDurationHours,
         extraHourlyRate: Number(snapshot.extraHourlyRate ?? 0) || 0,
         extraHours,
         extras,

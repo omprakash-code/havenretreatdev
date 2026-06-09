@@ -20,6 +20,9 @@ import {
 
 type Props = {
   onContinue: () => void;
+  selectedHourlyRate?: number;
+  continueLabel?: string;
+  continueDisabled?: boolean;
 };
 
 type Location = {
@@ -37,7 +40,7 @@ function getWeekdayShort(date: Date): string {
 }
 
 
-export default function SelectLocationScreen({ onContinue }: Props) {
+export default function SelectLocationScreen({ onContinue, selectedHourlyRate, continueLabel, continueDisabled }: Props) {
   const {
     booking,
     setDate,
@@ -237,6 +240,10 @@ export default function SelectLocationScreen({ onContinue }: Props) {
   }, [booking.location, booking.date]);
 
   useEffect(() => {
+    // If the user already has an active booking lock, don't clear their time range —
+    // the availability response will list their own lock as "LOCKED", which would
+    // otherwise incorrectly invalidate the selection they just confirmed.
+    if (booking.bookingId) return;
     if (!booking.startTime || !booking.endTime || unavailableRanges.length === 0) {
       return;
     }
@@ -249,7 +256,7 @@ export default function SelectLocationScreen({ onContinue }: Props) {
     if (overlapsUnavailable) {
       setTimeRange(null, null);
     }
-  }, [booking.endTime, booking.startTime, setTimeRange, unavailableRanges]);
+  }, [booking.bookingId, booking.endTime, booking.startTime, setTimeRange, unavailableRanges]);
 
   /* -------------------------------------
    Auto Select first date on first loading
@@ -388,15 +395,18 @@ export default function SelectLocationScreen({ onContinue }: Props) {
         subtitle={booking.location?.name ?? "Miami"}
         rateLabel={
           <>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#347f7c] mb-0.5">
-              Starting at
-            </p>
+            {!selectedHourlyRate && (
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#347f7c] mb-0.5">
+                Starting at
+              </p>
+            )}
             <p className="text-2xl font-bold leading-none tracking-[-0.05em] text-[#101828]">
               {new Intl.NumberFormat("en-US", {
                 style: "currency",
                 currency: "USD",
                 maximumFractionDigits: 0,
               }).format(
+                selectedHourlyRate ||
                 booking.theatre?.hourlyRate ||
                 lowestPackageRate ||
                 extraHourlyRate
@@ -524,10 +534,10 @@ export default function SelectLocationScreen({ onContinue }: Props) {
           <button
             type="button"
             onClick={onContinue}
-            disabled={!canContinue}
+            disabled={!canContinue || continueDisabled}
             className="order-1 inline-flex min-h-11 w-full min-w-[190px] items-center justify-center gap-2 rounded-full bg-[#0d3b24] px-6 py-3 text-sm font-bold text-white shadow-[0_16px_34px_rgba(13,59,36,0.28)] transition duration-300 ease-out hover:-translate-y-0.5 hover:bg-[#092c1b] hover:shadow-[0_20px_44px_rgba(13,59,36,0.32)] active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none disabled:hover:translate-y-0 md:order-2 md:w-auto"
           >
-            <span>Continue to Packages</span>
+            <span>{continueLabel ?? "Continue to Packages"}</span>
           </button>
         </div>
       </BookingHeroCard>

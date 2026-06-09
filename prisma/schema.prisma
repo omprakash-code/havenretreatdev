@@ -143,6 +143,7 @@ enum EventAddonCategory {
   OTHER
 }
 
+// INACTIVE — not used in the active booking flow or active admin
 model EventAddon {
   id          String             @id @default(cuid())
   venueId     String?
@@ -237,6 +238,7 @@ model Theatre {
 
 // Slot Template (Reusable Daily Pattern)
 // Admin defines once, slots auto-generate from this
+// INACTIVE — not used in the active booking flow or active admin
 model SlotTemplate {
   id        String @id @default(cuid())
   theatreId String
@@ -773,7 +775,7 @@ model Payment {
 }
 
 // =======================================================
-// WAITLIST
+// WAITLIST — INACTIVE: not used in the active booking flow or active admin
 // =======================================================
 model WaitlistEntry {
   id        String @id @default(cuid())
@@ -816,7 +818,7 @@ enum WaitlistStatus {
 }
 
 // =======================================================
-// CONTACT INQUIRIES
+// CONTACT INQUIRIES — INACTIVE: not used in the active booking flow or active admin
 // =======================================================
 model ContactInquiry {
   id String @id @default(cuid())

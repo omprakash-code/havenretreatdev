@@ -1,7 +1,14 @@
+// INACTIVE — ContactInquiry is not used in the active booking flow or admin.
+// Set FEATURE_DISABLED to false to re-enable.
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
+
+const FEATURE_DISABLED = true;
+function featureDisabled() {
+  return NextResponse.json({ success: false, code: "FEATURE_DISABLED" }, { status: 404 });
+}
 
 type ContactSubmitPayload = {
   name?: string;
@@ -14,6 +21,7 @@ function normalizeText(value: string) {
 }
 
 export async function POST(req: Request) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const body = (await req.json()) as ContactSubmitPayload;
 

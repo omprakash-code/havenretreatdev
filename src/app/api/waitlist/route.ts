@@ -1,6 +1,8 @@
+// INACTIVE — WaitlistEntry is not used in the active booking flow or admin.
+// Set FEATURE_DISABLED to false to re-enable.
+import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { formatInTimeZone } from "date-fns-tz";
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 
@@ -17,6 +19,11 @@ type WaitlistPayload = {
   occasion?: string | null;
   notes?: string | null;
 };
+
+const FEATURE_DISABLED = true;
+function featureDisabled() {
+  return NextResponse.json({ success: false, code: "FEATURE_DISABLED" }, { status: 404 });
+}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -123,6 +130,7 @@ async function createWithUniqueReference(
 }
 
 export async function POST(req: Request) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const body = (await req.json()) as WaitlistPayload;
 

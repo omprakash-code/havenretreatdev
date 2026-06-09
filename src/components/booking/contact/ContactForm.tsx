@@ -358,7 +358,7 @@ export default function ContactForm({
 
         <button
           type="button"
-          onClick={() => router.push(BOOKING_ROUTES.PACKAGE)}
+          onClick={() => router.push(BOOKING_ROUTES.SCHEDULE)}
           className="inline-flex shrink-0 cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
         >
           <ChevronLeft size={14} />
@@ -509,7 +509,7 @@ export default function ContactForm({
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => router.push(BOOKING_ROUTES.PACKAGE)}
+                    onClick={() => router.push(BOOKING_ROUTES.SCHEDULE)}
                     className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100"
                   >
                     {option.name}
@@ -649,7 +649,7 @@ export default function ContactForm({
                     <button
                       key={option.id}
                       type="button"
-                      onClick={() => router.push(BOOKING_ROUTES.PACKAGE)}
+                      onClick={() => router.push(BOOKING_ROUTES.SCHEDULE)}
                       className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100"
                     >
                       {option.name}

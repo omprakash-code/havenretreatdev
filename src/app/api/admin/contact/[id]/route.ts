@@ -1,8 +1,15 @@
+// INACTIVE — ContactInquiry is not used in the active booking flow or admin.
+// Set FEATURE_DISABLED to false to re-enable.
 import { ContactInquiryStatus, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
+
+const FEATURE_DISABLED = true;
+function featureDisabled() {
+  return NextResponse.json({ success: false, code: "FEATURE_DISABLED" }, { status: 404 });
+}
 
 type UpdateContactStatusPayload = {
   name?: string;
@@ -23,6 +30,7 @@ export async function PATCH(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const adminId = await getAuthenticatedAdminId();
     if (!adminId) {
@@ -159,6 +167,7 @@ export async function DELETE(
   _req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const adminId = await getAuthenticatedAdminId();
     if (!adminId) {

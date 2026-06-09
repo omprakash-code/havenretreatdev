@@ -1,7 +1,14 @@
+// INACTIVE — SlotTemplate / Slot admin is not used in the active admin panel.
+// Set FEATURE_DISABLED to false to re-enable.
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+
+const FEATURE_DISABLED = true;
+function featureDisabled() {
+  return NextResponse.json({ success: false, code: "FEATURE_DISABLED" }, { status: 404 });
+}
 import { formatInTimeZone } from "date-fns-tz";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { timeToMinutes } from "@/lib/time";
@@ -55,6 +62,7 @@ class SlotApiError extends Error {
  * Returns all slots with theatre + template data for admin panel
  */
 export async function GET(req: Request) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const adminId = await getAuthenticatedAdminIdFromCookies();
     if (!adminId) {
@@ -259,6 +267,7 @@ export async function GET(req: Request) {
  * Creates a manual slot for a theatre/date with overlap + buffer checks.
  */
 export async function POST(req: Request) {
+  if (FEATURE_DISABLED) return featureDisabled();
   try {
     const adminId = await getAuthenticatedAdminIdFromCookies();
     if (!adminId) {

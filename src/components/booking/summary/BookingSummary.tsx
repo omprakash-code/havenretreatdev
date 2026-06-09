@@ -412,7 +412,12 @@ export default function BookingSummary({
   const extraHoursPrice = Number(pricing.extraHours) || 0;
   const extraDurationHours = Number(pricing.extraDurationHours) || 0;
   const extraHourlyRate = Number(pricing.extraHourlyRate) || 0;
-  const rentalDurationHours = Number(booking.durationHours) || 0;
+  // For range bookings use the server snapshot's booked duration so the label stays
+  // correct if booking.durationHours is temporarily stale in context.
+  const snapshotBookedHours = booking.bookingMode === "RANGE"
+    ? Number(booking.rangePricingSnapshot?.bookedDurationHours ?? 0) || 0
+    : 0;
+  const rentalDurationHours = snapshotBookedHours > 0 ? snapshotBookedHours : (Number(booking.durationHours) || 0);
   const includedRentalHours = Math.max(rentalDurationHours - extraDurationHours, 0);
   const extrasPrice = Number(pricing.extras) || 0;
   const decorationPrice = Number(pricing.decoration) || 0;
