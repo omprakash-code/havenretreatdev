@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Clock } from "@/components/icons";
+import { Users, Sparkles, Timer, PartyPopper } from "lucide-react";
 import PackageCard from "@/components/packages/PackageCard";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { useBooking } from "@/context/BookingContext";
@@ -136,30 +137,59 @@ export default function RangePackageList() {
               }
             />
           ))}
-        </div>
 
-        <div className="mt-8 border border-[#d7e4e1] bg-white px-6 py-6 text-center">
-          <p className="text-base font-semibold text-[#1f2937]">
-            Don&apos;t see exactly what you need?
-          </p>
-          <p className="mt-1 text-sm text-[#667085]">
-            Every package is fully customizable - guest count, décor, timing, and more.
-            We&apos;ll build the perfect setup for your event.
-          </p>
-          <a
-            href="https://havenretreatmiami.com/contact-us/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group mt-4 inline-flex items-center border border-[#2f7e7a]/40 bg-[#edf3f1] px-5 py-2.5 text-sm font-semibold text-[#245e5b] transition hover:bg-[#dceee9]"
-          >
-            Contact us to customize
-            <span
-              aria-hidden="true"
-              className="ml-1.5 inline-block translate-x-[-6px] opacity-0 transition-all duration-200 ease-out group-hover:translate-x-0 group-hover:opacity-100"
+          {/* 5th card — always visible customize option */}
+          <div className="flex h-full flex-col bg-white shadow-[0_18px_50px_rgba(16,24,40,0.08)]">
+            <div className="relative min-h-[180px] overflow-hidden bg-[url('/media/booking/success/pool-view.avif')] bg-cover bg-center px-3 pb-5 pt-3 text-center text-white">
+              <div className="absolute inset-0 bg-[#0b1f24]/80" />
+              <div className="relative z-10 flex h-full min-h-[152px] flex-col items-center justify-end pt-10">
+                <div className="absolute left-0 top-0 bg-[#edf7f3] px-3 py-1.5 text-[0.65rem] font-extrabold uppercase tracking-[0.11em] text-[#245e5b]">
+                  Fully Custom
+                </div>
+                <h2 className="font-playfair text-[1.55rem] font-semibold leading-tight drop-shadow-sm sm:text-[1.8rem]">
+                  Your Event, Your Way
+                </h2>
+                <p className="mt-1 text-sm font-semibold text-white/90">
+                  Built around your vision
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-1 flex-col p-5">
+              <p className="text-xs font-semibold text-gray-500">What we customize</p>
+              <ul className="mt-3 space-y-2">
+                {[
+                  { icon: Users, label: "Guest count & seating" },
+                  { icon: Sparkles, label: "Décor theme & setup" },
+                  { icon: Timer, label: "Timing & duration" },
+                  { icon: PartyPopper, label: "Any occasion type" },
+                ].map(({ icon: Icon, label }) => (
+                  <li key={label} className="flex items-center gap-2 text-sm text-[#374151]">
+                    <Icon size={14} className="shrink-0 text-[#347f7c]" />
+                    {label}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-xs leading-relaxed text-gray-500">
+                Don&apos;t see what you&apos;re looking for? We&apos;ll build the perfect setup for your event.
+              </p>
+            </div>
+
+            <a
+              href="https://havenretreatmiami.com/contact-us/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group mx-6 mb-6 mt-0 inline-flex items-center justify-center border border-[#347f7c] bg-white px-4 py-2.5 text-sm font-semibold text-[#347f7c] transition hover:bg-[#edf3f1]"
             >
-              →
-            </span>
-          </a>
+              Contact Us to Customize
+              <span
+                aria-hidden="true"
+                className="ml-1.5 inline-block translate-x-[-6px] opacity-0 transition-all duration-200 ease-out group-hover:translate-x-0 group-hover:opacity-100"
+              >
+                →
+              </span>
+            </a>
+          </div>
         </div>
       </div>
     </section>
