@@ -749,6 +749,12 @@ async function seedLocationAndTheatre() {
 async function seedVenuePackages() {
   console.log("Seeding venue, event packages, package features, and event add-ons...");
 
+  await prisma.eventPackage.deleteMany({
+    where: {
+      slug: { in: ["essential-package", "celebration-package", "signature-package"] },
+    },
+  });
+
   const venue = await prisma.venue.upsert({
     where: { slug: VENUE.slug },
     update: {
@@ -1021,6 +1027,11 @@ async function seedAgreementTemplate() {
   console.log("Seeding agreement template...");
 
   const content = AGREEMENT_TEMPLATE_CONTENT.trim();
+
+  await prisma.agreementTemplate.updateMany({
+    where: { isActive: true },
+    data: { isActive: false },
+  });
 
   await prisma.agreementTemplate.upsert({
     where: {
