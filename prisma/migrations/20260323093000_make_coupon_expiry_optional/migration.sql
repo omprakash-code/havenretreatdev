@@ -1,2 +1,0 @@
-ALTER TABLE "Coupon"
-ALTER COLUMN "validTill" DROP NOT NULL;

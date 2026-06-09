@@ -1,2 +1,0 @@
-ALTER TABLE "Coupon"
-ADD COLUMN "stackableCouponIds" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

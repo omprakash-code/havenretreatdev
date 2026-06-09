@@ -1,12 +1,7 @@
 /**
  * Master production seed for the range booking engine.
  *
- * This seed is intentionally small and idempotent. It creates only the
- * dependency data required for the customer booking flow to run:
- * Location -> Theatre -> BookingSettings, Venue -> EventPackages -> Features,
- * basic occasions, app settings, and the active agreement template.
- *
- * It does not create Slot, SlotTemplate, demo products, coupons, or bookings.
+ * This seed creates the dependency data required for the customer booking flow to run:
  */
 
 import "dotenv/config";

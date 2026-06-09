@@ -1,2 +1,0 @@
-ALTER TABLE "Product"
-ALTER COLUMN "locationId" DROP NOT NULL;
