@@ -10,9 +10,9 @@ import { resolveBookingEmailTheme } from "@/emails/theme/booking-email-theme";
 
 export type AdminBookingConfirmationEmailProps = BookingConfirmationEmailProps;
 
-const moneyFormatter = new Intl.NumberFormat("en-IN", {
+const moneyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
-  currency: "INR",
+  currency: "USD",
   maximumFractionDigits: 0,
 });
 
@@ -29,6 +29,15 @@ const logoBorder =
 
 function formatMoney(value: number) {
   return moneyFormatter.format(Math.max(0, Math.trunc(value || 0)));
+}
+
+function formatAddonPrice(value: number) {
+  return value === 0 ? "Included" : formatMoney(value);
+}
+
+function formatPaymentMethod(method: string) {
+  const prefix = method.split(":")[0];
+  return prefix.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function AdminBookingConfirmationEmail({
@@ -184,7 +193,7 @@ export default function AdminBookingConfirmationEmail({
                         <BookingEmailDataRow
                           key={`${item.name}-${item.variantLabel ?? "default"}-${index}`}
                           label={`${item.name}${item.numberValue ? ` (#${item.numberValue})` : ""}${item.variantLabel ? ` - ${item.variantLabel}` : ""} x${item.quantity}`}
-                          value={formatMoney(item.totalPrice)}
+                          value={formatAddonPrice(item.totalPrice)}
                           labelColor={color.textSecondary}
                           last={index === addonItems.length - 1}
                         />
@@ -227,7 +236,7 @@ export default function AdminBookingConfirmationEmail({
                     {paymentMethod ? (
                       <BookingEmailDataRow
                         label="Payment Method"
-                        value={paymentMethod}
+                        value={formatPaymentMethod(paymentMethod)}
                         labelColor={color.textSecondary}
                         last={!paymentStatus && !paymentReference}
                       />

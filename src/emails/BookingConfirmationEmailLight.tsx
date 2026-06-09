@@ -40,9 +40,9 @@ export type BookingConfirmationEmailProps = {
   successUrl: string;
 };
 
-const moneyFormatter = new Intl.NumberFormat("en-IN", {
+const moneyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
-  currency: "INR",
+  currency: "USD",
   maximumFractionDigits: 0,
 });
 
@@ -285,7 +285,7 @@ export default function BookingConfirmationEmailLight({
                           wordBreak: "break-word",
                         }}
                       >
-                        Booking Confirmed
+                        Booking Received
                       </h1>
                     </td>
                     <td
@@ -620,7 +620,7 @@ export default function BookingConfirmationEmailLight({
                                       fontFamily: "'Courier New', Courier, monospace",
                                     }}
                                   >
-                                    {formatMoney(item.totalPrice)}
+                                    {item.totalPrice === 0 ? "Included" : formatMoney(item.totalPrice)}
                                   </td>
                                 </tr>
                               ))}
@@ -631,15 +631,6 @@ export default function BookingConfirmationEmailLight({
                     </>
                   ) : null}
 
-                  {paymentType || paymentMethod || paymentStatus || paymentReference ? (
-                    <>
-                      <SectionLabel>Payment Details</SectionLabel>
-                      {paymentType ? <DetailRow label="Type" value={paymentType} /> : null}
-                      {paymentMethod ? <DetailRow label="Method" value={paymentMethod} /> : null}
-                      {paymentStatus ? <DetailRow label="Status" value={paymentStatus} /> : null}
-                      {paymentReference ? <DetailRow label="Txn Reference" value={paymentReference} /> : null}
-                    </>
-                  ) : null}
                 </tbody>
               </table>
             </td>
