@@ -1,0 +1,302 @@
+import { z } from "zod";
+
+import {
+  isBookingIntervalAligned,
+  isDateKey,
+  localBookingTimeToUtc,
+  timeToMinutes,
+  toBookingDate,
+  BOOKING_TIME_ZONE,
+} from "@/lib/booking-range";
+import { prisma } from "@/lib/db";
+import {
+  buildInitialPricingSnapshot,
+  buildPackageSnapshot,
+} from "@/services/booking/booking-snapshot.service";
+import { allocateBookingRef } from "@/services/booking/bookingId.service";
+
+const BUSINESS_OPEN_TIME = "09:00";
+const BUSINESS_CLOSE_TIME = "23:00";
+const BUFFER_MINUTES = 30;
+
+export const venueBookingSessionInputSchema = z.object({
+  packageId: z.string().trim().min(1),
+  eventDate: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+});
+
+export type VenueBookingSessionInput = z.infer<
+  typeof venueBookingSessionInputSchema
+>;
+
+export type VenueBookingSessionResult = {
+  bookingId: string;
+  lockVersion: number;
+  replaced: boolean;
+};
+
+export type VenueBookingSessionErrorCode =
+  | "INVALID_RANGE"
+  | "OUTSIDE_BUSINESS_HOURS"
+  | "MINIMUM_DURATION"
+  | "PACKAGE_NOT_FOUND"
+  | "BOOKING_CONFLICT"
+  | "PAYMENT_IN_PROGRESS"
+  | "SESSION_STALE";
+
+export class VenueBookingSessionError extends Error {
+  constructor(
+    public readonly code: VenueBookingSessionErrorCode,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
+type NormalizedRange = {
+  eventDate: Date;
+  startsAtUtc: Date;
+  endsAtUtc: Date;
+  occupiedUntilUtc: Date;
+  durationMinutes: number;
+};
+
+function normalizeRange(
+  input: Pick<VenueBookingSessionInput, "eventDate" | "startTime" | "endTime">,
+  minimumDurationMinutes: number,
+  timeZone: string
+): NormalizedRange {
+  if (
+    !isDateKey(input.eventDate) ||
+    !isBookingIntervalAligned(input.startTime) ||
+    !isBookingIntervalAligned(input.endTime)
+  ) {
+    throw new VenueBookingSessionError(
+      "INVALID_RANGE",
+      "Date and times must be valid and use 30-minute increments."
+    );
+  }
+
+  const start = timeToMinutes(input.startTime);
+  const end = timeToMinutes(input.endTime);
+  const open = timeToMinutes(BUSINESS_OPEN_TIME);
+  const close = timeToMinutes(BUSINESS_CLOSE_TIME);
+
+  if (
+    start === null ||
+    end === null ||
+    open === null ||
+    close === null ||
+    end <= start
+  ) {
+    throw new VenueBookingSessionError(
+      "INVALID_RANGE",
+      "End time must be after start time."
+    );
+  }
+
+  if (start < open || end > close) {
+    throw new VenueBookingSessionError(
+      "OUTSIDE_BUSINESS_HOURS",
+      `Bookings must be between ${BUSINESS_OPEN_TIME} and ${BUSINESS_CLOSE_TIME}.`
+    );
+  }
+
+  const durationMinutes = end - start;
+  if (durationMinutes < minimumDurationMinutes) {
+    const hours = minimumDurationMinutes / 60;
+    throw new VenueBookingSessionError(
+      "MINIMUM_DURATION",
+      `Minimum booking duration is ${hours} hours.`
+    );
+  }
+
+  const eventDate = toBookingDate(input.eventDate, timeZone);
+  const startsAtUtc = localBookingTimeToUtc(input.eventDate, input.startTime, timeZone);
+  const endsAtUtc = localBookingTimeToUtc(input.eventDate, input.endTime, timeZone);
+  const bufferMs = BUFFER_MINUTES * 60_000;
+  const occupiedUntilUtc = new Date(endsAtUtc.getTime() + bufferMs);
+
+  return { eventDate, startsAtUtc, endsAtUtc, occupiedUntilUtc, durationMinutes };
+}
+
+export async function createOrReplaceVenueBookingSession(
+  input: VenueBookingSessionInput,
+  lockOwner: string,
+  session: { bookingId: string; lockVersion: number | null } | null,
+  now = new Date()
+): Promise<VenueBookingSessionResult> {
+  return prisma.$transaction(async (tx) => {
+    const eventPackage = await tx.eventPackage.findFirst({
+      where: {
+        id: input.packageId,
+        isActive: true,
+        venue: { isActive: true },
+      },
+      include: {
+        venue: true,
+        features: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+
+    if (!eventPackage) {
+      throw new VenueBookingSessionError(
+        "PACKAGE_NOT_FOUND",
+        "The selected package is unavailable."
+      );
+    }
+
+    const minimumDurationMinutes = eventPackage.eventDurationHours * 60;
+    const timeZone = BOOKING_TIME_ZONE;
+
+    const range = normalizeRange(input, minimumDurationMinutes, timeZone);
+
+    if (range.startsAtUtc <= now) {
+      throw new VenueBookingSessionError(
+        "INVALID_RANGE",
+        "Booking start time must be in the future."
+      );
+    }
+
+    const currentBookingId = session?.bookingId ?? null;
+
+    if (currentBookingId) {
+      const existing = await tx.booking.findUnique({
+        where: { id: currentBookingId },
+        select: {
+          id: true,
+          bookingStatus: true,
+          lockVersion: true,
+          payment: {
+            where: { status: { in: ["INITIALIZED", "AWAITING_PAYMENT"] } },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      });
+
+      if (!existing) {
+        throw new VenueBookingSessionError(
+          "SESSION_STALE",
+          "The previous booking session is no longer valid."
+        );
+      }
+
+      if (
+        existing.bookingStatus === "PAYMENT_PROCESSING" ||
+        existing.payment.length > 0
+      ) {
+        throw new VenueBookingSessionError(
+          "PAYMENT_IN_PROGRESS",
+          "The schedule cannot change after payment has started."
+        );
+      }
+    }
+
+    // Conflict check: no other CONFIRMED bookings overlap
+    const bookingConflict = await tx.booking.findFirst({
+      where: {
+        venueId: eventPackage.venueId,
+        bookingStatus: "CONFIRMED",
+        id: currentBookingId ? { not: currentBookingId } : undefined,
+        startsAtUtc: { lt: range.occupiedUntilUtc },
+        occupiedUntilUtc: { gt: range.startsAtUtc },
+      },
+      select: { id: true },
+    });
+
+    if (bookingConflict) {
+      throw new VenueBookingSessionError(
+        "BOOKING_CONFLICT",
+        "This time overlaps an existing confirmed booking."
+      );
+    }
+
+    const packageSnapshot = buildPackageSnapshot(eventPackage);
+    const pricingSnapshot = await buildInitialPricingSnapshot(
+      eventPackage,
+      range.durationMinutes,
+      tx
+    );
+    const baseAmount =
+      pricingSnapshot.packageAmount + pricingSnapshot.extraDurationAmount;
+
+    let bookingId: string;
+    let newVersion: number;
+
+    if (currentBookingId) {
+      const current = await tx.booking.findUnique({
+        where: { id: currentBookingId },
+        select: { lockVersion: true },
+      });
+      newVersion = (current?.lockVersion ?? 0) + 1;
+      await tx.booking.update({
+        where: { id: currentBookingId },
+        data: {
+          packageId: eventPackage.id,
+          venueId: eventPackage.venueId,
+          eventDate: range.eventDate,
+          eventStartTime: input.startTime,
+          eventEndTime: input.endTime,
+          startsAtUtc: range.startsAtUtc,
+          endsAtUtc: range.endsAtUtc,
+          occupiedUntilUtc: range.occupiedUntilUtc,
+          bufferMinutes: BUFFER_MINUTES,
+          timezone: timeZone,
+          guestCount: eventPackage.guestLimit,
+          packageSnapshot,
+          pricingSnapshot,
+          baseAmount,
+          extrasAmount: 0,
+          productsAmount: 0,
+          decorationAmount: 0,
+          discountAmount: 0,
+          totalAmount: pricingSnapshot.totalAmount,
+          advancePaid: 0,
+          remainingPayable: pricingSnapshot.remainingPayable,
+          lockVersion: newVersion,
+          bookingStatus: "INCOMPLETE",
+          paymentStatus: null,
+        },
+      });
+      bookingId = currentBookingId;
+    } else {
+      newVersion = 1;
+      const bookingRef = await allocateBookingRef(tx);
+      const booking = await tx.booking.create({
+        data: {
+          bookingRef,
+          venueId: eventPackage.venueId,
+          packageId: eventPackage.id,
+          eventDate: range.eventDate,
+          eventStartTime: input.startTime,
+          eventEndTime: input.endTime,
+          startsAtUtc: range.startsAtUtc,
+          endsAtUtc: range.endsAtUtc,
+          occupiedUntilUtc: range.occupiedUntilUtc,
+          bufferMinutes: BUFFER_MINUTES,
+          timezone: timeZone,
+          guestCount: eventPackage.guestLimit,
+          packageSnapshot,
+          pricingSnapshot,
+          baseAmount,
+          extrasAmount: 0,
+          discountAmount: 0,
+          totalAmount: pricingSnapshot.totalAmount,
+          advancePaid: 0,
+          remainingPayable: pricingSnapshot.remainingPayable,
+          bookingStatus: "INCOMPLETE",
+          lockVersion: newVersion,
+        },
+      });
+      bookingId = booking.id;
+    }
+
+    return {
+      bookingId,
+      lockVersion: newVersion,
+      replaced: Boolean(currentBookingId),
+    };
+  });
+}

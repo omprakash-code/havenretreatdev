@@ -50,6 +50,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
     extraHourlyRate,
     openCalendar,
     setOpenCalendar,
+    hydrated,
   } = useBooking();
 
   /* -----------------------------
@@ -71,7 +72,15 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
   } | null>(null);
   const [datesLoading, setDatesLoading] = useState(false);
   const [lowestPackageRate, setLowestPackageRate] = useState<number | null>(null);
-  const noSlotsForLocation = booking.location && !datesLoading && availableDates.length === 0;
+
+  // When a range booking's eventPackage.locationId is null in the DB, booking.location
+  // synthesises to null even though we have an active session. Fall back to locations[0]
+  // so the dates fetch and UI don't get stuck disabled.
+  const effectiveLocationId =
+    booking.location?.id ??
+    (booking.bookingId && locations.length > 0 ? locations[0].id : undefined);
+
+  const noSlotsForLocation = Boolean(effectiveLocationId) && !datesLoading && availableDates.length === 0;
   const venueTimezone = rangeSettings?.timezone ?? DEFAULT_VENUE_TIMEZONE;
 
   const releaseBookingSession = useCallback(async () => {
@@ -146,17 +155,20 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
    Auto select first location (ONLY ONCE)
    -------------------------------------- */
   useEffect(() => {
+    // Don't auto-select location if there is already an active booking session —
+    // calling setLocation resets theatre + bookingId and would wipe the session.
+    if (booking.bookingId) return;
     if (!booking.location && locations.length > 0) {
       setLocation(locations[0]);
     }
-  }, [locations, booking.location, setLocation]);
+  }, [locations, booking.location, setLocation, booking.bookingId]);
 
 
   /* -------------------------------------
      Fetch available dates (per location)
   --------------------------------------- */
   useEffect(() => {
-    const locationId = booking.location?.id;
+    const locationId = effectiveLocationId;
     if (!locationId) return;
 
     let cancelled = false;
@@ -184,13 +196,13 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
     return () => {
       cancelled = true;
     };
-  }, [booking.location]);
+  }, [effectiveLocationId]);
 
   /* -------------------------------------
      Fetch unavailable ranges for selected date
   --------------------------------------- */
   useEffect(() => {
-    const locationId = booking.location?.id;
+    const locationId = effectiveLocationId;
     const date = booking.date;
     if (!locationId || !date) {
       setUnavailableRanges([]);
@@ -237,7 +249,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
     return () => {
       cancelled = true;
     };
-  }, [booking.location, booking.date]);
+  }, [effectiveLocationId, booking.date]);
 
   useEffect(() => {
     // If the user already has an active booking lock, don't clear their time range —
@@ -263,10 +275,12 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
   -------------------------------------- */
 
   useEffect(() => {
+    // Don't auto-select date if there is already an active booking session —
+    // calling setDate resets theatre + bookingId and would wipe the session.
+    if (booking.bookingId) return;
     if (!booking.location || datesLoading || booking.date || availableDates.length === 0) return;
 
     const todayKey = toDateKey(getDateKeyInTimeZone(new Date(), venueTimezone));
-
 
     const firstValid = availableDates
       .map((d) => dateFromDateKey(d))
@@ -276,7 +290,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
       setDate(firstValid);
       void persistPrebooking(booking.location, firstValid);
     }
-  }, [availableDates, datesLoading, booking.location, booking.date, setDate, persistPrebooking, venueTimezone]);
+  }, [availableDates, datesLoading, booking.location, booking.date, setDate, persistPrebooking, venueTimezone, booking.bookingId]);
 
 
 
@@ -341,11 +355,11 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
 
     setDate(date);
     setOpenCalendar(false);
-    if (booking.location) {
-      const location = booking.location;
+    const loc = booking.location ?? (locations.length > 0 ? locations[0] : null);
+    if (loc) {
       void (async () => {
         await releaseBookingSession();
-        await persistPrebooking(location, date);
+        await persistPrebooking(loc, date);
       })();
     }
   };
@@ -368,7 +382,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
   };
 
   const canContinue = Boolean(
-    booking.location &&
+    effectiveLocationId &&
       booking.date &&
       booking.startTime &&
       booking.endTime &&
@@ -464,15 +478,15 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
 
         <div ref={pickerRef} className="space-y-5">
           <DateSelector
-            datesLoading={datesLoading}
+            datesLoading={datesLoading || !hydrated}
             noSlotsForLocation={noSlotsForLocation}
-            hasLocation={Boolean(booking.location)}
+            hasLocation={Boolean(effectiveLocationId)}
             selectedDate={booking.date}
             availableDates={availableDates}
             quickDates={quickDates}
             onQuickDateSelect={handleQuickDateSelect}
             onOpenCalendar={() => {
-              if (booking.location) {
+              if (effectiveLocationId) {
                 setOpenCalendar(true);
               }
             }}
@@ -483,7 +497,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
           />
 
           {/* Calendar Modal */}
-          {openCalendar && booking.location && (
+          {openCalendar && effectiveLocationId && (
             <BookingCalendar
               availableDates={availableDates}
               selectedDate={booking.date}
@@ -493,11 +507,11 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
                 d.setHours(0, 0, 0, 0);
                 setDate(d);
                 setOpenCalendar(false);
-                if (booking.location) {
-                  const location = booking.location;
+                const loc = booking.location ?? (locations.length > 0 ? locations[0] : null);
+                if (loc) {
                   void (async () => {
                     await releaseBookingSession();
-                    await persistPrebooking(location, d);
+                    await persistPrebooking(loc, d);
                   })();
                 }
               }}

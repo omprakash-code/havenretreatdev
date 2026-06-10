@@ -438,7 +438,10 @@ const loadBooking = async () => {
           Number.isFinite(Number(data.advancePaid)) && Number(data.advancePaid) > 0
             ? Number(data.advancePaid)
             : undefined,
-        location: data.theatre?.location ?? null,
+        location: data.theatre?.location
+          ?? (data.rangeSchedule && data.eventPackage?.locationId
+            ? { id: data.eventPackage.locationId }
+            : null),
         date: data.rangeSchedule?.eventDate
           ? new Date(data.rangeSchedule.eventDate)
           : data.slot?.date
@@ -473,6 +476,17 @@ const loadBooking = async () => {
                 ?? data.theatre?.decorationPrice
                 ?? 0,
               hourlyRate: Number(data.packageSnapshot?.hourlyRate) || undefined,
+            }
+          : data.rangeSchedule && data.packageSnapshot
+          ? {
+              id: (data.packageId ?? data.id) as string,
+              name: String((data.packageSnapshot as { name?: string })?.name ?? "Package"),
+              capacity: Number((data.packageSnapshot as { guestLimit?: number })?.guestLimit) || 20,
+              basePrice: data.baseAmount ?? 0,
+              baseGuests: Number((data.packageSnapshot as { guestLimit?: number })?.guestLimit) || 20,
+              extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
+              decorationPrice: Number((data.packageSnapshot as { decorationAddonPrice?: number })?.decorationAddonPrice) || 0,
+              hourlyRate: Number((data.packageSnapshot as { hourlyRate?: number })?.hourlyRate) || undefined,
             }
           : null,
         slot: data.rangeSchedule

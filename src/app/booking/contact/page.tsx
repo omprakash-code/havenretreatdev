@@ -21,6 +21,8 @@ export default function ContactPage() {
   const formId = "booking-contact-form";
 
 
+  const isRangeBooking = booking.bookingMode === "RANGE";
+
   const [contact, setLocalContact] = useState(() => booking.contact ?? null);
   const [couponIdentityPhone, setCouponIdentityPhone] = useState(
     () => booking.contact?.phone ?? ""
@@ -33,7 +35,7 @@ export default function ContactPage() {
 
   const hasMissingContactDetails =
     !booking.theatre ||
-    !booking.slot ||
+    (!isRangeBooking && !booking.slot) ||
     !contact;
   const isSubmitDisabled =
     hasMissingContactDetails ||
@@ -128,16 +130,17 @@ export default function ContactPage() {
     void handleSubmit();
   };
 
+  const hasValidSession = Boolean(
+    booking.bookingId &&
+    booking.theatre &&
+    (isRangeBooking || booking.slot)
+  );
+
   useEffect(() => {
-    if (
-      hydrated &&
-      (!booking.bookingId ||
-        !booking.theatre ||
-        !booking.slot)
-    ) {
+    if (hydrated && !hasValidSession) {
       router.replace("/booking");
     }
-  }, [hydrated, booking.bookingId, booking.theatre, booking.slot, router]);
+  }, [hydrated, hasValidSession, router]);
 
   if (!hydrated) {
     return (
@@ -147,7 +150,7 @@ export default function ContactPage() {
     );
   }
 
-  if (!booking.bookingId || !booking.theatre || !booking.slot) {
+  if (!hasValidSession) {
     return null;
   }
   return (
