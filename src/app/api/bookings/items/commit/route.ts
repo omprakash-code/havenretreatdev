@@ -35,7 +35,6 @@ import {
 } from "@/lib/booking-duration-pricing";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
-  resolvePackageIncludedGuestCount,
 } from "@/lib/package-guest-pricing";
 import {
   getPackageIncludedProductTotalPrice,
@@ -164,10 +163,6 @@ export async function POST(req: Request) {
       // 0 Lock booking FIRST
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
-        include: {
-          slot: true,
-          theatre: true,
-        },
       });
 
       if (!booking) {
@@ -187,17 +182,10 @@ export async function POST(req: Request) {
         if (!rangeIdentity) throw new Error("SESSION_EXPIRED");
         await requireActiveRangeBookingSession(rangeIdentity, new Date(), tx);
       }
-      if (
-        !booking.theatre ||
-        (!isRangeBooking &&
-          (!booking.slot || booking.slot.status !== "LOCKED"))
-      ) {
-        throw new Error("SLOT_EXPIRED");
-      }
 
-      const theatre = booking.theatre;
-      const slot = booking.slot ?? {
-        id: `range:${booking.id}`,
+      const locationId: string | null = null;
+      const slot = {
+        id: isRangeBooking ? `range:${booking.id}` : (booking.slotId ?? booking.id),
         date: booking.eventDate!,
         startTime: booking.eventStartTime!,
         endTime: booking.eventEndTime!,
@@ -214,9 +202,7 @@ export async function POST(req: Request) {
         decorationMandatory: false,
       };
       const effectiveItemsMap = new Map(normalizedItemsMap);
-      const includedProductSource = isRangeBooking
-        ? { capacity: resolveRangePackageGuestLimit(booking.packageSnapshot) }
-        : theatre;
+      const includedProductSource = { capacity: resolveRangePackageGuestLimit(booking.packageSnapshot) };
       const packageIncludedProducts = resolvePackageIncludedProducts(includedProductSource);
       const packageIncludedProductSlugs = Object.keys(packageIncludedProducts);
 
@@ -227,7 +213,7 @@ export async function POST(req: Request) {
             isActive: true,
             bookingCategorySlug: "add-ons",
             OR: [
-              { locationId: theatre.locationId },
+              { locationId },
               { locationId: null },
             ],
           },
@@ -268,7 +254,7 @@ export async function POST(req: Request) {
                 product: {
                   isActive: true,
                   OR: [
-                    { locationId: theatre.locationId },
+                    { locationId },
                     { locationId: null },
                   ],
                 },
@@ -383,30 +369,8 @@ export async function POST(req: Request) {
         0
       );
 
-      const includedGuestCount = isRangeBooking
-        ? resolveRangePackageGuestLimit(booking.packageSnapshot)
-        : resolvePackageIncludedGuestCount(theatre);
-      const guestLimit = isRangeBooking
-        ? (
-            await tx.bookingSettings.findUniqueOrThrow({
-              where: { theatreId: theatre.id },
-              select: { maximumGuests: true },
-            })
-          ).maximumGuests
-        : Math.max(
-            includedGuestCount,
-            Number(
-              (
-                await tx.theatre.aggregate({
-                  where: {
-                    locationId: theatre.locationId,
-                    isActive: true,
-                  },
-                  _max: { capacity: true },
-                })
-              )._max.capacity ?? includedGuestCount
-            )
-          );
+      const includedGuestCount = resolveRangePackageGuestLimit(booking.packageSnapshot);
+      const guestLimit = includedGuestCount;
       const parsedRequestedGuestCount =
         requestedGuestCountRaw == null ? booking.guestCount : requestedGuestCountRaw;
       const requestedGuestCount =
@@ -465,7 +429,7 @@ export async function POST(req: Request) {
             theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
             theatreDecorationPrice:
               (booking.packageSnapshot as { decorationAddonPrice?: number } | null)?.decorationAddonPrice
-              ?? theatre.decorationPrice,
+              ?? 0,
             slotDecorationMandatory: slot.decorationMandatory,
             decorationRequired: effectiveDecorationRequired,
             productsAmount: 0,
@@ -491,17 +455,9 @@ export async function POST(req: Request) {
           startsAtUtc: booking.startsAtUtc,
           endsAtUtc: booking.endsAtUtc,
         },
-        slot: booking.slot
-          ? {
-              id: booking.slot.id,
-              date: booking.slot.date,
-              startTime: booking.slot.startTime,
-              endTime: booking.slot.endTime,
-              durationMin: booking.slot.durationMin,
-            }
-          : null,
-        theatreId: theatre.id,
-        locationId: theatre.locationId,
+        slot: null,
+        theatreId: booking.theatreId ?? '',
+        locationId: locationId ?? '',
         userId: resolvedUserId,
         contactPhone: booking.contactPhone,
         decorationRequired: effectiveDecorationRequired,

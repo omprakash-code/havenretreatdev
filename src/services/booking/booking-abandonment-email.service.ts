@@ -45,24 +45,13 @@ type BookingForAbandonmentNotification = {
   startsAtUtc: Date | null;
   endsAtUtc: Date | null;
   timezone: string | null;
+  packageSnapshot: Prisma.JsonValue | null;
   items: Array<{
     productName: string;
     variantLabel: string;
     quantity: number;
     totalPrice: number;
   }>;
-  theatre: {
-    name: string;
-    timezone: string | null;
-    location: {
-      name: string;
-    } | null;
-  } | null;
-  slot: {
-    date: Date;
-    startTime: string;
-    endTime: string;
-  } | null;
 };
 
 function stringifyOccasionValue(value: Prisma.JsonValue): string {
@@ -198,8 +187,6 @@ async function sendAbandonmentNotificationForBooking(
     startsAtUtc: booking.startsAtUtc,
     endsAtUtc: booking.endsAtUtc,
     timezone: booking.timezone,
-    theatreTimezone: booking.theatre?.timezone,
-    slot: booking.slot,
   });
 
   if (!schedule) {
@@ -229,8 +216,8 @@ async function sendAbandonmentNotificationForBooking(
       react: UserBookingAbandonmentEmail({
         bookingRef: booking.bookingRef,
         customerName: booking.contactName ?? undefined,
-        theatreName: booking.theatre?.name ?? "Haven Retreat",
-        locationName: booking.theatre?.location?.name,
+        theatreName: (booking.packageSnapshot as { name?: string } | null)?.name ?? "Haven Retreat",
+        locationName: undefined,
         date,
         timeSlot,
         guestCount: booking.guestCount,
@@ -259,8 +246,8 @@ async function sendAbandonmentNotificationForBooking(
             customerName: booking.contactName ?? undefined,
             customerPhone: booking.contactPhone ?? undefined,
             customerEmail: booking.contactEmail ?? undefined,
-            theatreName: booking.theatre?.name ?? "Haven Retreat",
-            locationName: booking.theatre?.location?.name,
+            theatreName: (booking.packageSnapshot as { name?: string } | null)?.name ?? "Haven Retreat",
+            locationName: undefined,
             date,
             timeSlot,
             guestCount: booking.guestCount,
@@ -332,30 +319,13 @@ export async function notifyAbandonedBookingsByIds(
       startsAtUtc: true,
       endsAtUtc: true,
       timezone: true,
+      packageSnapshot: true,
       items: {
         select: {
           productName: true,
           variantLabel: true,
           quantity: true,
           totalPrice: true,
-        },
-      },
-      theatre: {
-        select: {
-          name: true,
-          timezone: true,
-          location: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
-      slot: {
-        select: {
-          date: true,
-          startTime: true,
-          endTime: true,
         },
       },
     },

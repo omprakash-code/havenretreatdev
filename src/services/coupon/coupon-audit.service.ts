@@ -1,7 +1,8 @@
 import { BookingStatus, PaymentStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
-import { resolveBookingLockMinutes } from "@/services/booking/lockBooking.service";
+
+const STALE_LOCK_WINDOW_MINUTES = 30;
 
 const ACTIVE_COUPON_STATUSES = ["RESERVED", "CONFIRMED"] as const;
 
@@ -82,7 +83,7 @@ export async function getCouponAuditReport(input?: {
 }): Promise<CouponAuditReport> {
   const mismatchLimit = Math.max(Number(input?.mismatchLimit ?? 50), 0);
   const now = new Date();
-  const lockWindowMinutes = await resolveBookingLockMinutes();
+  const lockWindowMinutes = STALE_LOCK_WINDOW_MINUTES;
   const staleBefore = getStaleThreshold(now, lockWindowMinutes);
 
   const [activeCounts, staleReservedCount, staleReservedBookings, activeDiscountByBooking] =

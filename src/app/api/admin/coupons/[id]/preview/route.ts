@@ -26,17 +26,19 @@ export async function POST(
     const { id: couponId } = await params;
 
     const {
-      slotId,
       userId,
       userPhone,
       items = [],
       extrasAmount = 0,
+      slotAmount: bodySlotAmount = 0,
+      theatreId: bodyTheatreId = "",
+      locationId: bodyLocationId = "",
       decorationRequired = false,
     } = await req.json();
 
-    if (!couponId || !slotId) {
+    if (!couponId) {
       return NextResponse.json(
-        { success: false, message: "Missing couponId or slotId" },
+        { success: false, message: "Missing couponId" },
         { status: 400 }
       );
     }
@@ -56,37 +58,19 @@ export async function POST(
       );
     }
 
-    const slot = await prisma.slot.findUnique({
-      where: { id: slotId },
-      include: { theatre: true },
-    });
-
-    if (!slot) {
-      return NextResponse.json(
-        { success: false, message: "Slot not found" },
-        { status: 404 }
-      );
-    }
-
     const productsTotal = items.reduce(
       (sum: number, i: { totalPrice: number }) => sum + i.totalPrice,
       0
     );
-    const slotAmount = slot.finalPrice;
+    const slotAmount = Math.max(Number(bodySlotAmount ?? 0), 0);
     const nonSlotAmount = extrasAmount + productsTotal;
     const minAdvanceAmount = await getRequiredAdminAdvanceAmount(prisma);
     const result = await previewAdminCoupon(prisma, {
       rawCoupon,
       couponCode: rawCoupon.code,
-      slot: {
-        id: slot.id,
-        date: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        durationMin: slot.durationMin,
-      },
-      theatreId: slot.theatreId,
-      locationId: slot.theatre.locationId,
+      slot: null,
+      theatreId: bodyTheatreId ? String(bodyTheatreId) : "",
+      locationId: bodyLocationId ? String(bodyLocationId) : "",
       userId: userId ? String(userId) : null,
       userPhone: userPhone ? String(userPhone) : null,
       decorationRequired: Boolean(decorationRequired),

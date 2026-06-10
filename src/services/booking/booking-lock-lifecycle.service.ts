@@ -60,7 +60,7 @@ type BookingLockSnapshot = {
   id: string;
   bookingStatus: BookingStatus;
   slotId: string | null;
-  slot: {
+  slot?: {
     status: string;
     lockExpiresAt: Date | null;
   } | null;
@@ -95,7 +95,7 @@ export async function expireBookingLockSession(
   db: DbClient,
   {
     bookingId,
-    slotId,
+    slotId: _slotId,
     now = new Date(),
     cancelledReason = "SESSION_EXPIRED",
   }: ExpireLockInput
@@ -144,22 +144,6 @@ export async function expireBookingLockSession(
     abandonedBookingIds = [bookingToRelease.id];
   }
 
-  if (slotId) {
-    await db.slot.updateMany({
-      where: {
-        id: slotId,
-        status: "LOCKED",
-        lockExpiresAt: { lte: now },
-      },
-      data: {
-        status: "AVAILABLE",
-        lockedBy: null,
-        lockedAt: null,
-        lockExpiresAt: null,
-      },
-    });
-  }
-
   await db.couponUsage.updateMany({
     where: {
       bookingId,
@@ -179,34 +163,25 @@ export async function expireBookingLockSession(
 export async function releaseSiblingSessionLocks(
   db: DbClient,
   {
-    lockOwner,
+    lockOwner: _lockOwner,
     keepSlotId,
     now = new Date(),
     cancelledReason = "SESSION_SLOT_SWITCHED",
   }: ReleaseSiblingLocksInput
 ) {
-  const siblingLockedSlots = await db.slot.findMany({
-    where: {
-      status: "LOCKED",
-      lockedBy: lockOwner,
-      ...(keepSlotId ? { id: { not: keepSlotId } } : {}),
-    },
-    select: { id: true },
-  });
-
-  if (siblingLockedSlots.length === 0) {
-    return { releasedSlotIds: [] as string[], releasedBookingIds: [] as string[] };
-  }
-
-  const siblingSlotIds = siblingLockedSlots.map((slot) => slot.id);
   const siblingBookingsToRelease = await db.booking.findMany({
     where: {
-      slotId: { in: siblingSlotIds },
+      slotId: keepSlotId ? { not: keepSlotId } : undefined,
       bookingStatus: { in: ACTIVE_LOCK_BOOKING_STATUSES },
       OR: [{ createdByRole: null }, { createdByRole: { not: "ADMIN" } }],
     },
     select: { id: true, slotId: true, bookingStatus: true },
   });
+
+  if (siblingBookingsToRelease.length === 0) {
+    return { releasedSlotIds: [] as string[], releasedBookingIds: [] as string[] };
+  }
+
   const siblingBookingIds = siblingBookingsToRelease.map((booking) => booking.id);
   const abandonedSiblingBookingIds = siblingBookingsToRelease
     .filter((booking) => ABANDONABLE_BOOKING_STATUSES.includes(booking.bookingStatus))
@@ -221,31 +196,6 @@ export async function releaseSiblingSessionLocks(
   const standardSiblingBookingIds = siblingBookingsToRelease
     .filter((booking) => booking.bookingStatus === BookingStatus.INCOMPLETE)
     .map((booking) => booking.id);
-  const releasableSlotIds = Array.from(
-    new Set(
-      siblingBookingsToRelease
-        .map((booking) => booking.slotId)
-        .filter((slotId): slotId is string => Boolean(slotId))
-    )
-  );
-
-  if (releasableSlotIds.length === 0) {
-    return { releasedSlotIds: [] as string[], releasedBookingIds: [] as string[] };
-  }
-
-  await db.slot.updateMany({
-    where: {
-      id: { in: releasableSlotIds },
-      status: "LOCKED",
-      lockedBy: lockOwner,
-    },
-    data: {
-      status: "AVAILABLE",
-      lockedAt: null,
-      lockExpiresAt: null,
-      lockedBy: null,
-    },
-  });
 
   if (standardSiblingBookingIds.length > 0) {
     await db.booking.updateMany({
@@ -258,7 +208,6 @@ export async function releaseSiblingSessionLocks(
         cancelledReason,
       },
     });
-
   }
 
   if (paymentStageSiblingBookingIds.length > 0) {
@@ -279,7 +228,6 @@ export async function releaseSiblingSessionLocks(
         },
       });
     }
-
   }
 
   await db.couponUsage.updateMany({
@@ -296,7 +244,7 @@ export async function releaseSiblingSessionLocks(
   });
 
   return {
-    releasedSlotIds: releasableSlotIds,
+    releasedSlotIds: [] as string[],
     releasedBookingIds: abandonedSiblingBookingIds,
   };
 }

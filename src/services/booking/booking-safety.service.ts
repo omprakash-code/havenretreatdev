@@ -75,19 +75,6 @@ export async function validateNoOverlappingActiveBooking(
       theatreId: input.theatreId,
       bookingStatus: { in: [...ACTIVE_OVERLAP_BOOKING_STATUSES] },
       ...(input.excludeBookingId ? { id: { not: input.excludeBookingId } } : {}),
-      slot: {
-        date: input.date,
-        startTime: { lt: input.endTime },
-        endTime: { gt: input.startTime },
-        ...(input.allowLockOwner
-          ? {
-              OR: [
-                { lockedBy: null },
-                { lockedBy: { not: input.allowLockOwner } },
-              ],
-            }
-          : {}),
-      },
     },
     select: {
       id: true,

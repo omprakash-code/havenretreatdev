@@ -2,14 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import {
-  isStrictLockExpired,
-  releaseSiblingSessionLocks,
-} from "@/services/booking/booking-lock-lifecycle.service";
-import {
-  BookingOverlapError,
-  lockSlotRowForUpdate,
   logBookingSafetyEvent,
-  validateNoOverlappingActiveBooking,
 } from "@/services/booking/booking-safety.service";
 import {
   finalizeRangePayment,
@@ -78,7 +71,6 @@ async function markPaidExpired(
   tx: Prisma.TransactionClient,
   input: {
     bookingId: string;
-    slotId: string | null;
     reason: string;
     orderId: string;
     paymentId: string;
@@ -100,21 +92,6 @@ async function markPaidExpired(
       paymentCheckoutUrl: null,
     },
   });
-
-  if (input.slotId) {
-    await tx.slot.updateMany({
-      where: {
-        id: input.slotId,
-        status: "LOCKED",
-      },
-      data: {
-        status: "AVAILABLE",
-        lockedAt: null,
-        lockExpiresAt: null,
-        lockedBy: null,
-      },
-    });
-  }
 
   await markSquarePaymentAttemptPaid(tx, {
     bookingId: input.bookingId,
@@ -174,10 +151,6 @@ export async function finalizeSquarePayment(input: {
 
     const booking = await tx.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        slot: true,
-        theatre: true,
-      },
     });
 
     if (!booking) {
@@ -208,85 +181,8 @@ export async function finalizeSquarePayment(input: {
       } satisfies SquareFinalizeResult;
     }
 
-    if (!booking.slotId || !booking.slot) {
-      const expired = await markPaidExpired(tx, {
-        bookingId: booking.id,
-        slotId: booking.slotId,
-        reason: "PAYMENT_CAPTURED_SLOT_UNAVAILABLE",
-        orderId: input.orderId,
-        paymentId: input.paymentId,
-        amount: input.amount,
-      });
-      return {
-        status: "PAID_EXPIRED",
-        bookingId: expired.id,
-        bookingRef: expired.bookingRef,
-      } satisfies SquareFinalizeResult;
-    }
-
-    await lockSlotRowForUpdate(tx, {
-      slotId: booking.slotId,
-      context: "square-finalize-payment",
-    });
-
-    const lockedSlot = await tx.slot.findUnique({
-      where: { id: booking.slotId },
-    });
-
-    if (
-      !lockedSlot ||
-      lockedSlot.status !== "LOCKED" ||
-      isStrictLockExpired({
-        id: booking.id,
-        bookingStatus: booking.bookingStatus,
-        slotId: booking.slotId,
-        slot: booking.slot,
-      }, new Date())
-    ) {
-      const expired = await markPaidExpired(tx, {
-        bookingId: booking.id,
-        slotId: booking.slotId,
-        reason: "PAYMENT_CAPTURED_SESSION_EXPIRED",
-        orderId: input.orderId,
-        paymentId: input.paymentId,
-        amount: input.amount,
-      });
-      return {
-        status: "PAID_EXPIRED",
-        bookingId: expired.id,
-        bookingRef: expired.bookingRef,
-      } satisfies SquareFinalizeResult;
-    }
-
     if (!isPayableBookingStatus(booking.bookingStatus)) {
       return { status: "IGNORED", bookingId: booking.id } satisfies SquareFinalizeResult;
-    }
-
-    try {
-      await validateNoOverlappingActiveBooking(tx, {
-        theatreId: booking.theatreId ?? lockedSlot.theatreId,
-        date: lockedSlot.date,
-        startTime: lockedSlot.startTime,
-        endTime: lockedSlot.endTime,
-        excludeBookingId: booking.id,
-        context: "square-finalize-payment",
-      });
-    } catch (error) {
-      if (!(error instanceof BookingOverlapError)) throw error;
-
-      const expired = await markPaidExpired(tx, {
-        bookingId: booking.id,
-        slotId: booking.slotId,
-        reason: "PAYMENT_CAPTURED_SLOT_UNAVAILABLE",
-        orderId: input.orderId,
-        paymentId: input.paymentId,
-        amount: input.amount,
-      });
-      return {
-        status: "PAID_EXPIRED",
-        bookingId: expired.id,
-        bookingRef: expired.bookingRef,
-      } satisfies SquareFinalizeResult;
     }
 
     const bookingItems = await tx.bookingItem.findMany({
@@ -312,7 +208,6 @@ export async function finalizeSquarePayment(input: {
       if (updated.count === 0) {
         const expired = await markPaidExpired(tx, {
           bookingId: booking.id,
-          slotId: booking.slotId,
           reason: "PAYMENT_CAPTURED_PRODUCT_UNAVAILABLE",
           orderId: input.orderId,
           paymentId: input.paymentId,
@@ -340,25 +235,6 @@ export async function finalizeSquarePayment(input: {
       },
     });
 
-    await tx.slot.update({
-      where: { id: booking.slotId },
-      data: {
-        status: "BOOKED",
-        lockedAt: null,
-        lockExpiresAt: null,
-        lockedBy: null,
-      },
-    });
-
-    if (lockedSlot.lockedBy) {
-      await releaseSiblingSessionLocks(tx, {
-        lockOwner: lockedSlot.lockedBy,
-        keepSlotId: booking.slotId,
-        now: new Date(),
-        cancelledReason: "AUTO_RELEASED_AFTER_CONFIRMATION",
-      });
-    }
-
     await tx.couponUsage.updateMany({
       where: {
         bookingId: booking.id,
@@ -380,7 +256,6 @@ export async function finalizeSquarePayment(input: {
     logBookingSafetyEvent("PAYMENT_CONFIRMED_BOOKING", {
       provider: "SQUARE",
       bookingId: updatedBooking.id,
-      slotId: booking.slotId,
       paymentId: input.paymentId,
       orderId: input.orderId,
     });

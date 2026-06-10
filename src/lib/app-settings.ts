@@ -1,12 +1,3 @@
-import {
-  DEFAULT_SLOT_EXPIRY_GRACE_MINUTES,
-  DEFAULT_SLOT_EXPIRY_MODE,
-  SLOT_EXPIRY_GRACE_MINUTES_KEY,
-  SLOT_EXPIRY_GRACE_MINUTES_MAX,
-  SLOT_EXPIRY_GRACE_MINUTES_MIN,
-  SLOT_EXPIRY_MODE_KEY,
-  type SlotExpiryMode,
-} from "@/lib/slot-time";
 
 export type AppSettingItem = {
   key: string;
@@ -53,8 +44,6 @@ export const PRIORITY_SETTING_KEYS = [
   BOOKING_LOCK_MINUTES_KEY,
   MINIMUM_BOOKING_DURATION_HOURS_KEY,
   EXTRA_HOURLY_RATE_KEY,
-  SLOT_EXPIRY_MODE_KEY,
-  SLOT_EXPIRY_GRACE_MINUTES_KEY,
 ] as const;
 
 export const APP_SETTING_META: Record<string, SettingMeta> = {
@@ -109,39 +98,6 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
     max: EXTRA_HOURLY_RATE_MAX,
     step: 1,
   },
-  [SLOT_EXPIRY_MODE_KEY]: {
-    label: "Slot Expiry Mode",
-    description:
-      "Defines when a slot becomes unavailable for new bookings. Options: At start time, After start time + grace period, At end time.",
-    type: "select",
-    placeholder: DEFAULT_SLOT_EXPIRY_MODE,
-    defaultValue: DEFAULT_SLOT_EXPIRY_MODE,
-    options: [
-      {
-        value: "START_TIME",
-        label: "At start time",
-      },
-      {
-        value: "START_TIME_WITH_GRACE",
-        label: "After start time + grace period",
-      },
-      {
-        value: "END_TIME",
-        label: "At end time",
-      },
-    ],
-  },
-  [SLOT_EXPIRY_GRACE_MINUTES_KEY]: {
-    label: "Slot Expiry Grace (minutes)",
-    description:
-      "Additional time allowed after the slot start time before it is considered expired. Used only when expiry mode is set to After start time + grace period. Example: 30 minutes.",
-    type: "number",
-    placeholder: String(DEFAULT_SLOT_EXPIRY_GRACE_MINUTES),
-    defaultValue: String(DEFAULT_SLOT_EXPIRY_GRACE_MINUTES),
-    min: SLOT_EXPIRY_GRACE_MINUTES_MIN,
-    max: SLOT_EXPIRY_GRACE_MINUTES_MAX,
-    step: 1,
-  },
 };
 
 export function normalizeAppSettingValue(key: string, value: string) {
@@ -166,24 +122,6 @@ export function normalizeAppSettingValue(key: string, value: string) {
   }
 
   if (key === EXTRA_HOURLY_RATE_KEY) {
-    const parsed = Number(trimmed);
-    if (!Number.isFinite(parsed)) return trimmed;
-    return String(Math.trunc(parsed));
-  }
-
-  if (key === SLOT_EXPIRY_MODE_KEY) {
-    const normalized = trimmed.toUpperCase() as SlotExpiryMode;
-    if (
-      normalized === "START_TIME" ||
-      normalized === "START_TIME_WITH_GRACE" ||
-      normalized === "END_TIME"
-    ) {
-      return normalized;
-    }
-    return trimmed.toUpperCase();
-  }
-
-  if (key === SLOT_EXPIRY_GRACE_MINUTES_KEY) {
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed)) return trimmed;
     return String(Math.trunc(parsed));
@@ -269,34 +207,6 @@ export function validateAppSetting(key: string, value: string) {
     }
     if (amount > EXTRA_HOURLY_RATE_MAX) {
       return `Amount must be at most ${EXTRA_HOURLY_RATE_MAX}.`;
-    }
-    return null;
-  }
-
-  if (key === SLOT_EXPIRY_MODE_KEY) {
-    if (
-      normalized !== "START_TIME" &&
-      normalized !== "START_TIME_WITH_GRACE" &&
-      normalized !== "END_TIME"
-    ) {
-      return "Choose a valid slot expiry mode.";
-    }
-    return null;
-  }
-
-  if (key === SLOT_EXPIRY_GRACE_MINUTES_KEY) {
-    const minutes = Number(normalized);
-    if (!Number.isFinite(minutes)) {
-      return "Enter a valid number.";
-    }
-    if (!Number.isInteger(minutes)) {
-      return "Grace must be a whole number.";
-    }
-    if (minutes < SLOT_EXPIRY_GRACE_MINUTES_MIN) {
-      return `Grace must be at least ${SLOT_EXPIRY_GRACE_MINUTES_MIN} minutes.`;
-    }
-    if (minutes > SLOT_EXPIRY_GRACE_MINUTES_MAX) {
-      return `Grace must be at most ${SLOT_EXPIRY_GRACE_MINUTES_MAX} minutes.`;
     }
     return null;
   }

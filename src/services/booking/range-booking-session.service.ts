@@ -1,6 +1,5 @@
 import type { Prisma } from "@prisma/client";
 
-import { hashBookingLockOwner } from "@/lib/booking-lock-owner";
 import { prisma } from "@/lib/db";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
@@ -31,7 +30,6 @@ export async function requireActiveRangeBookingSession(
   const booking = await db.booking.findUnique({
     where: { id: identity.bookingId },
     include: {
-      theatre: { include: { location: true } },
       eventPackage: true,
       items: {
         include: {
@@ -68,31 +66,5 @@ export async function requireActiveRangeBookingSession(
     );
   }
 
-  const lock = await db.bookingLock.findFirst({
-    where: {
-      bookingId: booking.id,
-      lockOwnerHash: hashBookingLockOwner(identity.lockOwner),
-      version: identity.lockVersion,
-      status: "ACTIVE",
-      expiresAt: { gt: now },
-    },
-  });
-  if (!lock) {
-    throw new RangeBookingSessionError(
-      "SESSION_EXPIRED",
-      "The booking lock has expired."
-    );
-  }
-  if (
-    lock.startsAtUtc.getTime() !== booking.startsAtUtc?.getTime() ||
-    lock.endsAtUtc.getTime() !== booking.endsAtUtc?.getTime() ||
-    lock.occupiedUntilUtc.getTime() !== booking.occupiedUntilUtc?.getTime()
-  ) {
-    throw new RangeBookingSessionError(
-      "LOCK_VERSION_MISMATCH",
-      "The booking schedule does not match its active lock."
-    );
-  }
-
-  return { booking, lock };
+  return { booking };
 }

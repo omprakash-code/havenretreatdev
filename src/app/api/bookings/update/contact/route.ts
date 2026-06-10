@@ -74,19 +74,13 @@ export async function POST(req: Request) {
           throw new Error("BOOKING_INVALID_STATE");
         }
 
-        const settings = await tx.bookingSettings.findUnique({
-          where: { theatreId: booking.theatreId! },
-        });
-        if (!settings) throw new Error("BOOKING_INVALID_DETAILS");
-
         const includedGuests = resolveRangePackageGuestLimit(
           booking.packageSnapshot
         );
         const parsedGuestCount = Number(guestCount);
         if (
           !Number.isInteger(parsedGuestCount) ||
-          parsedGuestCount < includedGuests ||
-          parsedGuestCount > settings.maximumGuests
+          parsedGuestCount < includedGuests
         ) {
           throw new Error("INVALID_GUEST_COUNT");
         }
@@ -150,8 +144,6 @@ export async function POST(req: Request) {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
         include: {
-          theatre: true,
-          slot: true,
           items: true,
         },
       });
@@ -168,28 +160,10 @@ export async function POST(req: Request) {
         throw new Error("BOOKING_INVALID_STATE");
       }
 
-      if (!booking.theatre || !booking.slot) {
-        throw new Error("BOOKING_INVALID_DETAILS");
-      }
-
-      if (booking.slot.status !== "LOCKED") {
-        throw new Error("SLOT_EXPIRED");
-      }
-
-      const theatre = booking.theatre;
-      const slot = booking.slot;
-      const includedGuestCount = resolvePackageIncludedGuestCount(theatre);
-      const locationMaxCapacity = await tx.theatre.aggregate({
-        where: {
-          locationId: theatre.locationId,
-          isActive: true,
-        },
-        _max: { capacity: true },
-      });
-      const guestLimit = Math.max(
-        includedGuestCount,
-        Number(locationMaxCapacity._max.capacity ?? includedGuestCount)
+      const includedGuestCount = resolvePackageIncludedGuestCount(
+        booking.packageSnapshot as { capacity?: number | null } | null
       );
+      const guestLimit = includedGuestCount;
       const parsedGuestCount = Number(guestCount);
       const normalizedGuestCount = Math.min(
         Math.max(
@@ -201,9 +175,7 @@ export async function POST(req: Request) {
         guestLimit
       );
 
-      const effectiveDecorationRequired = slot.decorationMandatory
-        ? true
-        : Boolean(decorationRequired);
+      const effectiveDecorationRequired = Boolean(decorationRequired);
       const contextItems = booking.items.map((item) => ({
         itemKey: item.id,
         productId: item.productId,
@@ -220,14 +192,19 @@ export async function POST(req: Request) {
       const effectiveExtraHourlyRate =
         packageHourlyRate || durationPricing.extraHourlyRate;
       const durationHours = resolveSlotDurationHours({
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        durationMin: slot.durationMin,
+        startTime: booking.eventStartTime ?? '',
+        endTime: booking.eventEndTime ?? '',
+        durationMin:
+          booking.startsAtUtc && booking.endsAtUtc
+            ? Math.round(
+                (booking.endsAtUtc.getTime() - booking.startsAtUtc.getTime()) / 60_000
+              )
+            : 0,
       });
 
       const pricingBase = calculateBookingPricing({
-        slotBasePrice: slot.basePrice,
-        slotFinalPrice: slot.finalPrice,
+        slotBasePrice: booking.baseAmount,
+        slotFinalPrice: booking.baseAmount,
         durationHours,
         includedDurationHours: durationPricing.includedDurationHours,
         extraHourlyRate: effectiveExtraHourlyRate,
@@ -236,8 +213,8 @@ export async function POST(req: Request) {
         theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         theatreDecorationPrice:
           (booking.packageSnapshot as { decorationAddonPrice?: number } | null)?.decorationAddonPrice
-          ?? theatre.decorationPrice,
-        slotDecorationMandatory: slot.decorationMandatory,
+          ?? 0,
+        slotDecorationMandatory: false,
         decorationRequired: effectiveDecorationRequired,
         productsAmount: 0,
         discountAmount: 0,
@@ -261,15 +238,9 @@ export async function POST(req: Request) {
           startsAtUtc: booking.startsAtUtc,
           endsAtUtc: booking.endsAtUtc,
         },
-        slot: {
-          id: slot.id,
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          durationMin: slot.durationMin,
-        },
-        theatreId: theatre.id,
-        locationId: theatre.locationId,
+        slot: null,
+        theatreId: booking.theatreId ?? '',
+        locationId: '',
         userId: resolvedUserId,
         contactPhone: phone,
         decorationRequired: effectiveDecorationRequired,

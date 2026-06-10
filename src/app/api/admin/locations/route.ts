@@ -81,7 +81,6 @@ export async function GET(req: Request) {
           updatedAt: true,
           _count: {
             select: {
-              theatres: true,
               products: true,
               coupons: true,
             },
@@ -100,7 +99,7 @@ export async function GET(req: Request) {
           city: row.city,
           isActive: row.isActive,
           sortOrder: row.sortOrder,
-          theatresCount: row._count.theatres,
+          theatresCount: 0,
           productsCount: row._count.products,
           couponsCount: row._count.coupons,
           createdAt: row.createdAt.toISOString(),

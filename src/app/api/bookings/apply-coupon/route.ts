@@ -85,8 +85,6 @@ export async function POST(req: Request) {
             prisma.booking.findUnique({
                 where: { id: bookingId },
                 include: {
-                    slot: true,
-                    theatre: true,
                     items: true,
                 },
             }),
@@ -116,14 +114,6 @@ export async function POST(req: Request) {
         }
 
         if (!isEditableBookingStatus(booking.bookingStatus)) {
-            return bookingErrorResponse(
-                409,
-                "SESSION_EXPIRED",
-                BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
-            );
-        }
-
-        if (!booking.theatre || !booking.theatreId) {
             return bookingErrorResponse(
                 409,
                 "SESSION_EXPIRED",
@@ -163,12 +153,6 @@ export async function POST(req: Request) {
                 }
                 throw error;
             }
-        } else if (!booking.slot || booking.slot.status !== "LOCKED") {
-            return bookingErrorResponse(
-                409,
-                "SLOT_EXPIRED",
-                "Selected slot has expired. Please choose a slot again."
-            );
         }
 
         const resolvedUserId = await resolveBookingCouponUserId(prisma, {
@@ -275,17 +259,9 @@ export async function POST(req: Request) {
                 startsAtUtc: booking.startsAtUtc,
                 endsAtUtc: booking.endsAtUtc,
             },
-            slot: booking.slot
-                ? {
-                    id: booking.slot.id,
-                    date: booking.slot.date,
-                    startTime: booking.slot.startTime,
-                    endTime: booking.slot.endTime,
-                    durationMin: booking.slot.durationMin,
-                }
-                : null,
-            theatreId: booking.theatreId,
-            locationId: booking.theatre.locationId,
+            slot: null,
+            theatreId: booking.theatreId ?? "",
+            locationId: "",
             userId: resolvedUserId,
             contactPhone: normalizedContactPhone,
             decorationRequired: booking.decorationRequired,

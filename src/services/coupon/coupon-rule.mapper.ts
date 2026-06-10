@@ -61,18 +61,6 @@ export function mapPrismaRuleToDomain(
       }
     }
 
-    case 'THEATRE_ID': {
-      const value = rule.value as string[]
-
-      return {
-        id: rule.id,
-        couponId: rule.couponId,
-        operator: rule.operator,
-        type: 'THEATRE_ID',
-        value,
-      }
-    }
-
     case 'CATEGORY': {
       const value = rule.value as Array<
         'CAKE' | 'DECORATION' | 'GIFT'

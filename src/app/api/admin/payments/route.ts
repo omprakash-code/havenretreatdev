@@ -144,25 +144,7 @@ export async function GET(req: Request) {
               startsAtUtc: true,
               endsAtUtc: true,
               timezone: true,
-              theatre: {
-                select: {
-                  name: true,
-                  timezone: true,
-                  location: {
-                    select: {
-                      name: true,
-                    },
-                  },
-                },
-              },
-              slot: {
-                select: {
-                  date: true,
-                  startTime: true,
-                  endTime: true,
-                  status: true,
-                },
-              },
+              packageSnapshot: true,
             },
           },
         },
@@ -178,7 +160,7 @@ export async function GET(req: Request) {
           bookingStatus: payment.booking.bookingStatus,
           bookingPaymentStatus: payment.booking.paymentStatus,
           bookingRazorpayPaymentId: payment.booking.razorpayPaymentId,
-          slotStatus: payment.booking.slot?.status ?? null,
+          slotStatus: null,
           method: payment.method,
         });
         const schedule = presentReportingSchedule({
@@ -188,17 +170,22 @@ export async function GET(req: Request) {
           startsAtUtc: payment.booking.startsAtUtc,
           endsAtUtc: payment.booking.endsAtUtc,
           timezone: payment.booking.timezone,
-          theatreTimezone: payment.booking.theatre?.timezone,
-          slot: payment.booking.slot,
+          theatreTimezone: 'America/New_York',
+          slot: null,
         });
+        const packageSnapshot = payment.booking.packageSnapshot &&
+          typeof payment.booking.packageSnapshot === "object" &&
+          !Array.isArray(payment.booking.packageSnapshot)
+            ? (payment.booking.packageSnapshot as { name?: string })
+            : null;
 
         return {
           id: payment.id,
           bookingRef: payment.booking.bookingRef,
           customerName: payment.booking.contactName,
           contactPhone: payment.booking.contactPhone,
-          theatreName: payment.booking.theatre?.name ?? "Haven Retreat",
-          locationName: payment.booking.theatre?.location?.name ?? "—",
+          theatreName: packageSnapshot?.name ?? "Haven Retreat",
+          locationName: 'Miami',
           schedule,
           slotDate: schedule.date,
           slotStartTime: schedule.startTime,

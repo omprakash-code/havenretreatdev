@@ -6,7 +6,17 @@ import { useBooking } from "@/context/BookingContext";
 import { useRouter } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { BOOKING_ROUTES } from "@/constants/routes";
-import type { Theatre } from "@/types/theatre";
+type Theatre = {
+  id: string;
+  name: string;
+  capacity: number;
+  slots: Array<{
+    decorationMandatory: boolean;
+    status: string;
+    isLockedByMe: boolean;
+    durationMin: number;
+  }>;
+};
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
   resolvePackageGuestLimit,

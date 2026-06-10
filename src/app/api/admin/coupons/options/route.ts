@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
-import { formatDuration } from "@/lib/formatters";
 
-const BASE_OPTION_INCLUDES = ["locations", "theatres", "slotDurations"] as const;
+const BASE_OPTION_INCLUDES = ["locations"] as const;
 
 export async function GET(req: Request) {
   try {
@@ -28,42 +27,12 @@ export async function GET(req: Request) {
       requestedIncludes.length > 0 ? requestedIncludes : BASE_OPTION_INCLUDES
     );
 
-    const [locations, theatres, slotDurations, products, coupons] = await Promise.all([
+    const [locations, products, coupons] = await Promise.all([
       includeSet.has("locations")
         ? prisma.location.findMany({
             where: { isActive: true },
             orderBy: { sortOrder: "asc" },
             select: { id: true, name: true },
-          })
-        : Promise.resolve([]),
-      includeSet.has("theatres")
-        ? prisma.theatre.findMany({
-            where: { isActive: true },
-            orderBy: { createdAt: "desc" },
-            select: {
-              id: true,
-              name: true,
-              locationId: true,
-              location: { select: { name: true } },
-            },
-          })
-        : Promise.resolve([]),
-      includeSet.has("slotDurations")
-        ? prisma.slotTemplate.findMany({
-            where: {
-              OR: [{ isActive: true }, { isCustomTemplate: true }],
-              theatre: {
-                isActive: true,
-                location: {
-                  isActive: true,
-                },
-              },
-            },
-            distinct: ["durationMin"],
-            orderBy: { durationMin: "asc" },
-            select: {
-              durationMin: true,
-            },
           })
         : Promise.resolve([]),
       includeSet.has("products")
@@ -99,12 +68,7 @@ export async function GET(req: Request) {
     }
 
     if (includeSet.has("theatres")) {
-      data.theatres = theatres.map((item) => ({
-        id: item.id,
-        name: item.name,
-        locationId: item.locationId,
-        locationName: item.location?.name ?? "—",
-      }));
+      data.theatres = [];
     }
 
     if (includeSet.has("products")) {
@@ -118,10 +82,7 @@ export async function GET(req: Request) {
     }
 
     if (includeSet.has("slotDurations")) {
-      data.slotDurations = slotDurations.map((item) => ({
-        value: item.durationMin,
-        label: `${formatDuration(item.durationMin)} (${item.durationMin} min)`,
-      }));
+      data.slotDurations = [];
     }
 
     if (includeSet.has("coupons")) {

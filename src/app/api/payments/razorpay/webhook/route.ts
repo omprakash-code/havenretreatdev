@@ -226,55 +226,42 @@ async function handlePaymentFailed(payment: RazorpayPaymentEntity) {
       fresh.paymentStatus === "PAID";
     if (bookingIsPaid) return;
 
-    if (fresh.slotId === null && fresh.lockVersion !== null) {
-      const lock = await tx.bookingLock.findUnique({
-        where: {
-          bookingId_version: {
-            bookingId: fresh.id,
-            version: fresh.lockVersion,
-          },
-        },
-      });
-      const lockIsActive =
-        lock?.status === "ACTIVE" && lock.expiresAt > new Date();
+    if (fresh.slotId === null) {
+      // Range booking: reset to awaiting payment on failure.
       await tx.booking.update({
         where: { id: fresh.id },
         data: {
-          bookingStatus: lockIsActive ? "AWAITING_PAYMENT" : "ABANDONED",
-          paymentStatus: lockIsActive ? "FAILED" : "EXPIRED",
-          ...(!lockIsActive
-            ? {
-                cancelledReason: "PAYMENT_LOCK_EXPIRED",
-                cancelledAt: new Date(),
-              }
-            : {}),
+          bookingStatus: "AWAITING_PAYMENT",
+          paymentStatus: "FAILED",
         },
       });
-      const attempt = await tx.payment.findFirst({
-        where: {
-          bookingId: fresh.id,
-          provider: "RAZORPAY",
-          bookingLockVersion: fresh.lockVersion,
-          ...(payment.order_id
-            ? { providerOrderId: payment.order_id }
-            : {}),
-        },
-        orderBy: { createdAt: "desc" },
-      });
-      if (attempt) {
-        await tx.payment.update({
-          where: { id: attempt.id },
-          data: {
-            status: lockIsActive ? "FAILED" : "EXPIRED",
-            providerPaymentId: paymentId || null,
-            providerPayload: {
-              source: "razorpay_webhook",
-              event: "payment.failed",
-              payment: JSON.parse(JSON.stringify(payment)),
-            },
-            method: taggedMethod,
+      if (paymentId) {
+        const existingAttempt = await tx.payment.findFirst({
+          where: {
+            bookingId: fresh.id,
+            provider: "RAZORPAY",
+            transactionId: paymentId,
           },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
         });
+        if (existingAttempt) {
+          await tx.payment.update({
+            where: { id: existingAttempt.id },
+            data: { status: "FAILED", method: taggedMethod },
+          });
+        } else {
+          await tx.payment.create({
+            data: {
+              bookingId: fresh.id,
+              provider: "RAZORPAY",
+              method: taggedMethod,
+              transactionId: paymentId,
+              amount: amountInRupees,
+              status: "FAILED",
+            },
+          });
+        }
       }
       return;
     }

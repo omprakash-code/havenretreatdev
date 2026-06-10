@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { Prisma } from "@prisma/client";
 import { formatInTimeZone } from "date-fns-tz";
 import { nanoid } from "nanoid";
@@ -11,7 +10,6 @@ import { createBookingSessionToken } from "@/services/booking/bookingSession.ser
 import { allocateBookingRef } from "@/services/booking/bookingId.service";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
-import { isSlotExpiredInIST } from "@/lib/slot-time";
 import { sendBookingConfirmationWhatsApp } from "@/services/whatsapp.service";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
 import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
@@ -21,20 +19,13 @@ import {
   type BookingConfirmationDetail,
   type BookingConfirmationEmailProps,
 } from "@/emails/BookingConfirmationEmail";
-import { overrideLockedSlotForAdmin } from "@/services/booking/admin-slot-override.service";
-import { resolveBookingLockMinutes } from "@/services/booking/lockBooking.service";
-import { resolveSlotExpiryConfig } from "@/services/booking/slot-expiry-config.service";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import {
   AdminRangeBookingError,
-  isAdminRangeBookingEnabled,
   validateAdminRangeBooking,
 } from "@/services/booking/admin-range-booking.service";
 import {
   BookingOverlapError,
-  BookingSlotLockError,
-  lockSlotRowForUpdate,
-  validateNoOverlappingActiveBooking,
 } from "@/services/booking/booking-safety.service";
 import {
   AdminBookingApiError as AdminBookingError,
@@ -79,10 +70,9 @@ type CreateBookingItemPayload = {
 type CreateBookingPayload = {
   mode?: "CREATE";
   locationId?: string;
+  venueId?: string;
   date?: string;
-  theatreId?: string;
   packageId?: string;
-  slotId?: string;
   startTime?: string;
   endTime?: string;
   customer?: {
@@ -108,7 +98,6 @@ type CreateBookingPayload = {
     offlineAmountMode?: PaymentAmountMode;
   };
   createdByAdminId?: string;
-  allowLockedSlotOverride?: boolean;
 };
 
 function buildEmailData(input: {
@@ -367,8 +356,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const adminRangeEnabled = isAdminRangeBookingEnabled();
-    assertBookingMutationPayload(body, { requireSlot: !adminRangeEnabled });
+    assertBookingMutationPayload(body, { requireSlot: false });
 
     ensureValidDateKey(body.date);
 
@@ -454,11 +442,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const cookieStore = await cookies();
-    const requestedLockOwner = cookieStore.get("ds_lock_owner")?.value ?? null;
     const lockOwner =
       paymentType === "ONLINE"
-        ? requestedLockOwner || `admin_${nanoid(20)}`
+        ? `admin_${nanoid(20)}`
         : null;
 
     const now = new Date();
@@ -467,180 +453,21 @@ export async function POST(req: Request) {
       const abandonedBookingIds = new Set<string>();
       const rangeStartTime = body.startTime?.trim() || "";
       const rangeEndTime = body.endTime?.trim() || "";
-      const rangeContext = adminRangeEnabled
-        ? await validateAdminRangeBooking(tx, {
-            theatreId: body.theatreId,
-            date: body.date,
-            startTime: rangeStartTime,
-            endTime: rangeEndTime,
-            guestCount,
-            pricingSlotId: body.slotId || null,
-          })
-        : null;
-
-      if (!adminRangeEnabled) {
-        await lockSlotRowForUpdate(tx, {
-          slotId: body.slotId,
-          context: "admin-booking-create",
-        });
-      }
-
-      let slot = rangeContext?.pricingSlot
-        ? {
-            ...rangeContext.pricingSlot,
-            status: "AVAILABLE" as const,
-            lockedBy: null as string | null,
-            lockExpiresAt: null as Date | null,
-            theatre: rangeContext.theatre,
-          }
-        : adminRangeEnabled && rangeContext
-        ? {
-            id: "",
-            theatreId: rangeContext.theatre.id,
-            date: rangeContext.range.eventDate,
-            startTime: rangeStartTime,
-            endTime: rangeEndTime,
-            durationMin: rangeContext.range.durationMinutes,
-            basePrice: 0,
-            finalPrice: null as number | null,
-            decorationMandatory: false,
-            status: "AVAILABLE" as const,
-            lockedBy: null as string | null,
-            lockExpiresAt: null as Date | null,
-            theatre: rangeContext.theatre,
-          }
-        : await tx.slot.findUnique({
-            where: { id: body.slotId },
-            include: {
-              theatre: true,
-            },
-          });
-
-      if (adminRangeEnabled && rangeContext && !rangeContext.pricingSlot && slot) {
-        const template = await tx.slotTemplate.findFirst({
-          where: { theatreId: rangeContext.theatre.id, isActive: true },
-          orderBy: { startTime: "asc" },
-          select: { regularPrice: true, salePrice: true, decorationMandatory: true },
-        });
-        if (template) {
-          slot = {
-            ...slot,
-            basePrice: template.regularPrice,
-            finalPrice: template.salePrice ?? template.regularPrice,
-            decorationMandatory: template.decorationMandatory,
-          };
-        }
-      }
-
-      if (!slot) {
-        throw new AdminBookingError(
-          404,
-          "SLOT_NOT_FOUND",
-          "Selected slot does not exist."
-        );
-      }
-
-      if (slot.theatreId !== body.theatreId || slot.theatre.locationId !== body.locationId) {
-        throw new AdminBookingError(
-          400,
-          "INVALID_REQUEST",
-          "Selected slot does not belong to the chosen theatre/location."
-        );
-      }
-
-      const slotDateKey = formatInTimeZone(slot.date, IST_TIMEZONE, "yyyy-MM-dd");
-      if (slotDateKey !== body.date) {
-        throw new AdminBookingError(
-          409,
-          "SLOT_DATE_MISMATCH",
-          "Selected date does not match the selected slot."
-        );
-      }
-
-      if (!adminRangeEnabled && slot.status === "LOCKED") {
-        if (!body.allowLockedSlotOverride) {
-          const lockedBySameSession = Boolean(
-            requestedLockOwner && slot.lockedBy === requestedLockOwner
-          );
-          throw new AdminBookingError(
-            409,
-            "SLOT_LOCKED_ACTIVE_SESSION",
-            lockedBySameSession
-              ? "This slot is currently reserved in your active booking session. Do you want to override the existing session and proceed with admin booking?"
-              : "This slot is currently locked by another customer session. Do you want to override and proceed with admin booking?",
-            {
-              lockContext: lockedBySameSession
-                ? "same_session"
-                : "other_session",
-            }
-          );
-        }
-
-        const overrideResult = await overrideLockedSlotForAdmin(tx, {
-          slotId: slot.id,
-          adminId: createdByAdminId,
-          now,
-        });
-        overrideResult.abandonedBookingIds.forEach((id) => abandonedBookingIds.add(id));
-
-        const refreshedSlot = await tx.slot.findUnique({
-          where: { id: slot.id },
-          include: { theatre: true },
-        });
-
-        if (!refreshedSlot) {
-          throw new AdminBookingError(
-            404,
-            "SLOT_NOT_FOUND",
-            "Selected slot does not exist."
-          );
-        }
-
-        slot = refreshedSlot;
-      }
-
-      if (!adminRangeEnabled && slot.status !== "AVAILABLE") {
-        throw new AdminBookingError(
-          409,
-          "SLOT_UNAVAILABLE",
-          "Selected slot is no longer available."
-        );
-      }
-
-      if (!adminRangeEnabled) {
-        const slotExpiryConfig = await resolveSlotExpiryConfig(tx);
-        const isExpired = isSlotExpiredInIST(
-          { startTime: slot.startTime, endTime: slot.endTime },
-          slot.date,
-          slotExpiryConfig
-        );
-
-        if (isExpired) {
-          throw new AdminBookingError(
-            409,
-            "SLOT_UNAVAILABLE",
-            "Selected slot is no longer available."
-          );
-        }
-      }
-
-      if (!adminRangeEnabled && guestCount > slot.theatre.capacity) {
-        throw new AdminBookingError(
-          400,
-          "GUEST_LIMIT_EXCEEDED",
-          `Guest count cannot exceed theatre capacity (${slot.theatre.capacity}).`
-        );
-      }
-
-      if (!adminRangeEnabled) {
-        await validateNoOverlappingActiveBooking(tx, {
-          theatreId: slot.theatreId,
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          context: "admin-booking-create",
-        });
-      }
+      const rangeContext = await validateAdminRangeBooking(tx, {
+        venueId: body.venueId,
+        date: body.date,
+        startTime: rangeStartTime,
+        endTime: rangeEndTime,
+        guestCount,
+        settings: {
+          businessOpenTime: "09:00",
+          businessCloseTime: "23:00",
+          minimumDurationMinutes: 60,
+          bufferMinutes: 30,
+          maximumGuests: 9999,
+        },
+        timezone: "America/New_York",
+      });
 
       const selectedPackage = body.packageId
         ? await tx.eventPackage.findFirst({
@@ -913,20 +740,16 @@ export async function POST(req: Request) {
 
       const minAdvanceAmount = await getRequiredAdminAdvanceAmount(tx);
 
-      const effectiveDecorationRequired = slot.decorationMandatory
-        ? true
-        : decorationRequired;
+      const effectiveDecorationRequired = decorationRequired;
 
       const pricingBase = calculateBookingPricing({
-        slotBasePrice: selectedPackage?.subtotalAmount ?? slot.basePrice,
-        slotFinalPrice: selectedPackage?.subtotalAmount ?? slot.finalPrice,
+        slotBasePrice: selectedPackage?.subtotalAmount ?? 0,
+        slotFinalPrice: selectedPackage?.subtotalAmount ?? null,
         guestCount,
-        theatreBaseGuests: selectedPackage?.guestLimit ?? slot.theatre.baseGuests,
-        theatreExtraPersonPrice: slot.theatre.extraPersonPrice,
-        theatreDecorationPrice: selectedPackage
-          ? (selectedPackage.decorationAddonPrice ?? 0)
-          : slot.theatre.decorationPrice,
-        slotDecorationMandatory: slot.decorationMandatory,
+        theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
+        theatreExtraPersonPrice: 0,
+        theatreDecorationPrice: selectedPackage?.decorationAddonPrice ?? 0,
+        slotDecorationMandatory: false,
         decorationRequired: effectiveDecorationRequired,
         productsAmount,
         discountAmount: 0,
@@ -940,25 +763,15 @@ export async function POST(req: Request) {
             : body.couponCode
             ? [body.couponCode]
             : [],
-        bookingSchedule: rangeContext
-          ? {
-              eventDate: rangeContext.range.eventDate,
-              eventStartTime: rangeStartTime,
-              eventEndTime: rangeEndTime,
-              startsAtUtc: rangeContext.range.startsAtUtc,
-              endsAtUtc: rangeContext.range.endsAtUtc,
-            }
-          : null,
-        slot: rangeContext
-          ? null
-          : {
-              id: slot.id,
-              date: slot.date,
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              durationMin: slot.durationMin,
-            },
-        theatreId: slot.theatreId,
+        bookingSchedule: {
+          eventDate: rangeContext.range.eventDate,
+          eventStartTime: rangeStartTime,
+          eventEndTime: rangeEndTime,
+          startsAtUtc: rangeContext.range.startsAtUtc,
+          endsAtUtc: rangeContext.range.endsAtUtc,
+        },
+        slot: null,
+        theatreId: body.venueId ?? "",
         locationId: body.locationId,
         userId: linkedUserId,
         userPhone: phone,
@@ -1017,77 +830,36 @@ export async function POST(req: Request) {
       }
 
       const pricing = calculateBookingPricing({
-        slotBasePrice: selectedPackage?.subtotalAmount ?? slot.basePrice,
-        slotFinalPrice: selectedPackage?.subtotalAmount ?? slot.finalPrice,
+        slotBasePrice: selectedPackage?.subtotalAmount ?? 0,
+        slotFinalPrice: selectedPackage?.subtotalAmount ?? null,
         guestCount,
-        theatreBaseGuests: selectedPackage?.guestLimit ?? slot.theatre.baseGuests,
-        theatreExtraPersonPrice: slot.theatre.extraPersonPrice,
-        theatreDecorationPrice: selectedPackage
-          ? (selectedPackage.decorationAddonPrice ?? 0)
-          : slot.theatre.decorationPrice,
-        slotDecorationMandatory: slot.decorationMandatory,
+        theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
+        theatreExtraPersonPrice: 0,
+        theatreDecorationPrice: selectedPackage?.decorationAddonPrice ?? 0,
+        slotDecorationMandatory: false,
         decorationRequired: effectiveDecorationRequired,
         productsAmount,
         discountAmount: couponDiscount,
         advancePaid: desiredAdvance,
       });
-      const lockWindowMinutes = await resolveBookingLockMinutes(tx);
-
-      const slotUpdateResult = adminRangeEnabled
-        ? { count: 1 }
-        : paymentType === "OFFLINE"
-          ? await tx.slot.updateMany({
-              where: {
-                id: slot.id,
-                status: "AVAILABLE",
-              },
-              data: {
-                status: "BOOKED",
-                lockedAt: null,
-                lockExpiresAt: null,
-                lockedBy: null,
-              },
-            })
-          : await tx.slot.updateMany({
-              where: {
-                id: slot.id,
-                status: "AVAILABLE",
-              },
-              data: {
-                status: "LOCKED",
-                lockedAt: now,
-                lockExpiresAt: new Date(
-                  now.getTime() + lockWindowMinutes * 60 * 1000
-                ),
-                lockedBy: lockOwner,
-              },
-            });
-
-      if (slotUpdateResult.count === 0) {
-        throw new AdminBookingError(
-          409,
-          "SLOT_UNAVAILABLE",
-          "Selected slot is no longer available."
-        );
-      }
 
       const booking = await createBookingWithUniqueRef(tx, now, {
         userId: linkedUserId,
         contactName: customerName,
         contactPhone: phone,
         contactEmail: email,
-        theatreId: slot.theatreId,
+        theatreId: body.venueId ?? null,
         venueId: selectedPackage?.venueId,
         packageId: selectedPackage?.id,
-        slotId: rangeContext ? null : slot.id,
-        eventDate: rangeContext?.range.eventDate,
-        eventStartTime: rangeContext ? rangeStartTime : undefined,
-        eventEndTime: rangeContext ? rangeEndTime : undefined,
-        startsAtUtc: rangeContext?.range.startsAtUtc,
-        endsAtUtc: rangeContext?.range.endsAtUtc,
-        occupiedUntilUtc: rangeContext?.range.occupiedUntilUtc,
-        bufferMinutes: rangeContext?.settings.bufferMinutes,
-        timezone: rangeContext?.theatre.timezone,
+        slotId: null,
+        eventDate: rangeContext.range.eventDate,
+        eventStartTime: rangeStartTime,
+        eventEndTime: rangeEndTime,
+        startsAtUtc: rangeContext.range.startsAtUtc,
+        endsAtUtc: rangeContext.range.endsAtUtc,
+        occupiedUntilUtc: rangeContext.range.occupiedUntilUtc,
+        bufferMinutes: 30,
+        timezone: "America/New_York",
         packageSnapshot: selectedPackage
           ? {
               id: selectedPackage.id,
@@ -1250,13 +1022,7 @@ export async function POST(req: Request) {
       const bookingForNotification = await prisma.booking.findUnique({
         where: { id: result.bookingId },
         include: {
-          theatre: {
-            include: {
-              location: true,
-            },
-          },
           venue: true,
-          slot: true,
           items: {
             orderBy: { createdAt: "asc" },
           },
@@ -1282,15 +1048,11 @@ export async function POST(req: Request) {
           bookingForNotification.occasionData as Prisma.JsonValue | null
         );
         const latestPayment = bookingForNotification.payment[0];
-        const slotDate =
-          bookingForNotification.slot?.date ?? bookingForNotification.eventDate;
-        const slotStartTime =
-          bookingForNotification.slot?.startTime ??
-          bookingForNotification.eventStartTime;
-        const slotEndTime =
-          bookingForNotification.slot?.endTime ??
-          bookingForNotification.eventEndTime;
+        const slotDate = bookingForNotification.eventDate;
+        const slotStartTime = bookingForNotification.eventStartTime;
+        const slotEndTime = bookingForNotification.eventEndTime;
 
+        const packageSnapshotForEmail = bookingForNotification.packageSnapshot as { name?: string } | null;
         const emailData =
           slotDate && slotStartTime && slotEndTime
             ? buildEmailData({
@@ -1300,11 +1062,10 @@ export async function POST(req: Request) {
                 contactPhone: bookingForNotification.contactPhone,
                 contactEmail: bookingForNotification.contactEmail,
                 locationName:
-                  bookingForNotification.theatre?.location?.name ??
                   bookingForNotification.venue?.name ??
-                  null,
+                  'Miami',
                 theatreName:
-                  bookingForNotification.theatre?.name ??
+                  packageSnapshotForEmail?.name ??
                   bookingForNotification.venue?.name ??
                   "Haven Retreat",
                 slotDate,
@@ -1397,13 +1158,6 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof AdminRangeBookingError) {
       return bookingErrorResponse(409, error.code, error.message);
-    }
-    if (error instanceof BookingSlotLockError) {
-      return bookingErrorResponse(
-        404,
-        "SLOT_NOT_FOUND",
-        "Selected slot does not exist."
-      );
     }
 
     if (error instanceof BookingOverlapError) {

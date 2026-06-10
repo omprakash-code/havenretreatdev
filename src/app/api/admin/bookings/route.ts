@@ -55,39 +55,13 @@ export async function GET(req: Request) {
     const now = new Date();
 
     const liveBookingWhere: Prisma.BookingWhereInput = {
-      AND: [
-        {
-          bookingStatus: {
-            in: [
-              BookingStatus.INCOMPLETE,
-              BookingStatus.AWAITING_PAYMENT,
-              BookingStatus.PAYMENT_PROCESSING,
-            ],
-          },
-        },
-        {
-          OR: [
-            {
-              slot: {
-                status: "LOCKED",
-                lockExpiresAt: {
-                  gt: now,
-                },
-              },
-            },
-            {
-              bookingLocks: {
-                some: {
-                  status: "ACTIVE",
-                  expiresAt: {
-                    gt: now,
-                  },
-                },
-              },
-            },
-          ],
-        },
-      ],
+      bookingStatus: {
+        in: [
+          BookingStatus.INCOMPLETE,
+          BookingStatus.AWAITING_PAYMENT,
+          BookingStatus.PAYMENT_PROCESSING,
+        ],
+      },
     };
 
     const abandonedTabWhere: Prisma.BookingWhereInput = {
@@ -133,7 +107,6 @@ export async function GET(req: Request) {
           { bookingRef: { contains: search, mode: "insensitive" } },
           { contactName: { contains: search, mode: "insensitive" } },
           { contactPhone: { contains: search } },
-          { theatre: { name: { contains: search, mode: "insensitive" } } },
           { venue: { name: { contains: search, mode: "insensitive" } } },
         ],
       });
@@ -141,7 +114,7 @@ export async function GET(req: Request) {
 
     if (theatre) {
       whereAnd.push({
-        OR: [{ theatre: { name: theatre } }, { venue: { name: theatre } }],
+        venue: { name: theatre },
       });
     }
 
@@ -149,18 +122,8 @@ export async function GET(req: Request) {
       const [startTime = "", endTime = ""] = slot.split(" - ").map((value) => value.trim());
       if (startTime && endTime) {
         whereAnd.push({
-          OR: [
-            {
-              eventStartTime: startTime,
-              eventEndTime: endTime,
-            },
-            {
-              slot: {
-                startTime,
-                endTime,
-              },
-            },
-          ],
+          eventStartTime: startTime,
+          eventEndTime: endTime,
         });
       }
     }
@@ -212,18 +175,7 @@ export async function GET(req: Request) {
       timezone: true,
       packageSnapshot: true,
       pricingSnapshot: true,
-      theatre: {
-        select: {
-          id: true,
-          name: true,
-          timezone: true,
-          location: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
+      theatreId: true,
       venue: {
         select: {
           id: true,
@@ -234,31 +186,6 @@ export async function GET(req: Request) {
         select: {
           id: true,
           name: true,
-        },
-      },
-      slot: {
-        select: {
-          date: true,
-          startTime: true,
-          endTime: true,
-          status: true,
-          basePrice: true,
-          finalPrice: true,
-        },
-      },
-      bookingLocks: {
-        where: {
-          status: "ACTIVE",
-          expiresAt: {
-            gt: now,
-          },
-        },
-        orderBy: { version: "desc" },
-        take: 1,
-        select: {
-          status: true,
-          version: true,
-          expiresAt: true,
         },
       },
     } satisfies Prisma.BookingSelect;
@@ -294,9 +221,7 @@ export async function GET(req: Request) {
         packageSnapshot && typeof packageSnapshot.name === "string"
           ? packageSnapshot.name
           : null;
-      const isRangeBooking = b.slot === null;
       const pricingSnap =
-        isRangeBooking &&
         b.pricingSnapshot &&
         typeof b.pricingSnapshot === "object" &&
         !Array.isArray(b.pricingSnapshot)
@@ -304,22 +229,8 @@ export async function GET(req: Request) {
           : null;
       const rangePackageAmount = pricingSnap ? Math.max(0, Number(pricingSnap.packageAmount ?? 0)) : 0;
       const rangeExtraDurationAmount = pricingSnap ? Math.max(0, Number(pricingSnap.extraDurationAmount ?? 0)) : 0;
-      // For legacy slot bookings: derive extra hours from slot price vs baseAmount
-      const legacySlotPrice = !isRangeBooking
-        ? (b.slot?.finalPrice ?? b.slot?.basePrice ?? null)
-        : null;
-      const legacyExtraHoursAmount =
-        legacySlotPrice !== null
-          ? Math.max(0, b.baseAmount - legacySlotPrice)
-          : 0;
-      const effectivePackageAmount = rangePackageAmount > 0
-        ? rangePackageAmount
-        : legacySlotPrice ?? null;
-      const effectiveExtraDurationAmount = rangeExtraDurationAmount > 0
-        ? rangeExtraDurationAmount
-        : legacyExtraHoursAmount > 0
-        ? legacyExtraHoursAmount
-        : null;
+      const effectivePackageAmount = rangePackageAmount > 0 ? rangePackageAmount : null;
+      const effectiveExtraDurationAmount = rangeExtraDurationAmount > 0 ? rangeExtraDurationAmount : null;
       const schedule = presentReportingSchedule({
         eventDate: b.eventDate,
         eventStartTime: b.eventStartTime,
@@ -327,10 +238,9 @@ export async function GET(req: Request) {
         startsAtUtc: b.startsAtUtc,
         endsAtUtc: b.endsAtUtc,
         timezone: b.timezone,
-        theatreTimezone: b.theatre?.timezone,
-        slot: b.slot,
+        theatreTimezone: 'America/New_York',
+        slot: null,
       });
-      const activeRangeLock = b.bookingLocks?.[0] ?? null;
       return {
         srNo: index + 1,
 
@@ -344,17 +254,16 @@ export async function GET(req: Request) {
         },
 
         theatre: {
-          id: b.theatre?.id ?? b.venue?.id ?? "",
-          name: b.theatre?.name ?? b.venue?.name ?? "Haven Retreat",
-          timezone: b.theatre?.timezone ?? null,
-          locationName: b.theatre?.location?.name ?? b.venue?.name ?? null,
+          id: b.venue?.id ?? b.theatreId ?? "",
+          name: b.venue?.name ?? (b.packageSnapshot as { name?: string } | null)?.name ?? "Haven Retreat",
+          timezone: 'America/New_York' as string | null,
+          locationName: 'Miami' as string | null,
         },
         package: {
           id: b.eventPackage?.id ?? null,
           name:
             b.eventPackage?.name ??
             snapshotPackageName ??
-            b.theatre?.name ??
             "Package unavailable",
         },
         eventDate: b.eventDate?.toISOString().slice(0, 10) ?? null,
@@ -369,7 +278,7 @@ export async function GET(req: Request) {
           date: schedule.date,
           startTime: schedule.startTime,
           endTime: schedule.endTime,
-          status: b.slot?.status ?? activeRangeLock?.status ?? b.bookingStatus,
+          status: b.bookingStatus,
         },
 
         guestCount: b.guestCount,

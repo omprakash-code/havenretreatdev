@@ -49,10 +49,9 @@ export async function POST() {
     await prisma.$transaction(async (tx) => {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
-        include: { slot: true },
       });
 
-      if (!booking || !booking.slot) {
+      if (!booking) {
         return;
       }
 
@@ -67,24 +66,6 @@ export async function POST() {
       if (booking.paymentStatus === "PAID") {
         return;
       }
-
-      if (booking.slot.status === "LOCKED" && booking.slot.lockedBy !== lockOwner) {
-        return;
-      }
-
-      await tx.slot.updateMany({
-        where: {
-          id: booking.slot.id,
-          status: "LOCKED",
-          lockedBy: lockOwner,
-        },
-        data: {
-          status: "AVAILABLE",
-          lockedBy: null,
-          lockedAt: null,
-          lockExpiresAt: null,
-        },
-      });
 
       if (booking.bookingStatus === BookingStatus.INCOMPLETE) {
         await tx.booking.update({

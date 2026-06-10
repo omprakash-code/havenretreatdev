@@ -286,7 +286,6 @@ function normalizeRuleValue(rule: CouponRuleInput) {
     }
 
     case "SLOT_ID":
-    case "THEATRE_ID":
     case "PRODUCT_ID": {
       if (rule.operator === "EQUALS") {
         const single = String(rule.value ?? "").trim();

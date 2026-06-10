@@ -59,8 +59,6 @@ export async function POST(req: Request) {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
         include: {
-          slot: true,
-          theatre: true,
           items: true,
         },
       });
@@ -70,9 +68,6 @@ export async function POST(req: Request) {
         throw new Error("BOOKING_FINALIZED");
       }
       if (!isEditableBookingStatus(booking.bookingStatus)) {
-        throw new Error("BOOKING_INVALID_STATE");
-      }
-      if (!booking.theatre || !booking.theatreId) {
         throw new Error("BOOKING_INVALID_STATE");
       }
       if (booking.slotId === null) {
@@ -100,8 +95,6 @@ export async function POST(req: Request) {
           }
           throw error;
         }
-      } else if (!booking.slot || booking.slot.status !== "LOCKED") {
-        throw new Error("SLOT_EXPIRED");
       }
 
       const resolvedUserId = await resolveBookingCouponUserId(tx, {
@@ -149,17 +142,9 @@ export async function POST(req: Request) {
           startsAtUtc: booking.startsAtUtc,
           endsAtUtc: booking.endsAtUtc,
         },
-        slot: booking.slot
-          ? {
-              id: booking.slot.id,
-              date: booking.slot.date,
-              startTime: booking.slot.startTime,
-              endTime: booking.slot.endTime,
-              durationMin: booking.slot.durationMin,
-            }
-          : null,
-        theatreId: booking.theatreId,
-        locationId: booking.theatre.locationId,
+        slot: null,
+        theatreId: booking.theatreId ?? '',
+        locationId: '',
         userId: resolvedUserId,
         contactPhone: booking.contactPhone,
         decorationRequired: booking.decorationRequired,

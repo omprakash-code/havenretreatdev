@@ -3,17 +3,9 @@ export async function register() {
     return;
   }
 
-  const [
-    { startCouponSweepScheduler },
-    { startRangeLockCleanupScheduler },
-    { startSlotSyncScheduler },
-  ] = await Promise.all([
-    import("@/services/coupon/coupon-sweep.scheduler"),
-    import("@/services/booking/range-lock-cleanup.scheduler"),
-    import("@/services/slot/slot-sync.scheduler"),
-  ]);
+  const { startCouponSweepScheduler } = await import(
+    "@/services/coupon/coupon-sweep.scheduler"
+  );
 
   startCouponSweepScheduler();
-  startRangeLockCleanupScheduler();
-  startSlotSyncScheduler();
 }

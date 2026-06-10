@@ -67,24 +67,6 @@ const LOCATION = {
   sortOrder: 1,
 };
 
-const THEATRE = {
-  name: "Haven Retreat Miami",
-  timezone: "America/New_York",
-  images: [
-    "/media/booking/theatres/theatre-1/theatre-1-1.png",
-    "/media/booking/theatres/theatre-2/theatre-2-1.png",
-    "/media/booking/theatres/theatre-3/theatre-3-1.png",
-  ],
-  capacity: 50,
-  baseGuests: 30,
-  extraPersonPrice: 25,
-  decorationPrice: 375,
-  hasFood: true,
-  menuFile: "/documents/menus/havenretreat-menu.pdf",
-  mapUrl: "https://maps.app.goo.gl/JS3stLbATdCEjDG96",
-  footerMessage: "Custom event time ranges available from 9 AM to 11 PM.",
-  sortOrder: 1,
-};
 
 /* --------------------------------
    VENUE DATA
@@ -100,7 +82,11 @@ const VENUE = {
   state: "Florida",
   zipCode: "33101",
   country: "USA",
-  images: THEATRE.images,
+  images: [
+    "/media/booking/theatres/theatre-1/theatre-1-1.png",
+    "/media/booking/theatres/theatre-2/theatre-2-1.png",
+    "/media/booking/theatres/theatre-3/theatre-3-1.png",
+  ],
   maxGuests: 50,
   cleaningFee: 95,
   setupBufferMinutes: 60,
@@ -664,8 +650,8 @@ function featureRows(packageId: string, seed: PackageSeed) {
   ];
 }
 
-async function seedLocationAndTheatre() {
-  console.log("Seeding location, theatre, and booking settings...");
+async function seedLocation() {
+  console.log("Seeding location...");
 
   const location = await prisma.location.upsert({
     where: { name: LOCATION.name },
@@ -682,73 +668,8 @@ async function seedLocationAndTheatre() {
     },
   });
 
-  const theatre = await prisma.theatre.upsert({
-    where: {
-      name_locationId: {
-        name: THEATRE.name,
-        locationId: location.id,
-      },
-    },
-    update: {
-      timezone: THEATRE.timezone,
-      images: THEATRE.images,
-      capacity: THEATRE.capacity,
-      baseGuests: THEATRE.baseGuests,
-      extraPersonPrice: THEATRE.extraPersonPrice,
-      decorationPrice: THEATRE.decorationPrice,
-      hasFood: THEATRE.hasFood,
-      menuFile: THEATRE.menuFile,
-      mapUrl: THEATRE.mapUrl,
-      footerMessage: THEATRE.footerMessage,
-      sortOrder: THEATRE.sortOrder,
-      isActive: true,
-    },
-    create: {
-      name: THEATRE.name,
-      timezone: THEATRE.timezone,
-      images: THEATRE.images,
-      capacity: THEATRE.capacity,
-      baseGuests: THEATRE.baseGuests,
-      extraPersonPrice: THEATRE.extraPersonPrice,
-      decorationPrice: THEATRE.decorationPrice,
-      hasFood: THEATRE.hasFood,
-      menuFile: THEATRE.menuFile,
-      mapUrl: THEATRE.mapUrl,
-      footerMessage: THEATRE.footerMessage,
-      sortOrder: THEATRE.sortOrder,
-      isActive: true,
-      locationId: location.id,
-    },
-  });
-
-  await prisma.bookingSettings.upsert({
-    where: { theatreId: theatre.id },
-    update: {
-      businessOpenTime: "09:00",
-      businessCloseTime: "23:00",
-      minimumDurationMinutes: 240,
-      bufferMinutes: 60,
-      lockDurationMinutes: 10,
-      maximumGuests: 50,
-    },
-    create: {
-      theatreId: theatre.id,
-      businessOpenTime: "09:00",
-      businessCloseTime: "23:00",
-      minimumDurationMinutes: 240,
-      bufferMinutes: 60,
-      lockDurationMinutes: 10,
-      maximumGuests: 50,
-    },
-  });
-
-  console.log("Location, theatre, and booking settings seeded", {
-    locations: 1,
-    theatres: 1,
-    bookingSettings: 1,
-  });
-
-  return { location, theatre };
+  console.log("Location seeded", { locations: 1 });
+  return { location };
 }
 
 async function seedVenuePackages(locationId: string) {
@@ -1073,7 +994,7 @@ async function seedAgreementTemplate() {
 async function main() {
   console.log("Starting Haven Retreat master production seed...");
   await seedAdmin();
-  const { location, theatre } = await seedLocationAndTheatre();
+  const { location } = await seedLocation();
   await seedVenuePackages(location.id);
   await seedOccasions();
   await seedProducts();
@@ -1084,8 +1005,6 @@ async function main() {
   console.log("Seed checklist", {
     adminUsers: 1,
     location: location.name,
-    theatre: theatre.name,
-    bookingSettings: 1,
     venues: 1,
     eventPackages: PACKAGE_SEEDS.length,
     packageSlugs: PACKAGE_SEEDS.map((p) => p.slug),
@@ -1099,8 +1018,6 @@ async function main() {
     productVariants: PRODUCTS.length,
     appSettings: APP_SETTINGS.length,
     agreementTemplates: 1,
-    rangeAvailability: "BookingSettings + Bookings + BookingLocks + AvailabilityBlocks",
-    slotsCreated: 0,
   });
 }
 

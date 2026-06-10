@@ -1,14 +1,14 @@
 import { prisma } from "@/lib/db";
-import { resolveBookingLockMinutes } from "@/services/booking/lockBooking.service";
 
 const ACTIVE_COUPON_STATUSES = ["RESERVED", "CONFIRMED"] as const;
+const STALE_LOCK_WINDOW_MINUTES = 30;
 
 export async function releaseStaleReservedCoupons(): Promise<{
   releasedCount: number;
   affectedBookings: string[];
 }> {
   const now = new Date();
-  const lockWindowMinutes = await resolveBookingLockMinutes();
+  const lockWindowMinutes = STALE_LOCK_WINDOW_MINUTES;
   const staleBefore = new Date(
     now.getTime() - lockWindowMinutes * 60 * 1000
   );

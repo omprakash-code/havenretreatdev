@@ -11,7 +11,6 @@ import {
 } from "@/lib/booking-duration-pricing";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
-  resolvePackageIncludedGuestCount,
 } from "@/lib/package-guest-pricing";
 import {
   resolveRangePackageGuestLimit,
@@ -85,12 +84,7 @@ export async function GET(req: Request) {
           },
           orderBy: { confirmedAt: "asc" },
         },
-        theatre: {
-          include: {
-            location: true,
-          },
-        },
-        slot: true,
+        venue: true,
       },
     });
 
@@ -113,8 +107,8 @@ export async function GET(req: Request) {
       startsAtUtc: booking.startsAtUtc,
       endsAtUtc: booking.endsAtUtc,
       timezone: booking.timezone,
-      theatreTimezone: booking.theatre?.timezone,
-      slot: booking.slot,
+      theatreTimezone: 'America/New_York',
+      slot: null,
     }, "dd MMM yyyy");
 
     if (!schedule) {
@@ -136,16 +130,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const theatre = booking.theatre;
-    if (!theatre) {
-      return bookingErrorResponse(
-        404,
-        "BOOKING_NOT_FOUND",
-        "Booking details not found."
-      );
-    }
-
-    const location = theatre.location;
+    const venue = booking.venue;
 
     const productIds = [...new Set(booking.items.map((row) => row.productId))];
     const products = await prisma.product.findMany({
@@ -165,15 +150,9 @@ export async function GET(req: Request) {
         ? Math.max(durationHours - durationConfig.includedDurationHours, 0)
         : null;
     const isRangeBooking = booking.slotId === null;
-    const packageGuestLimit = isRangeBooking
-      ? resolveRangePackageGuestLimit(booking.packageSnapshot)
-      : resolvePackageIncludedGuestCount(theatre);
-    const includedProductSource = isRangeBooking
-      ? { capacity: packageGuestLimit }
-      : theatre;
-    const includedGuestCount = isRangeBooking
-      ? packageGuestLimit
-      : resolvePackageIncludedGuestCount(theatre);
+    const packageGuestLimit = resolveRangePackageGuestLimit(booking.packageSnapshot);
+    const includedProductSource = { capacity: packageGuestLimit };
+    const includedGuestCount = packageGuestLimit;
     const extraGuestCount = Math.max(booking.guestCount - includedGuestCount, 0);
     const packageAmount = isRangeBooking
       ? Number((booking.pricingSnapshot as { packageAmount?: number } | null)?.packageAmount ?? 0)
@@ -222,14 +201,15 @@ export async function GET(req: Request) {
       },
       theatreName:
         (booking.packageSnapshot as { name?: string } | null)?.name ??
-        theatre.name,
-      theatreImage: theatre.images?.[0] ?? null,
+        venue?.name ??
+        'Haven Retreat',
+      theatreImage: null,
       date: formattedDate,
       timeSlot: schedule.timeSlot,
       durationHours,
       includedDurationHours: durationConfig.includedDurationHours,
       extraDurationHours,
-      locationName: location?.name ?? "—",
+      locationName: 'Miami',
       dateTime: schedule.dateTime,
       occasionLabel: booking.occasionLabel ?? undefined,
       occasionDetails: buildOccasionDetails(

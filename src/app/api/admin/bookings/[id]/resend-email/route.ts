@@ -236,13 +236,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     const booking = await prisma.booking.findUnique({
       where: { id },
       include: {
-        theatre: {
-          include: {
-            location: true,
-          },
-        },
         venue: true,
-        slot: true,
         items: {
           orderBy: { createdAt: "asc" },
         },
@@ -295,8 +289,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       startsAtUtc: booking.startsAtUtc,
       endsAtUtc: booking.endsAtUtc,
       timezone: booking.timezone,
-      theatreTimezone: booking.theatre?.timezone,
-      slot: booking.slot,
+      theatreTimezone: null,
+      slot: null,
     });
 
     if (!schedule) {
@@ -315,8 +309,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       contactName: booking.contactName,
       contactPhone: booking.contactPhone,
       contactEmail: booking.contactEmail,
-      locationName: booking.theatre?.location?.name ?? booking.venue?.name ?? null,
-      theatreName: booking.theatre?.name ?? booking.venue?.name ?? "Haven Retreat",
+      locationName: booking.venue?.name ?? 'Miami',
+      theatreName: (booking.packageSnapshot as { name?: string } | null)?.name ?? booking.venue?.name ?? "Haven Retreat",
       date: schedule.date,
       timeSlot: schedule.timeSlot,
       guestCount: booking.guestCount,

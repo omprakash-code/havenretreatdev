@@ -118,7 +118,6 @@ export async function POST(req: Request) {
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { slot: true },
     });
 
     if (!booking) {
@@ -143,14 +142,6 @@ export async function POST(req: Request) {
         409,
         "SESSION_EXPIRED",
         BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
-      );
-    }
-
-    if (!booking.slot || booking.slot.status !== "LOCKED") {
-      return bookingErrorResponse(
-        409,
-        "SLOT_EXPIRED",
-        "Selected slot has expired. Please choose a slot again."
       );
     }
 

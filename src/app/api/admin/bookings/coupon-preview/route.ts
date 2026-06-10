@@ -11,7 +11,8 @@ type CouponPreviewPayload = {
   couponCode?: string;
   couponCodes?: string[];
   existingCouponCodes?: string[];
-  slotId?: string;
+  theatreId?: string;
+  locationId?: string;
   userId?: string | null;
   userPhone?: string | null;
   decorationRequired?: boolean;
@@ -43,41 +44,12 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json().catch(() => null)) as CouponPreviewPayload | null;
-    const slotId = body?.slotId?.trim() ?? "";
     const nextCouponCodes = Array.isArray(body?.couponCodes)
       ? body!.couponCodes
       : [
           ...(Array.isArray(body?.existingCouponCodes) ? body!.existingCouponCodes : []),
           body?.couponCode ?? "",
         ];
-
-    if (!slotId) {
-      throw new AdminBookingApiError(
-        400,
-        "INVALID_REQUEST",
-        "Slot is required."
-      );
-    }
-
-    const slot = await prisma.slot.findUnique({
-      where: { id: slotId },
-      include: {
-        theatre: {
-          select: {
-            id: true,
-            locationId: true,
-          },
-        },
-      },
-    });
-
-    if (!slot) {
-      throw new AdminBookingApiError(
-        404,
-        "SLOT_NOT_FOUND",
-        "Selected slot not found."
-      );
-    }
 
     const slotAmount = Math.max(
       Number(body?.amounts?.slotAmount ?? body?.amounts?.slotTotal ?? 0),
@@ -118,15 +90,9 @@ export async function POST(req: Request) {
     const result = await prisma.$transaction((tx) =>
       evaluateAdminCoupons(tx, {
         couponCodes: nextCouponCodes,
-        slot: {
-          id: slot.id,
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          durationMin: slot.durationMin,
-        },
-        theatreId: slot.theatreId,
-        locationId: slot.theatre.locationId,
+        slot: null,
+        theatreId: String(body?.theatreId ?? ""),
+        locationId: String(body?.locationId ?? ""),
         userId: body?.userId ?? null,
         userPhone: body?.userPhone ?? null,
         decorationRequired: Boolean(body?.decorationRequired),

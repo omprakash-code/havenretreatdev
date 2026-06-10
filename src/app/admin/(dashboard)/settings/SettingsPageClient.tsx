@@ -23,11 +23,6 @@ import {
   sanitizeHomeCouponWidgetSettings,
   type HomeCouponWidgetSettingsPayload,
 } from "@/lib/coupon-widget-settings";
-import {
-  DEFAULT_SLOT_EXPIRY_MODE,
-  SLOT_EXPIRY_GRACE_MINUTES_KEY,
-  SLOT_EXPIRY_MODE_KEY,
-} from "@/lib/slot-time";
 import { isAdminFeatureEnabled } from "@/config/admin-features";
 
 type SettingsResponse = {
@@ -46,27 +41,19 @@ function toMap(items: AppSettingItem[]) {
   return Object.fromEntries(items.map((item) => [item.key, item.value]));
 }
 
-const SLOT_EXPIRY_MODE_GRACE_VALUE = "START_TIME_WITH_GRACE";
 const HIDDEN_APP_SETTING_KEYS = new Set([
   HOME_COUPON_DRAWER_CONFIG_KEY,
   HOME_COUPON_STRIP_CONFIG_KEY,
 ]);
 
-function shouldShowSetting(
-  item: AppSettingItem,
-  draftMap: Record<string, string>
-) {
-  if (item.key !== SLOT_EXPIRY_GRACE_MINUTES_KEY) return true;
-  const mode = draftMap[SLOT_EXPIRY_MODE_KEY] ?? DEFAULT_SLOT_EXPIRY_MODE;
-  return mode === SLOT_EXPIRY_MODE_GRACE_VALUE;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function shouldShowSetting(item: AppSettingItem, _draftMap: Record<string, string>) {
+  return true;
 }
 
-function shouldValidateSetting(
-  item: AppSettingItem,
-  draftMap: Record<string, string>
-) {
-  if (item.key !== SLOT_EXPIRY_GRACE_MINUTES_KEY) return true;
-  return shouldShowSetting(item, draftMap);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function shouldValidateSetting(item: AppSettingItem, _draftMap: Record<string, string>) {
+  return true;
 }
 
 function getSettingInfoContent(key: string, meta?: SettingMeta) {

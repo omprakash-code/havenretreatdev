@@ -106,8 +106,6 @@ export async function sendRangeBookingConfirmationEmails({
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: {
-      theatre: { include: { location: true } },
-      slot: true,
       items: {
         select: {
           productName: true,
@@ -132,8 +130,6 @@ export async function sendRangeBookingConfirmationEmails({
     startsAtUtc: booking.startsAtUtc,
     endsAtUtc: booking.endsAtUtc,
     timezone: booking.timezone,
-    theatreTimezone: booking.theatre?.timezone,
-    slot: booking.slot,
   });
 
   if (!schedule) return;
@@ -153,9 +149,8 @@ export async function sendRangeBookingConfirmationEmails({
     customerEmail: booking.contactEmail ?? undefined,
     theatreName:
       (booking.packageSnapshot as { name?: string } | null)?.name ??
-      booking.theatre?.name ??
       "Haven Retreat",
-    locationName: booking.theatre?.location?.name ?? "-",
+    locationName: "-",
     date: schedule.date,
     timeSlot: schedule.timeSlot,
     guestCount: booking.guestCount,

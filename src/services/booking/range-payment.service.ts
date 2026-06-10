@@ -46,13 +46,13 @@ export function isRangePaymentFinalizationEnabled() {
 
 async function acquireScheduleLock(
   tx: Prisma.TransactionClient,
-  theatreId: string,
+  lockKey: string,
   eventDate: Date
 ) {
   const dateKey = eventDate.toISOString().slice(0, 10);
   await tx.$queryRaw`
     SELECT pg_advisory_xact_lock(
-      hashtext(${theatreId}),
+      hashtext(${lockKey}),
       hashtext(${dateKey})
     )::text AS "lock"
   `;
@@ -62,67 +62,31 @@ async function getRangeConflicts(
   tx: Prisma.TransactionClient,
   input: {
     bookingId: string;
-    lockId: string;
-    theatreId: string;
-    eventDate: Date;
+    venueId?: string | null;
+    theatreId?: string | null;
     startsAtUtc: Date;
     occupiedUntilUtc: Date;
-    now: Date;
   }
 ) {
-  const [booking, lock, block] = await Promise.all([
-    tx.booking.findFirst({
-      where: {
-        id: { not: input.bookingId },
-        theatreId: input.theatreId,
-        bookingStatus: "CONFIRMED",
-        startsAtUtc: { lt: input.occupiedUntilUtc },
-        occupiedUntilUtc: { gt: input.startsAtUtc },
-      },
-      select: { id: true },
-    }),
-    tx.bookingLock.findFirst({
-      where: {
-        id: { not: input.lockId },
-        theatreId: input.theatreId,
-        status: "ACTIVE",
-        expiresAt: { gt: input.now },
-        startsAtUtc: { lt: input.occupiedUntilUtc },
-        occupiedUntilUtc: { gt: input.startsAtUtc },
-      },
-      select: { id: true },
-    }),
-    tx.availabilityBlock.findFirst({
-      where: {
-        theatreId: input.theatreId,
-        eventDate: input.eventDate,
-        isActive: true,
-        startsAtUtc: { lt: input.occupiedUntilUtc },
-        endsAtUtc: { gt: input.startsAtUtc },
-      },
-      select: { id: true },
-    }),
-  ]);
-  return { booking, lock, block };
-}
+  const conflictFilter = input.venueId
+    ? { venueId: input.venueId }
+    : input.theatreId
+      ? { theatreId: input.theatreId }
+      : null;
 
-function scheduleMatches(
-  booking: {
-    startsAtUtc: Date | null;
-    endsAtUtc: Date | null;
-    occupiedUntilUtc: Date | null;
-  },
-  lock: {
-    startsAtUtc: Date;
-    endsAtUtc: Date;
-    occupiedUntilUtc: Date;
-  }
-) {
-  return (
-    booking.startsAtUtc?.getTime() === lock.startsAtUtc.getTime() &&
-    booking.endsAtUtc?.getTime() === lock.endsAtUtc.getTime() &&
-    booking.occupiedUntilUtc?.getTime() === lock.occupiedUntilUtc.getTime()
-  );
+  if (!conflictFilter) return { booking: null };
+
+  const booking = await tx.booking.findFirst({
+    where: {
+      id: { not: input.bookingId },
+      ...conflictFilter,
+      bookingStatus: "CONFIRMED",
+      startsAtUtc: { lt: input.occupiedUntilUtc },
+      occupiedUntilUtc: { gt: input.startsAtUtc },
+    },
+    select: { id: true },
+  });
+  return { booking };
 }
 
 export async function beginRangePaymentAttempt(input: {
@@ -146,7 +110,7 @@ export async function beginRangePaymentAttempt(input: {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
     });
-    if (!booking || booking.slotId !== null || !booking.theatreId || !booking.eventDate) {
+    if (!booking || booking.slotId !== null || !booking.eventDate) {
       throw new RangePaymentError("BOOKING_NOT_FOUND", "Range booking not found.");
     }
     if (
@@ -174,52 +138,23 @@ export async function beginRangePaymentAttempt(input: {
       );
     }
 
-    await acquireScheduleLock(tx, booking.theatreId, booking.eventDate);
-    const lock = await tx.bookingLock.findUnique({
-      where: {
-        bookingId_version: {
-          bookingId: booking.id,
-          version: input.bookingLockVersion,
-        },
-      },
-    });
-    if (!lock || !scheduleMatches(booking, lock)) {
-      throw new RangePaymentError(
-        "LOCK_VERSION_MISMATCH",
-        "Booking schedule does not match its payment lock."
-      );
-    }
-    if (lock.status !== "ACTIVE" || lock.expiresAt <= now) {
-      await tx.bookingLock.updateMany({
-        where: { id: lock.id, status: "ACTIVE" },
-        data: { status: "EXPIRED" },
-      });
-      await tx.booking.update({
-        where: { id: booking.id },
-        data: {
-          bookingStatus: "ABANDONED",
-          paymentStatus: "EXPIRED",
-          cancelledReason: "PAYMENT_LOCK_EXPIRED",
-          cancelledAt: now,
-        },
-      });
-      throw new RangePaymentError("SESSION_EXPIRED", "Booking lock has expired.");
-    }
+    const lockKey = booking.venueId ?? booking.theatreId ?? booking.id;
+    await acquireScheduleLock(tx, lockKey, booking.eventDate);
 
-    const conflicts = await getRangeConflicts(tx, {
-      bookingId: booking.id,
-      lockId: lock.id,
-      theatreId: lock.theatreId,
-      eventDate: lock.eventDate,
-      startsAtUtc: lock.startsAtUtc,
-      occupiedUntilUtc: lock.occupiedUntilUtc,
-      now,
-    });
-    if (conflicts.booking || conflicts.lock || conflicts.block) {
-      throw new RangePaymentError(
-        "RANGE_UNAVAILABLE",
-        "The selected range is no longer available."
-      );
+    if (booking.startsAtUtc && booking.occupiedUntilUtc) {
+      const conflicts = await getRangeConflicts(tx, {
+        bookingId: booking.id,
+        venueId: booking.venueId,
+        theatreId: booking.theatreId,
+        startsAtUtc: booking.startsAtUtc,
+        occupiedUntilUtc: booking.occupiedUntilUtc,
+      });
+      if (conflicts.booking) {
+        throw new RangePaymentError(
+          "RANGE_UNAVAILABLE",
+          "The selected range is no longer available."
+        );
+      }
     }
 
     const baseIdempotencyKey =
@@ -265,7 +200,7 @@ export async function beginRangePaymentAttempt(input: {
         "Existing payment attempt belongs to a stale lock."
       );
     }
-    return { booking, lock, payment, idempotencyKey };
+    return { booking, payment, idempotencyKey };
   });
 }
 
@@ -278,7 +213,6 @@ export async function completeRangePaymentAttempt(input: {
   paymentLinkId?: string;
   now?: Date;
 }) {
-  const now = input.now ?? new Date();
   return prisma.$transaction(async (tx) => {
     const attempt = await tx.payment.findUnique({
       where: { id: input.paymentId },
@@ -297,7 +231,6 @@ export async function completeRangePaymentAttempt(input: {
     });
     if (
       !booking ||
-      !booking.theatreId ||
       !booking.eventDate ||
       booking.lockVersion !== attempt.bookingLockVersion
     ) {
@@ -309,42 +242,6 @@ export async function completeRangePaymentAttempt(input: {
         "LOCK_VERSION_MISMATCH",
         "Payment attempt belongs to a stale lock."
       );
-    }
-    await acquireScheduleLock(tx, booking.theatreId, booking.eventDate);
-    const lock = await tx.bookingLock.findUnique({
-      where: {
-        bookingId_version: {
-          bookingId: booking.id,
-          version: attempt.bookingLockVersion,
-        },
-      },
-    });
-    if (!lock || lock.status !== "ACTIVE" || lock.expiresAt <= now) {
-      if (lock) {
-        await tx.bookingLock.updateMany({
-          where: { id: lock.id, status: "ACTIVE" },
-          data: { status: "EXPIRED" },
-        });
-      }
-      await tx.payment.update({
-        where: { id: attempt.id },
-        data: {
-          status: "EXPIRED",
-          providerOrderId: input.providerOrderId,
-          transactionId: input.providerOrderId,
-          providerPayload: input.providerPayload,
-        },
-      });
-      await tx.booking.update({
-        where: { id: booking.id },
-        data: {
-          bookingStatus: "ABANDONED",
-          paymentStatus: "EXPIRED",
-          cancelledReason: "PAYMENT_LOCK_EXPIRED",
-          cancelledAt: now,
-        },
-      });
-      throw new RangePaymentError("SESSION_EXPIRED", "Booking lock has expired.");
     }
 
     const payment = await tx.payment.update({
@@ -397,24 +294,8 @@ async function markManualReview(
     providerPayload: Prisma.InputJsonValue;
     reason: string;
     now: Date;
-    lockId?: string;
-    lockExpired?: boolean;
   }
 ) {
-  if (input.lockId) {
-    await tx.bookingLock.updateMany({
-      where: { id: input.lockId, status: "ACTIVE" },
-      data: { status: input.lockExpired ? "EXPIRED" : "RELEASED" },
-    });
-  }
-  await tx.bookingLock.updateMany({
-    where: {
-      bookingId: input.bookingId,
-      status: "ACTIVE",
-      ...(input.lockId ? { id: { not: input.lockId } } : {}),
-    },
-    data: { status: "RELEASED" },
-  });
   const booking = await tx.booking.update({
     where: { id: input.bookingId },
     data: {
@@ -472,11 +353,11 @@ export async function finalizeRangePayment(input: {
   const existingPayment =
     existingPaymentByTransaction ??
     (await prisma.payment.findFirst({
-    where: {
-      provider: input.provider,
-      providerOrderId: input.providerOrderId,
-    },
-  }));
+      where: {
+        provider: input.provider,
+        providerOrderId: input.providerOrderId,
+      },
+    }));
   if (!existingPayment || existingPayment.bookingLockVersion === null) {
     return { status: "IGNORED" };
   }
@@ -547,27 +428,11 @@ export async function finalizeRangePayment(input: {
       };
     }
 
-    let lock = null;
-    if (booking.lockVersion !== null) {
-      lock = await tx.bookingLock.findUnique({
-        where: {
-          bookingId_version: {
-            bookingId: booking.id,
-            version: payment.bookingLockVersion!,
-          },
-        },
-      });
-    }
     const versionMatches =
       booking.lockVersion !== null &&
       payment.bookingLockVersion === booking.lockVersion;
-    if (
-      !booking.theatreId ||
-      !booking.eventDate ||
-      !lock ||
-      !versionMatches ||
-      !scheduleMatches(booking, lock)
-    ) {
+
+    if (!booking.eventDate || !versionMatches) {
       const reviewed = await markManualReview(tx, {
         bookingId: booking.id,
         paymentId: payment.id,
@@ -577,7 +442,6 @@ export async function finalizeRangePayment(input: {
         providerPayload: input.providerPayload,
         reason: "PAYMENT_LOCK_VERSION_MISMATCH",
         now,
-        lockId: lock?.id,
       });
       return {
         status: "MANUAL_REVIEW",
@@ -587,55 +451,35 @@ export async function finalizeRangePayment(input: {
       };
     }
 
-    await acquireScheduleLock(tx, booking.theatreId, booking.eventDate);
-    if (lock.status !== "ACTIVE" || lock.expiresAt <= now) {
-      const reviewed = await markManualReview(tx, {
-        bookingId: booking.id,
-        paymentId: payment.id,
-        provider: input.provider,
-        providerOrderId: input.providerOrderId,
-        providerPaymentId: input.providerPaymentId,
-        providerPayload: input.providerPayload,
-        reason: "PAYMENT_CAPTURED_LOCK_EXPIRED",
-        now,
-        lockId: lock.id,
-        lockExpired: true,
-      });
-      return {
-        status: "MANUAL_REVIEW",
-        bookingId: reviewed.id,
-        bookingRef: reviewed.bookingRef,
-        reason: "PAYMENT_CAPTURED_LOCK_EXPIRED",
-      };
-    }
+    const lockKey = booking.venueId ?? booking.theatreId ?? booking.id;
+    await acquireScheduleLock(tx, lockKey, booking.eventDate);
 
-    const conflicts = await getRangeConflicts(tx, {
-      bookingId: booking.id,
-      lockId: lock.id,
-      theatreId: lock.theatreId,
-      eventDate: lock.eventDate,
-      startsAtUtc: lock.startsAtUtc,
-      occupiedUntilUtc: lock.occupiedUntilUtc,
-      now,
-    });
-    if (conflicts.booking || conflicts.lock || conflicts.block) {
-      const reviewed = await markManualReview(tx, {
+    if (booking.startsAtUtc && booking.occupiedUntilUtc) {
+      const conflicts = await getRangeConflicts(tx, {
         bookingId: booking.id,
-        paymentId: payment.id,
-        provider: input.provider,
-        providerOrderId: input.providerOrderId,
-        providerPaymentId: input.providerPaymentId,
-        providerPayload: input.providerPayload,
-        reason: "PAYMENT_CAPTURED_RANGE_UNAVAILABLE",
-        now,
-        lockId: lock.id,
+        venueId: booking.venueId,
+        theatreId: booking.theatreId,
+        startsAtUtc: booking.startsAtUtc,
+        occupiedUntilUtc: booking.occupiedUntilUtc,
       });
-      return {
-        status: "MANUAL_REVIEW",
-        bookingId: reviewed.id,
-        bookingRef: reviewed.bookingRef,
-        reason: "PAYMENT_CAPTURED_RANGE_UNAVAILABLE",
-      };
+      if (conflicts.booking) {
+        const reviewed = await markManualReview(tx, {
+          bookingId: booking.id,
+          paymentId: payment.id,
+          provider: input.provider,
+          providerOrderId: input.providerOrderId,
+          providerPaymentId: input.providerPaymentId,
+          providerPayload: input.providerPayload,
+          reason: "PAYMENT_CAPTURED_RANGE_UNAVAILABLE",
+          now,
+        });
+        return {
+          status: "MANUAL_REVIEW",
+          bookingId: reviewed.id,
+          bookingRef: reviewed.bookingRef,
+          reason: "PAYMENT_CAPTURED_RANGE_UNAVAILABLE",
+        };
+      }
     }
 
     const bookingItems = await tx.bookingItem.findMany({
@@ -657,7 +501,6 @@ export async function finalizeRangePayment(input: {
           providerPayload: input.providerPayload,
           reason: "PAYMENT_CAPTURED_PRODUCT_UNAVAILABLE",
           now,
-          lockId: lock.id,
         });
         return {
           status: "MANUAL_REVIEW",
@@ -695,10 +538,6 @@ export async function finalizeRangePayment(input: {
             }
           : {}),
       },
-    });
-    await tx.bookingLock.update({
-      where: { id: lock.id },
-      data: { status: "CONSUMED" },
     });
     await tx.payment.update({
       where: { id: payment.id },
