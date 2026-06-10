@@ -799,6 +799,7 @@ export function AdminAddBookingForm({
               name: String(eventPackage.name ?? "Unnamed Package"),
               baseGuests: guestLimit,
               basePrice: packageAmount,
+              decorationPrice: Number(eventPackage.decorationAddonPrice ?? 0),
               slots: reservableTheatre.slots.map((slot) => ({
                 ...slot,
                 basePrice: packageAmount,

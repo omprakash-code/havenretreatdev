@@ -463,7 +463,9 @@ export async function POST(req: Request) {
             guestCount: requestedGuestCount,
             theatreBaseGuests: includedGuestCount,
             theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
-            theatreDecorationPrice: theatre.decorationPrice,
+            theatreDecorationPrice:
+              (booking.packageSnapshot as { decorationAddonPrice?: number } | null)?.decorationAddonPrice
+              ?? theatre.decorationPrice,
             slotDecorationMandatory: slot.decorationMandatory,
             decorationRequired: effectiveDecorationRequired,
             productsAmount: 0,

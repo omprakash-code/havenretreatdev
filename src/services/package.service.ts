@@ -86,6 +86,8 @@ async function mapPackageSummary(
     subtotalAmount: record.subtotalAmount,
     savingsAmount: record.savingsAmount,
     finalAmount: record.finalAmount,
+    decorationAddonPrice: record.decorationAddonPrice,
+    locationId: record.locationId,
     isPopular: record.isPopular,
     sortOrder: record.sortOrder,
     isActive: record.isActive,
@@ -96,8 +98,8 @@ async function mapPackageSummary(
   };
 }
 
-export async function getEventPackages() {
-  const packages = await findActiveEventPackages();
+export async function getEventPackages(input?: { locationId?: string }) {
+  const packages = await findActiveEventPackages(input);
   return Promise.all(packages.map((eventPackage) => mapPackageSummary(eventPackage)));
 }
 

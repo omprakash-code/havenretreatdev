@@ -923,7 +923,9 @@ export async function POST(req: Request) {
         guestCount,
         theatreBaseGuests: selectedPackage?.guestLimit ?? slot.theatre.baseGuests,
         theatreExtraPersonPrice: slot.theatre.extraPersonPrice,
-        theatreDecorationPrice: selectedPackage ? 0 : slot.theatre.decorationPrice,
+        theatreDecorationPrice: selectedPackage
+          ? (selectedPackage.decorationAddonPrice ?? 0)
+          : slot.theatre.decorationPrice,
         slotDecorationMandatory: slot.decorationMandatory,
         decorationRequired: effectiveDecorationRequired,
         productsAmount,
@@ -1020,7 +1022,9 @@ export async function POST(req: Request) {
         guestCount,
         theatreBaseGuests: selectedPackage?.guestLimit ?? slot.theatre.baseGuests,
         theatreExtraPersonPrice: slot.theatre.extraPersonPrice,
-        theatreDecorationPrice: selectedPackage ? 0 : slot.theatre.decorationPrice,
+        theatreDecorationPrice: selectedPackage
+          ? (selectedPackage.decorationAddonPrice ?? 0)
+          : slot.theatre.decorationPrice,
         slotDecorationMandatory: slot.decorationMandatory,
         decorationRequired: effectiveDecorationRequired,
         productsAmount,
@@ -1100,6 +1104,7 @@ export async function POST(req: Request) {
               subtotalAmount: selectedPackage.subtotalAmount,
               savingsAmount: 0,
               finalAmount: selectedPackage.subtotalAmount,
+              decorationAddonPrice: selectedPackage.decorationAddonPrice,
               features: selectedPackage.features.map((feature) => ({
                 group: feature.group,
                 label: feature.label,

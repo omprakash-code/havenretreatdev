@@ -28,6 +28,7 @@ model Location {
 
   // Relations
   theatres Theatre[]
+  packages EventPackage[]
   coupons  Coupon[]
   products Product[]
 
@@ -92,12 +93,15 @@ model EventPackage {
   subtotalAmount          Int
   savingsAmount           Int    @default(0)
   finalAmount             Int
+  decorationAddonPrice    Int     @default(375)
+  locationId              String?
   isPopular               Boolean @default(false)
   sortOrder               Int     @default(0)
   isActive                Boolean @default(true)
 
   // Relations
   venue         Venue            @relation(fields: [venueId], references: [id])
+  location      Location?        @relation(fields: [locationId], references: [id])
   features      PackageFeature[]
   bookings      Booking[]
   addons        EventAddon[]
@@ -107,6 +111,7 @@ model EventPackage {
 
   @@unique([venueId, name])
   @@index([venueId, isActive, sortOrder])
+  @@index([locationId, isActive, sortOrder])
 }
 
 enum PackageFeatureGroup {

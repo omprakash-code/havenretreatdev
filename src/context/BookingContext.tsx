@@ -468,7 +468,10 @@ const loadBooking = async () => {
                 Number(data.packageSnapshot?.guestLimit) ||
                 resolvePackageIncludedGuestCount(data.theatre),
               extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
-              decorationPrice: data.theatre.decorationPrice,
+              decorationPrice:
+                (data.packageSnapshot as { decorationAddonPrice?: number } | null)?.decorationAddonPrice
+                ?? data.theatre?.decorationPrice
+                ?? 0,
               hourlyRate: Number(data.packageSnapshot?.hourlyRate) || undefined,
             }
           : null,

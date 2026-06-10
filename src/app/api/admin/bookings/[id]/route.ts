@@ -1287,7 +1287,9 @@ export async function PATCH(
         guestCount,
         theatreBaseGuests: slot.theatre.baseGuests,
         theatreExtraPersonPrice: slot.theatre.extraPersonPrice,
-        theatreDecorationPrice: slot.theatre.decorationPrice,
+        theatreDecorationPrice:
+          (booking.packageSnapshot as { decorationAddonPrice?: number } | null)?.decorationAddonPrice
+          ?? slot.theatre.decorationPrice,
         slotDecorationMandatory: slot.decorationMandatory,
         decorationRequired: effectiveDecorationRequired,
         productsAmount,
@@ -1384,7 +1386,9 @@ export async function PATCH(
         guestCount,
         theatreBaseGuests: slot.theatre.baseGuests,
         theatreExtraPersonPrice: slot.theatre.extraPersonPrice,
-        theatreDecorationPrice: slot.theatre.decorationPrice,
+        theatreDecorationPrice:
+          (booking.packageSnapshot as { decorationAddonPrice?: number } | null)?.decorationAddonPrice
+          ?? slot.theatre.decorationPrice,
         slotDecorationMandatory: slot.decorationMandatory,
         decorationRequired: effectiveDecorationRequired,
         productsAmount,

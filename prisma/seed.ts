@@ -121,6 +121,7 @@ type PackageSeed = {
   subtotalAmount: number;
   savingsAmount: number;
   finalAmount: number;
+  decorationAddonPrice: number;
   isPopular: boolean;
   sortOrder: number;
   included: string[];
@@ -143,6 +144,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     subtotalAmount: 568,
     savingsAmount: 0,
     finalAmount: 568,
+    decorationAddonPrice: 375,
     isPopular: false,
     sortOrder: 1,
     included: [
@@ -176,6 +178,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     subtotalAmount: 692,
     savingsAmount: 0,
     finalAmount: 692,
+    decorationAddonPrice: 375,
     isPopular: true,
     sortOrder: 2,
     included: [
@@ -209,6 +212,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     subtotalAmount: 841,
     savingsAmount: 0,
     finalAmount: 841,
+    decorationAddonPrice: 375,
     isPopular: false,
     sortOrder: 3,
     included: [
@@ -242,6 +246,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     subtotalAmount: 990,
     savingsAmount: 0,
     finalAmount: 990,
+    decorationAddonPrice: 375,
     isPopular: false,
     sortOrder: 4,
     included: [
@@ -746,7 +751,7 @@ async function seedLocationAndTheatre() {
   return { location, theatre };
 }
 
-async function seedVenuePackages() {
+async function seedVenuePackages(locationId: string) {
   console.log("Seeding venue, event packages, package features, and event add-ons...");
 
   await prisma.eventPackage.deleteMany({
@@ -795,6 +800,7 @@ async function seedVenuePackages() {
       where: { slug: seed.slug },
       update: {
         venueId: venue.id,
+        locationId,
         name: seed.name,
         shortDescription: seed.shortDescription,
         guestLimit: seed.guestLimit,
@@ -803,6 +809,7 @@ async function seedVenuePackages() {
         hourlyRate: seed.hourlyRate,
         rentalAmount: seed.rentalAmount,
         decorationAmount: seed.decorationAmount,
+        decorationAddonPrice: seed.decorationAddonPrice,
         cleaningAmount: seed.cleaningAmount,
         subtotalAmount: seed.subtotalAmount,
         savingsAmount: seed.savingsAmount,
@@ -813,6 +820,7 @@ async function seedVenuePackages() {
       },
       create: {
         venueId: venue.id,
+        locationId,
         name: seed.name,
         slug: seed.slug,
         shortDescription: seed.shortDescription,
@@ -822,6 +830,7 @@ async function seedVenuePackages() {
         hourlyRate: seed.hourlyRate,
         rentalAmount: seed.rentalAmount,
         decorationAmount: seed.decorationAmount,
+        decorationAddonPrice: seed.decorationAddonPrice,
         cleaningAmount: seed.cleaningAmount,
         subtotalAmount: seed.subtotalAmount,
         savingsAmount: seed.savingsAmount,
@@ -1065,7 +1074,7 @@ async function main() {
   console.log("Starting Haven Retreat master production seed...");
   await seedAdmin();
   const { location, theatre } = await seedLocationAndTheatre();
-  await seedVenuePackages();
+  await seedVenuePackages(location.id);
   await seedOccasions();
   await seedProducts();
   await seedAppSettings();

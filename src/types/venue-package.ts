@@ -60,6 +60,8 @@ export type EventPackageSummary = {
   subtotalAmount: number;
   savingsAmount: number;
   finalAmount: number;
+  decorationAddonPrice: number;
+  locationId?: string | null;
   isPopular: boolean;
   sortOrder: number;
   isActive: boolean;

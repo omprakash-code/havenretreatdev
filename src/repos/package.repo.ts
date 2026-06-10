@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/db";
 
-export function findActiveEventPackages() {
+export function findActiveEventPackages(input?: { locationId?: string }) {
   return prisma.eventPackage.findMany({
     where: {
       isActive: true,
       venue: {
         isActive: true,
       },
+      ...(input?.locationId ? { locationId: input.locationId } : {}),
     },
     include: {
       venue: true,
