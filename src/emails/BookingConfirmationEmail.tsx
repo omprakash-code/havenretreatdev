@@ -1,4 +1,9 @@
 import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
+import {
+  BOOKING_PAYMENT_APPLIED_MESSAGE,
+  BOOKING_REVIEW_MESSAGE,
+  BOOKING_REVIEW_TITLE,
+} from "@/constants/booking-status-copy";
 export type BookingConfirmationAddonItem = {
   name: string;
   variantLabel?: string;
@@ -409,22 +414,22 @@ export default function BookingConfirmationEmail({
                 cellSpacing={0}
                 style={{
                   width: "100%",
-                  backgroundColor: "#fffbeb",
-                  border: "1px solid #fcd34d",
+                  backgroundColor: "#f2f8f6",
+                  border: "1px solid #b9d8d3",
                   borderRadius: 4,
                 }}
               >
                 <tbody>
                   <tr>
                     <td style={{ padding: "10px 12px" }}>
-                      <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "#92400e", fontFamily: "'Courier New', Courier, monospace" }}>
-                        ⚠ Booking NOT Confirmed
+                      <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "#245e5b", fontFamily: "'Courier New', Courier, monospace" }}>
+                        {BOOKING_REVIEW_TITLE}
                       </p>
-                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "#b45309", lineHeight: 1.5, fontFamily: "'Courier New', Courier, monospace" }}>
-                        Haven Retreat will review your request and contact you to approve your date. Please do not make arrangements until you receive confirmation.
+                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "#347f7c", lineHeight: 1.5, fontFamily: "'Courier New', Courier, monospace" }}>
+                        {BOOKING_REVIEW_MESSAGE}
                       </p>
-                      <p style={{ margin: "6px 0 0", fontSize: 10, color: "#b45309", fontFamily: "'Courier New', Courier, monospace" }}>
-                        $150 deposit is non-refundable &nbsp;·&nbsp; Remaining balance due one week before your event
+                      <p style={{ margin: "6px 0 0", fontSize: 10, color: "#347f7c", fontFamily: "'Courier New', Courier, monospace" }}>
+                        {BOOKING_PAYMENT_APPLIED_MESSAGE}
                       </p>
                     </td>
                   </tr>

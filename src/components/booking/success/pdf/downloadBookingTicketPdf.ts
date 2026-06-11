@@ -1,6 +1,11 @@
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { buildCelebrationRows } from "@/components/booking/success/success-details";
 import { formatISTDateTime, formatSlotTime } from "@/lib/formatters";
+import {
+  BOOKING_PAYMENT_APPLIED_MESSAGE,
+  BOOKING_REVIEW_MESSAGE,
+  BOOKING_REVIEW_TITLE,
+} from "@/constants/booking-status-copy";
 
 type PdfImage = {
   dataUrl: string;
@@ -141,15 +146,14 @@ export async function buildBookingTicketPdf(
   }
 
   drawSectionCard(layout, "Important", [
-    { label: "Status", value: "Your booking request has been received and is PENDING REVIEW — your date is held but NOT confirmed until Haven Retreat approves.", tone: "strong" },
     {
-      label: "Deposit",
-      value: "$150 deposit is non-refundable.",
-      tone: "normal",
+      label: "Status",
+      value: `${BOOKING_REVIEW_TITLE} ${BOOKING_REVIEW_MESSAGE}`,
+      tone: "strong",
     },
     {
-      label: "Balance Due",
-      value: "Remaining balance is due one week prior to your event.",
+      label: "Payment",
+      value: BOOKING_PAYMENT_APPLIED_MESSAGE,
       tone: "normal",
     },
     {

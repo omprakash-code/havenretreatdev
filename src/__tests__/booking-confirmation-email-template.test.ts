@@ -42,4 +42,13 @@ describe("BookingConfirmationEmail template", () => {
     );
     expect(html).toContain("Balance at Venue");
   });
+
+  it("uses reassuring post-payment status language", async () => {
+    const html = await render(renderBookingConfirmationEmail(baseProps, "dark"));
+
+    expect(html).toContain("Request received. Your date is reserved.");
+    expect(html).toContain("Your payment has been applied");
+    expect(html).not.toContain("Booking NOT Confirmed");
+    expect(html).not.toContain("deposit is non-refundable");
+  });
 });

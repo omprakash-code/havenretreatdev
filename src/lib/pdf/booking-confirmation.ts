@@ -1,5 +1,9 @@
 import type { BookingConfirmationEmailProps } from "@/emails/BookingConfirmationEmail";
 import { formatISTDateTime, formatSlotTime } from "@/lib/formatters";
+import {
+  BOOKING_PAYMENT_APPLIED_MESSAGE,
+  BOOKING_REVIEW_TITLE,
+} from "@/constants/booking-status-copy";
 
 type BookingConfirmationPdfAttachment = {
   filename: string;
@@ -335,26 +339,31 @@ export async function buildBookingConfirmationPdfAttachment(
   }
   writeSectionCard(doc, state, pageHeight, "Payment Summary", paymentRows);
 
-  ensureSpace(doc, state, pageHeight, 14);
-  doc.setFillColor(255, 251, 235);
-  doc.setDrawColor(252, 211, 77);
-  doc.roundedRect(12, state.y, 186, 13, 2, 2, "FD");
+  const paymentMessageLines = doc.splitTextToSize(
+    BOOKING_PAYMENT_APPLIED_MESSAGE,
+    174
+  ) as string[];
+  const noticeHeight = 10.4 + Math.max(paymentMessageLines.length, 1) * 3.6;
+  ensureSpace(doc, state, pageHeight, noticeHeight + 1);
+  doc.setFillColor(242, 248, 246);
+  doc.setDrawColor(185, 216, 211);
+  doc.roundedRect(12, state.y, 186, noticeHeight, 2, 2, "FD");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.6);
-  doc.setTextColor(146, 64, 14);
-  doc.text("Booking Pending Approval", 16, state.y + 5.2);
+  doc.setTextColor(36, 94, 91);
+  doc.text(BOOKING_REVIEW_TITLE, 16, state.y + 5.2);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.2);
-  doc.setTextColor(180, 83, 9);
-  doc.text("$150 deposit is non-refundable. Remaining balance is due one week prior to your event.", 16, state.y + 10.4);
-  state.y += 16;
+  doc.setTextColor(52, 127, 124);
+  doc.text(paymentMessageLines, 16, state.y + 10.4);
+  state.y += noticeHeight + 3;
 
   state.y += 2;
   ensureSpace(doc, state, pageHeight, 8);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(100, 116, 139);
-  doc.text("This is a system-generated booking receipt. Your booking is pending review.", 12, state.y);
+  doc.text("This is a system-generated booking receipt. Final confirmation will follow shortly.", 12, state.y);
 
   const filenameBase = sanitizeFilename(effectiveBookingRef) || "booking-confirmation";
   const arrayBuffer = doc.output("arraybuffer");

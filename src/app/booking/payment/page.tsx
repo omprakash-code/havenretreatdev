@@ -351,7 +351,8 @@ export default function PaymentPage() {
               <strong>{paymentLabel} Payable:</strong> {formatCurrency(displayPayableAmount)}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              A $150 non-refundable deposit is required to secure your booking.
+              Your deposit is applied toward the booking total. Deposit terms
+              were included in the agreement you accepted.
             </p>
             </div>
           ) : null}

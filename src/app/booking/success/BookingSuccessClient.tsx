@@ -210,22 +210,6 @@ export default function BookingSuccessClient() {
           {/* Hero Section */}
           <CinematicHero />
 
-          {/* Pending Notice */}
-          <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-4 pb-0">
-            <div className="flex items-start gap-3 border border-amber-300 bg-amber-50 px-4 py-3.5">
-              <span className="mt-0.5 shrink-0 text-amber-600 font-bold text-sm">!</span>
-              <div>
-                <p className="text-sm font-bold text-amber-800">Your booking is NOT confirmed yet</p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-700">
-                  Haven Retreat will review your request and contact you to approve your date. Please do not make event arrangements until you receive confirmation from us.
-                </p>
-                <p className="mt-1.5 text-[11px] text-amber-600">
-                  $150 deposit is non-refundable &nbsp;·&nbsp; Remaining balance due one week before your event
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Main Content */}
           <div className="max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-10">
             <section className="overflow-hidden border border-[#2f7e7a]/20 bg-white shadow-lg shadow-[#cfdedb]/40">

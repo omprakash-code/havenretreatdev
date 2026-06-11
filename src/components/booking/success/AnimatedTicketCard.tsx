@@ -21,6 +21,11 @@ import {
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { downloadBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
 import { useBooking } from "@/context/BookingContext";
+import {
+  BOOKING_PAYMENT_APPLIED_MESSAGE,
+  BOOKING_REVIEW_MESSAGE,
+  BOOKING_REVIEW_TITLE,
+} from "@/constants/booking-status-copy";
 
 type AnimatedTicketCardProps = {
   data: BookingSuccessData;
@@ -372,7 +377,7 @@ ${shareUrl}`;
                   bold
                 />
                 <p className="text-[11px] leading-relaxed text-slate-500 sm:text-xs">
-                  $150 deposit is non-refundable. Remaining balance is due one week prior to your event. Balance can be paid at the venue via Card or Cash.
+                  {BOOKING_PAYMENT_APPLIED_MESSAGE}
                 </p>
               </div>
             )}
@@ -397,10 +402,10 @@ ${shareUrl}`;
             )}
           </div>
 
-          <div className="border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed sm:p-3">
-            <p className="font-bold text-amber-800">Booking pending approval</p>
-            <p className="mt-0.5 text-amber-700">
-              Your date is held but <strong>NOT confirmed</strong> until Haven Retreat reviews and approves your booking. You will be contacted once approved — please do not make arrangements in the meantime.
+          <div className="border border-[#b9d8d3] bg-[#f2f8f6] p-2.5 text-[11px] leading-relaxed sm:p-3">
+            <p className="font-bold text-[#245e5b]">{BOOKING_REVIEW_TITLE}</p>
+            <p className="mt-0.5 text-[#347f7c]">
+              {BOOKING_REVIEW_MESSAGE}
             </p>
           </div>
 
