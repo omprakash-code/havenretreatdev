@@ -2,6 +2,7 @@
 
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -673,18 +674,21 @@ const loadBooking = async () => {
       decorationRequired: v,
     }));
 
-  const setBookingItems = (
-    items:
-      | BookingItemSnapshot[]
-      | ((prev: BookingItemSnapshot[]) => BookingItemSnapshot[])
-  ) =>
-    setBooking((p) => ({
-      ...p,
-      bookingItems:
-        typeof items === "function"
-          ? items(p.bookingItems)
-          : items,
-    }));
+  const setBookingItems = useCallback(
+    (
+      items:
+        | BookingItemSnapshot[]
+        | ((prev: BookingItemSnapshot[]) => BookingItemSnapshot[])
+    ) =>
+      setBooking((p) => ({
+        ...p,
+        bookingItems:
+          typeof items === "function"
+            ? items(p.bookingItems)
+            : items,
+      })),
+    []
+  );
 
   const setBookingId = (id: string) =>
     setBooking((p) => ({ ...p, bookingId: id }));

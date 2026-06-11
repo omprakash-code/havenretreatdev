@@ -439,7 +439,7 @@ export default function TimeRangePicker({
                 <p className="mt-0.5 text-xs text-[#667085] sm:mt-1 sm:text-sm">
                   {draftStartTime && draftEndTime
                     ? `${formatISTTime(draftStartTime)} - ${formatISTTime(draftEndTime)}`
-                    : `${minDurationHours} ${minDurationHours === 1 ? "hour" : "hours"} booking minimum`}
+                    : `Min. ${minDurationHours} ${minDurationHours === 1 ? "hr" : "hrs"}`}
                 </p>
               </div>
 

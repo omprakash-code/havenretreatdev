@@ -564,7 +564,7 @@ export default function SelectLocationScreen({ onContinue, selectedPackageName, 
           <div className="order-2 text-center md:order-1 md:text-left">
             <p className="text-[11px] font-medium leading-4 text-gray-600">
               Secure reservation <span className="text-[#245e5b]">•</span>{" "}
-              Instant booking confirmation
+              We'll confirm your date soon
             </p>
             <p className="mt-1 text-[11px] font-medium text-[#667085]">
               Flexible rescheduling <span className="text-[#c5d6d2]">•</span>{" "}

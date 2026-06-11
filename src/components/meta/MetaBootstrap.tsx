@@ -126,23 +126,21 @@ function CookieConsentBanner({
     <div className="fixed inset-x-0 bottom-0 z-[240] flex justify-end px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-4">
       <div
         className={[
-          "w-full max-w-[34rem] overflow-hidden rounded-[1.75rem] border border-stone-200/90 bg-[#fffdf8] shadow-[0_18px_42px_rgba(0,0,0,0.14)] backdrop-blur-xl transition-all duration-300 ease-out",
-          isVisible
-            ? "translate-y-0 opacity-100"
-            : "translate-y-5 opacity-0",
+          "w-full max-w-[34rem] overflow-hidden border border-[#d7e4e1] bg-white shadow-[0_16px_48px_rgba(15,23,42,0.12)] transition-all duration-300 ease-out",
+          isVisible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0",
         ].join(" ")}
       >
         <div className="flex flex-col gap-3 px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="max-w-[28rem]">
-              <p className="text-[1.05rem] font-semibold tracking-tight text-stone-950 sm:text-[1.1rem]">
+              <p className="font-playfair text-[1.1rem] font-semibold tracking-tight text-[#101828] sm:text-[1.2rem]">
                 {title}
               </p>
-              <p className="mt-3 text-[14px] leading-6 text-stone-700 sm:text-[15px]">
+              <p className="mt-2.5 text-[13px] leading-6 text-[#4b5563] sm:text-[14px]">
                 {description}
               </p>
             </div>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-stone-200 bg-stone-100 text-stone-800">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#d7e4e1] bg-[#edf3f1] text-[#347f7c]">
               <Cookie className="h-4 w-4" />
             </div>
           </div>
@@ -150,34 +148,30 @@ function CookieConsentBanner({
           <div
             className={[
               "overflow-hidden transition-all duration-300 ease-out",
-              showPreferences
-                ? "max-h-[28rem] opacity-100"
-                : "max-h-0 opacity-0",
+              showPreferences ? "max-h-[28rem] opacity-100" : "max-h-0 opacity-0",
             ].join(" ")}
           >
-            <div className="rounded-2xl border border-stone-200 bg-white/90 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
+            <div className="border border-[#d7e4e1] bg-[#f8fbfa] p-3.5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-stone-900">
+                  <p className="text-sm font-semibold text-[#101828]">
                     Cookie Preferences
                   </p>
-                  <p className="mt-1 text-[13px] leading-5 text-stone-600">
-                    Essential cookies stay on so booking, checkout, and session
-                    security continue working properly.
+                  <p className="mt-1 text-[13px] leading-5 text-[#667085]">
+                    Essential cookies keep booking, checkout, and session security working.
                   </p>
                 </div>
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" />
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#347f7c]" />
               </div>
 
-              <div className="mt-3 grid gap-2.5">
-                <div className="flex items-start justify-between gap-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
+              <div className="mt-3 grid gap-2">
+                <div className="flex items-start justify-between gap-3 border border-[#d7e4e1] bg-[#edf3f1] px-3 py-2.5">
                   <div>
-                    <p className="text-[13px] font-medium text-stone-900 sm:text-sm">
+                    <p className="text-[13px] font-semibold text-[#101828] sm:text-sm">
                       Essential Cookies
                     </p>
-                    <p className="mt-0.5 text-xs leading-5 text-stone-500 sm:text-[13px]">
-                      Required for the booking flow, payment verification, and
-                      security.
+                    <p className="mt-0.5 text-xs leading-5 text-[#667085] sm:text-[13px]">
+                      Required for booking flow, payment, and security.
                     </p>
                   </div>
                   <button
@@ -186,20 +180,19 @@ function CookieConsentBanner({
                     aria-checked={true}
                     role="switch"
                     disabled
-                    className="relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-not-allowed items-center rounded-full border border-stone-300 bg-stone-300 opacity-80"
+                    className="relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-not-allowed items-center rounded-full border border-[#d7e4e1] bg-[#d7e4e1] opacity-70"
                   >
                     <span className="inline-block h-4 w-4 translate-x-6 rounded-full bg-white shadow" />
                   </button>
                 </div>
 
-                <label className="flex items-start justify-between gap-3 rounded-xl border border-stone-200 bg-white px-3 py-2.5">
+                <label className="flex items-start justify-between gap-3 border border-[#d7e4e1] bg-white px-3 py-2.5">
                   <div>
-                    <p className="text-[13px] font-medium text-stone-900 sm:text-sm">
+                    <p className="text-[13px] font-semibold text-[#101828] sm:text-sm">
                       Marketing Cookies
                     </p>
-                    <p className="mt-0.5 text-xs leading-5 text-stone-500 sm:text-[13px]">
-                      Helps us understand how users interact with booking pages
-                      and measure campaign effectiveness.
+                    <p className="mt-0.5 text-xs leading-5 text-[#667085] sm:text-[13px]">
+                      Helps us measure how users interact with booking pages.
                     </p>
                   </div>
                   <button
@@ -214,8 +207,8 @@ function CookieConsentBanner({
                     className={[
                       "relative mt-0.5 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border transition",
                       marketingEnabled
-                        ? "border-stone-900 bg-stone-900"
-                        : "border-stone-300 bg-stone-200",
+                        ? "border-[#347f7c] bg-[#347f7c]"
+                        : "border-[#d7e4e1] bg-[#f6f8f7]",
                     ].join(" ")}
                   >
                     <span
@@ -230,31 +223,25 @@ function CookieConsentBanner({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2.5 border-t border-stone-200 pt-3 sm:flex-row sm:flex-wrap sm:justify-end">
+          <div className="flex flex-col gap-2 border-t border-[#d7e4e1] pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={() => setShowPreferences((current) => !current)}
-              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-full border border-stone-300 bg-white px-5 text-[13px] font-semibold uppercase tracking-[0.04em] text-stone-800 transition hover:bg-stone-50"
+              className="inline-flex h-9 cursor-pointer items-center justify-center border border-[#d7e4e1] bg-white px-4 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#245e5b] transition hover:bg-[#edf3f1]"
             >
               Customize
             </button>
             <button
               type="button"
-              onClick={() => {
-                setIsClosed(true);
-                onReject();
-              }}
-              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-full border border-stone-300 px-5 text-[13px] font-semibold uppercase tracking-[0.04em] text-stone-800 transition hover:bg-stone-50"
+              onClick={() => { setIsClosed(true); onReject(); }}
+              className="inline-flex h-9 cursor-pointer items-center justify-center border border-[#d7e4e1] bg-white px-4 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#667085] transition hover:bg-[#f6f8f7]"
             >
               Reject All
             </button>
             <button
               type="button"
-              onClick={() => {
-                setIsClosed(true);
-                onAccept();
-              }}
-              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-full bg-stone-950 px-6 text-[13px] font-semibold uppercase tracking-[0.04em] text-white transition hover:bg-black"
+              onClick={() => { setIsClosed(true); onAccept(); }}
+              className="inline-flex h-9 cursor-pointer items-center justify-center bg-[#0d3b24] px-5 text-[12px] font-semibold uppercase tracking-[0.08em] text-white transition hover:bg-[#245e5b]"
             >
               Accept All Cookies
             </button>

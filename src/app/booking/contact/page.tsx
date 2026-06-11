@@ -57,7 +57,8 @@ export default function ContactPage() {
     : "";
 
   useEffect(() => {
-    if (!hydrated || !locationId || !booking.package) return;
+    if (!hydrated || !locationId || !selectedPackageKey || !booking.package) return;
+    const currentPackage = booking.package;
     let cancelled = false;
 
     fetch(`/api/products?bookingCategory=add-ons&locationId=${locationId}`, {
@@ -71,7 +72,7 @@ export default function ContactPage() {
           ensurePackageIncludedProducts({
             currentItems,
             products,
-            selectedPackage: booking.package,
+            selectedPackage: currentPackage,
           })
         );
       })
@@ -80,7 +81,9 @@ export default function ContactPage() {
     return () => {
       cancelled = true;
     };
-  }, [booking.package, hydrated, locationId, selectedPackageKey, setBookingItems]);
+  // booking.package intentionally excluded — selectedPackageKey is the stable string proxy for it
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, locationId, selectedPackageKey, setBookingItems]);
 
   const handleDecorationChange = useCallback((value: boolean) => {
     decorationRequiredRef.current = value;

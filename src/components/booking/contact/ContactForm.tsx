@@ -160,6 +160,9 @@ export default function ContactForm({
     if (initializedDecorationSlotRef.current === scheduleId) return;
     initializedDecorationSlotRef.current = scheduleId;
 
+    if (!decorationForced && booking.decorationRequired == null) {
+      setDecorationRequired(true);
+    }
   }, [
     booking.schedule?.id,
     booking.decorationRequired,
