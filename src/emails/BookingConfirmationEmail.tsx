@@ -30,6 +30,7 @@ export type BookingConfirmationEmailProps = {
   durationHours?: number | null;
   includedDurationHours?: number | null;
   extraDurationHours?: number | null;
+  extraDurationAmount?: number | null;
   guestCount: number;
   occasionLabel?: string;
   occasionDetails?: BookingConfirmationDetail[];

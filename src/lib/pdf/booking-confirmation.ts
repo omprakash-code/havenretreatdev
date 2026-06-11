@@ -36,6 +36,7 @@ function mapEmailDataToBookingSuccessData(
     durationHours: data.durationHours,
     includedDurationHours: data.includedDurationHours,
     extraDurationHours: data.extraDurationHours,
+    extraDurationAmount: data.extraDurationAmount ?? null,
     locationName: data.locationName ?? "Miami",
     dateTime: `${data.date}, ${data.timeSlot}`,
     occasionLabel: data.occasionLabel,

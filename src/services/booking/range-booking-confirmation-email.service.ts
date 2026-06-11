@@ -177,6 +177,10 @@ export async function sendRangeBookingConfirmationEmails({
     durationHours !== null
       ? Math.max(durationHours - includedDurationHours, 0)
       : null;
+  const extraDurationAmount = Math.max(
+    0,
+    Number(pricingSnapshot?.extraDurationAmount ?? 0)
+  ) || null;
   const addonItems = buildAddonItems(
     booking.items,
     booking.occasionData as Prisma.JsonValue | null
@@ -196,6 +200,7 @@ export async function sendRangeBookingConfirmationEmails({
     durationHours,
     includedDurationHours,
     extraDurationHours,
+    extraDurationAmount,
     guestCount: booking.guestCount,
     occasionLabel: booking.occasionLabel ?? undefined,
     occasionDetails: buildOccasionDetails(booking.occasionData as Prisma.JsonValue | null),

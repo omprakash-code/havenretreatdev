@@ -133,6 +133,7 @@ function buildAddonItemsWithNumberValues(
     variantLabel: string;
     quantity: number;
     totalPrice: number;
+    image?: string | null;
   }>,
   occasionData: Prisma.JsonValue | null
 ): BookingConfirmationAddonItem[] {
@@ -149,6 +150,7 @@ function buildAddonItemsWithNumberValues(
       quantity: item.quantity,
       totalPrice: item.totalPrice,
       numberValue,
+      image: item.image ?? null,
     };
   });
 }
@@ -240,6 +242,11 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         venue: true,
         items: {
           orderBy: { createdAt: "asc" },
+          include: {
+            product: {
+              select: { image: true },
+            },
+          },
         },
         payment: {
           orderBy: { createdAt: "desc" },
@@ -278,6 +285,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         variantLabel: item.variantLabel,
         quantity: item.quantity,
         totalPrice: item.totalPrice,
+        image: item.product?.image ?? null,
       })),
       booking.occasionData as Prisma.JsonValue | null
     );
