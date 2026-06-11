@@ -77,7 +77,13 @@ function extractLedNumbers(occasionData: Prisma.JsonValue | null): string[] {
 }
 
 function buildAddonItems(
-  items: Array<{ productName: string; variantLabel: string; quantity: number; totalPrice: number }>,
+  items: Array<{
+    productName: string;
+    variantLabel: string;
+    quantity: number;
+    totalPrice: number;
+    product: { image: string | null } | null;
+  }>,
   occasionData: Prisma.JsonValue | null
 ): BookingConfirmationAddonItem[] {
   const ledNumbers = extractLedNumbers(occasionData);
@@ -91,6 +97,7 @@ function buildAddonItems(
       quantity: item.quantity,
       totalPrice: item.totalPrice,
       numberValue,
+      image: item.product?.image ?? null,
     };
   });
 }
@@ -114,6 +121,11 @@ export async function sendRangeBookingConfirmationEmails({
           variantLabel: true,
           quantity: true,
           totalPrice: true,
+          product: {
+            select: {
+              image: true,
+            },
+          },
         },
       },
       payment: {
@@ -139,6 +151,32 @@ export async function sendRangeBookingConfirmationEmails({
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");
   const successUrl = `${baseUrl}/booking/success?t=${encodeURIComponent(successToken)}`;
   const latestPayment = booking.payment[0];
+  const packageSnapshot =
+    booking.packageSnapshot &&
+    typeof booking.packageSnapshot === "object" &&
+    !Array.isArray(booking.packageSnapshot)
+      ? (booking.packageSnapshot as Record<string, unknown>)
+      : null;
+  const pricingSnapshot =
+    booking.pricingSnapshot &&
+    typeof booking.pricingSnapshot === "object" &&
+    !Array.isArray(booking.pricingSnapshot)
+      ? (booking.pricingSnapshot as Record<string, unknown>)
+      : null;
+  const durationHours = schedule.durationHours;
+  const includedDurationHours = Math.max(
+    0,
+    Number(
+      pricingSnapshot?.includedDurationHours ??
+        packageSnapshot?.eventDurationHours ??
+        durationHours ??
+        0
+    )
+  );
+  const extraDurationHours =
+    durationHours !== null
+      ? Math.max(durationHours - includedDurationHours, 0)
+      : null;
   const addonItems = buildAddonItems(
     booking.items,
     booking.occasionData as Prisma.JsonValue | null
@@ -155,6 +193,9 @@ export async function sendRangeBookingConfirmationEmails({
     locationName: resolveLocationDisplayName(null, booking.venue?.city),
     date: schedule.date,
     timeSlot: schedule.timeSlot,
+    durationHours,
+    includedDurationHours,
+    extraDurationHours,
     guestCount: booking.guestCount,
     occasionLabel: booking.occasionLabel ?? undefined,
     occasionDetails: buildOccasionDetails(booking.occasionData as Prisma.JsonValue | null),

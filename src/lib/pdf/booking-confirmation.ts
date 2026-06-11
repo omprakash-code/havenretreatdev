@@ -33,6 +33,9 @@ function mapEmailDataToBookingSuccessData(
     theatreName: data.theatreName,
     date: data.date,
     timeSlot: data.timeSlot,
+    durationHours: data.durationHours,
+    includedDurationHours: data.includedDurationHours,
+    extraDurationHours: data.extraDurationHours,
     locationName: data.locationName ?? "Miami",
     dateTime: `${data.date}, ${data.timeSlot}`,
     occasionLabel: data.occasionLabel,
@@ -59,6 +62,7 @@ function mapEmailDataToBookingSuccessData(
         unitPrice: Math.round(totalPrice / quantity),
         totalPrice,
         numberValue: item.numberValue ?? null,
+        image: item.image ?? null,
       };
     }),
   };
@@ -68,8 +72,6 @@ async function loadServerPdfImage(sourceUrl: string | null): Promise<PdfImage | 
   if (!sourceUrl || !sourceUrl.startsWith("/")) return null;
 
   const extension = sourceUrl.split(".").pop()?.toLowerCase();
-  const format = extension === "png" ? "PNG" : extension === "jpg" || extension === "jpeg" ? "JPEG" : null;
-  if (!format) return null;
 
   try {
     const [{ readFile }, path] = await Promise.all([
@@ -78,11 +80,27 @@ async function loadServerPdfImage(sourceUrl: string | null): Promise<PdfImage | 
     ]);
     const filePath = path.join(process.cwd(), "public", sourceUrl.replace(/^\/+/, ""));
     const content = await readFile(filePath);
-    const mimeType = format === "PNG" ? "image/png" : "image/jpeg";
+
+    if (extension === "png") {
+      return {
+        dataUrl: `data:image/png;base64,${content.toString("base64")}`,
+        format: "PNG",
+      };
+    }
+
+    if (extension === "jpg" || extension === "jpeg") {
+      return {
+        dataUrl: `data:image/jpeg;base64,${content.toString("base64")}`,
+        format: "JPEG",
+      };
+    }
+
+    const { default: sharp } = await import("sharp");
+    const converted = await sharp(content).jpeg({ quality: 88 }).toBuffer();
 
     return {
-      dataUrl: `data:${mimeType};base64,${content.toString("base64")}`,
-      format,
+      dataUrl: `data:image/jpeg;base64,${converted.toString("base64")}`,
+      format: "JPEG",
     };
   } catch {
     return null;

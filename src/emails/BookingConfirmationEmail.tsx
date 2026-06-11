@@ -10,6 +10,7 @@ export type BookingConfirmationAddonItem = {
   quantity: number;
   totalPrice: number;
   numberValue?: string;
+  image?: string | null;
 };
 
 export type BookingConfirmationDetail = {
@@ -26,6 +27,9 @@ export type BookingConfirmationEmailProps = {
   locationName?: string;
   date: string;
   timeSlot: string;
+  durationHours?: number | null;
+  includedDurationHours?: number | null;
+  extraDurationHours?: number | null;
   guestCount: number;
   occasionLabel?: string;
   occasionDetails?: BookingConfirmationDetail[];
