@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
+import { resolveLocationDisplayName } from "@/lib/location-display";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
@@ -307,7 +308,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       contactName: booking.contactName,
       contactPhone: booking.contactPhone,
       contactEmail: booking.contactEmail,
-      locationName: booking.venue?.name ?? 'Miami',
+      locationName: resolveLocationDisplayName(null, booking.venue?.city),
       theatreName: (booking.packageSnapshot as { name?: string } | null)?.name ?? booking.venue?.name ?? "Haven Retreat",
       date: schedule.date,
       timeSlot: schedule.timeSlot,

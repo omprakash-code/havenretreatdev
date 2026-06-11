@@ -6,6 +6,8 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
+import { PACKAGE_EXTRA_PERSON_PRICE } from "@/lib/package-guest-pricing";
+import { resolveLocationDisplayName } from "@/lib/location-display";
 import { timeToMinutes } from "@/lib/time";
 import {
   getPackageIncludedProductTotalPrice,
@@ -831,7 +833,7 @@ export async function POST(req: Request) {
         slotFinalPrice: selectedPackage?.subtotalAmount ?? null,
         guestCount,
         theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
-        theatreExtraPersonPrice: 0,
+        theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         theatreDecorationPrice: selectedPackage?.decorationAddonPrice ?? 0,
         slotDecorationMandatory: false,
         decorationRequired: effectiveDecorationRequired,
@@ -920,7 +922,7 @@ export async function POST(req: Request) {
         slotFinalPrice: selectedPackage?.subtotalAmount ?? null,
         guestCount,
         theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
-        theatreExtraPersonPrice: 0,
+        theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         theatreDecorationPrice: selectedPackage?.decorationAddonPrice ?? 0,
         slotDecorationMandatory: false,
         decorationRequired: effectiveDecorationRequired,
@@ -964,6 +966,7 @@ export async function POST(req: Request) {
               savingsAmount: 0,
               finalAmount: selectedPackage.subtotalAmount,
               decorationAddonPrice: selectedPackage.decorationAddonPrice,
+              extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
               features: selectedPackage.features.map((feature) => ({
                 group: feature.group,
                 label: feature.label,
@@ -987,6 +990,8 @@ export async function POST(req: Request) {
               extraDurationHours: pricing.extraDurationHours,
               extraHourlyRate: pricing.extraHourlyRate,
               extraDurationAmount: pricing.extraHoursAmount,
+              extraGuestPrice: PACKAGE_EXTRA_PERSON_PRICE,
+              extraGuestAmount: pricing.extrasAmount,
               productsAmount: pricing.productsAmount,
               decorationAmount: pricing.decorationAmount,
               discountAmount: pricing.discountAmount,
@@ -1154,9 +1159,10 @@ export async function POST(req: Request) {
                 contactName: bookingForNotification.contactName,
                 contactPhone: bookingForNotification.contactPhone,
                 contactEmail: bookingForNotification.contactEmail,
-                locationName:
-                  bookingForNotification.venue?.name ??
-                  'Miami',
+                locationName: resolveLocationDisplayName(
+                  null,
+                  bookingForNotification.venue?.city
+                ),
                 theatreName:
                   packageSnapshotForEmail?.name ??
                   bookingForNotification.venue?.name ??

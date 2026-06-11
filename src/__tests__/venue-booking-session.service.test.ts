@@ -27,6 +27,10 @@ import {
   createOrReplaceVenueBookingSession,
   VenueBookingSessionError,
 } from "@/services/booking/venue-booking-session.service";
+import {
+  BOOKING_HOLD_MINUTES,
+  getBookingHoldExpiry,
+} from "@/lib/booking-policy";
 
 // ─── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -227,19 +231,118 @@ describe("createOrReplaceVenueBookingSession", () => {
     ).rejects.toMatchObject({ code: "PAYMENT_IN_PROGRESS" });
   });
 
-  // ── Stale session ──────────────────────────────────────────────────────────
-
-  it("throws SESSION_STALE when existing bookingId is not found in DB", async () => {
+  it("keeps the payment guard after the hold timestamp expires", async () => {
+    const now = new Date("2029-01-01T12:00:00.000Z");
     const tx = makeTxClient();
-    tx.booking.findUnique.mockResolvedValue(null); // booking no longer exists
+    tx.booking.findUnique.mockResolvedValueOnce({
+      id: "booking-1",
+      bookingStatus: "PAYMENT_PROCESSING",
+      lockVersion: 1,
+      holdExpiresAt: new Date(now.getTime() - 1),
+      payment: [{ id: "pay-1" }],
+    });
     withTx(tx);
+
     await expect(
       createOrReplaceVenueBookingSession(
         VALID_INPUT,
         "guest-1",
-        { bookingId: "ghost-booking", lockVersion: 1 }
+        { bookingId: "booking-1", lockVersion: 1 },
+        now
       )
-    ).rejects.toMatchObject({ code: "SESSION_STALE" });
+    ).rejects.toMatchObject({ code: "PAYMENT_IN_PROGRESS" });
+    expect(tx.booking.create).not.toHaveBeenCalled();
+  });
+
+  // ── Stale session ──────────────────────────────────────────────────────────
+
+  it("creates a fresh booking when the previous booking no longer exists", async () => {
+    const tx = makeTxClient();
+    tx.booking.findUnique.mockResolvedValue(null); // booking no longer exists
+    withTx(tx);
+    const result = await createOrReplaceVenueBookingSession(
+      VALID_INPUT,
+      "guest-1",
+      { bookingId: "ghost-booking", lockVersion: 1 }
+    );
+
+    expect(result.replaced).toBe(false);
+    expect(tx.booking.create).toHaveBeenCalledOnce();
+  });
+
+  it("creates a fresh booking when the previous booking is already confirmed", async () => {
+    const tx = makeTxClient();
+    tx.booking.findUnique.mockResolvedValueOnce({
+      id: "booking-1",
+      bookingStatus: "CONFIRMED",
+      lockVersion: 1,
+      holdExpiresAt: null,
+      payment: [],
+    });
+    withTx(tx);
+
+    const result = await createOrReplaceVenueBookingSession(
+      VALID_INPUT,
+      "guest-1",
+      { bookingId: "booking-1", lockVersion: 1 }
+    );
+
+    expect(result.replaced).toBe(false);
+    expect(tx.booking.create).toHaveBeenCalledOnce();
+  });
+
+  it("abandons an expired hold and creates a fresh booking", async () => {
+    const now = new Date("2029-01-01T12:00:00.000Z");
+    const tx = makeTxClient();
+    tx.booking.findUnique.mockResolvedValueOnce({
+      id: "booking-1",
+      bookingStatus: "INCOMPLETE",
+      lockVersion: 1,
+      holdExpiresAt: new Date(now.getTime() - 1),
+      payment: [],
+    });
+    withTx(tx);
+
+    const result = await createOrReplaceVenueBookingSession(
+      VALID_INPUT,
+      "guest-1",
+      { bookingId: "booking-1", lockVersion: 1 },
+      now
+    );
+
+    expect(result.replaced).toBe(false);
+    expect(tx.booking.update).toHaveBeenCalledWith({
+      where: { id: "booking-1" },
+      data: expect.objectContaining({
+        bookingStatus: "ABANDONED",
+        cancelledReason: "SESSION_EXPIRED",
+        holdExpiresAt: null,
+      }),
+    });
+    expect(tx.booking.create).toHaveBeenCalledOnce();
+  });
+
+  it("throws SESSION_STALE when an active session has a different lock version", async () => {
+    const tx = makeTxClient();
+    tx.booking.findUnique.mockResolvedValueOnce({
+      id: "booking-1",
+      bookingStatus: "INCOMPLETE",
+      lockVersion: 2,
+      holdExpiresAt: new Date("2030-07-15T17:00:00.000Z"),
+      payment: [],
+    });
+    withTx(tx);
+
+    await expect(
+      createOrReplaceVenueBookingSession(
+        VALID_INPUT,
+        "guest-1",
+        { bookingId: "booking-1", lockVersion: 1 }
+      )
+    ).rejects.toMatchObject({
+      code: "SESSION_STALE",
+      message: "The active booking session was replaced in another tab.",
+    });
   });
 
   // ── Successful creation ────────────────────────────────────────────────────
@@ -266,6 +369,23 @@ describe("createOrReplaceVenueBookingSession", () => {
     expect(createCall.data.packageId).toBe("pkg-1");
   });
 
+  it("starts each successful reservation with a full 20-minute hold", async () => {
+    const now = new Date("2029-01-01T12:00:00.000Z");
+    const tx = makeTxClient();
+    withTx(tx);
+
+    await createOrReplaceVenueBookingSession(
+      VALID_INPUT,
+      "guest-1",
+      null,
+      now
+    );
+
+    const createCall = tx.booking.create.mock.calls[0][0];
+    expect(BOOKING_HOLD_MINUTES).toBe(20);
+    expect(createCall.data.holdExpiresAt).toEqual(getBookingHoldExpiry(now));
+  });
+
   it("starts a booking with the package decoration default and price", async () => {
     const tx = makeTxClient();
     withTx(tx);
@@ -281,6 +401,7 @@ describe("createOrReplaceVenueBookingSession", () => {
   // ── Successful replacement ─────────────────────────────────────────────────
 
   it("updates existing booking and increments lockVersion when replacing", async () => {
+    const now = new Date("2029-01-01T12:00:00.000Z");
     const tx = makeTxClient();
     // First findUnique is the payment-in-progress check
     tx.booking.findUnique
@@ -296,11 +417,19 @@ describe("createOrReplaceVenueBookingSession", () => {
     const result = await createOrReplaceVenueBookingSession(
       VALID_INPUT,
       "guest-1",
-      { bookingId: "booking-1", lockVersion: 3 }
+      { bookingId: "booking-1", lockVersion: 3 },
+      now
     );
     expect(result.replaced).toBe(true);
     expect(result.lockVersion).toBe(4);
     expect(tx.booking.update).toHaveBeenCalledOnce();
+    expect(tx.booking.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          holdExpiresAt: getBookingHoldExpiry(now),
+        }),
+      })
+    );
     expect(tx.booking.create).not.toHaveBeenCalled();
   });
 

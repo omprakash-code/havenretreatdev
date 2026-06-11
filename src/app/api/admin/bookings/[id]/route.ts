@@ -6,6 +6,8 @@ import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
+import { resolveLocationDisplayName } from "@/lib/location-display";
+import { PACKAGE_EXTRA_PERSON_PRICE } from "@/lib/package-guest-pricing";
 import { calculateDurationHours } from "@/lib/booking-time-range";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import {
@@ -200,6 +202,7 @@ export async function GET(
           select: {
             id: true,
             name: true,
+            city: true,
             images: true,
           },
         },
@@ -318,7 +321,7 @@ export async function GET(
       id: booking.venue?.id ?? "",
       name: booking.venue?.name ?? (booking.packageSnapshot as { name?: string } | null)?.name ?? "Haven Retreat",
       image: booking.venue?.images?.[0] ?? null,
-      locationName: booking.venue?.name ?? "Miami",
+      locationName: resolveLocationDisplayName(null, booking.venue?.city),
     };
     const packageSnapshot =
       booking.packageSnapshot &&
@@ -1118,7 +1121,8 @@ export async function PATCH(
         slotFinalPrice: packageSnap?.subtotalAmount ?? null,
         guestCount,
         theatreBaseGuests: packageSnap?.guestLimit ?? 2,
-        theatreExtraPersonPrice: packageSnap?.extraPersonPrice ?? 0,
+        theatreExtraPersonPrice:
+          packageSnap?.extraPersonPrice ?? PACKAGE_EXTRA_PERSON_PRICE,
         theatreDecorationPrice: packageSnap?.decorationAddonPrice ?? 0,
         slotDecorationMandatory: false,
         decorationRequired: effectiveDecorationRequired,
@@ -1204,7 +1208,8 @@ export async function PATCH(
         slotFinalPrice: packageSnap?.subtotalAmount ?? null,
         guestCount,
         theatreBaseGuests: packageSnap?.guestLimit ?? 2,
-        theatreExtraPersonPrice: packageSnap?.extraPersonPrice ?? 0,
+        theatreExtraPersonPrice:
+          packageSnap?.extraPersonPrice ?? PACKAGE_EXTRA_PERSON_PRICE,
         theatreDecorationPrice: packageSnap?.decorationAddonPrice ?? 0,
         slotDecorationMandatory: false,
         decorationRequired: effectiveDecorationRequired,

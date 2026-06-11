@@ -121,7 +121,6 @@ export function ScheduleSection({
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
                 {location.name}
-                {location.city ? ` (${location.city})` : ""}
               </option>
             ))}
           </select>

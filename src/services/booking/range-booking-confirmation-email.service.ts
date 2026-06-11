@@ -8,6 +8,7 @@ import type {
 import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import { resolveLocationDisplayName } from "@/lib/location-display";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
 import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
 
@@ -106,6 +107,7 @@ export async function sendRangeBookingConfirmationEmails({
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: {
+      venue: true,
       items: {
         select: {
           productName: true,
@@ -150,7 +152,7 @@ export async function sendRangeBookingConfirmationEmails({
     theatreName:
       (booking.packageSnapshot as { name?: string } | null)?.name ??
       "Haven Retreat",
-    locationName: "-",
+    locationName: resolveLocationDisplayName(null, booking.venue?.city),
     date: schedule.date,
     timeSlot: schedule.timeSlot,
     guestCount: booking.guestCount,

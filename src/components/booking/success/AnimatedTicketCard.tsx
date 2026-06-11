@@ -20,6 +20,7 @@ import {
 } from "@/components/icons";
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { downloadBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
+import { useBooking } from "@/context/BookingContext";
 
 type AnimatedTicketCardProps = {
   data: BookingSuccessData;
@@ -59,8 +60,10 @@ export default function AnimatedTicketCard({
   embedded = false,
 }: AnimatedTicketCardProps) {
   const router = useRouter();
+  const { resetBooking } = useBooking();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isBookingRefCopied, setIsBookingRefCopied] = useState(false);
+  const [isStartingAnotherBooking, setIsStartingAnotherBooking] = useState(false);
   const discountAmount = data.discountAmount ?? 0;
   const subtotalBeforeDiscount = data.totalAmount + discountAmount;
   const showDiscountBreakdown = discountAmount > 0;
@@ -137,7 +140,31 @@ ${shareUrl}`;
     }
   };
 
-  const handleBookAnother = () => router.push("/booking");
+  const handleBookAnother = async () => {
+    if (isStartingAnotherBooking) return;
+
+    setIsStartingAnotherBooking(true);
+    try {
+      const response = await fetch("/api/session/reset", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("SESSION_RESET_FAILED");
+      }
+    } catch {
+      toast.error("Unable to start a new booking. Please try again.");
+      setIsStartingAnotherBooking(false);
+      return;
+    }
+
+    sessionStorage.removeItem("hr_pending_package_id");
+    sessionStorage.removeItem("hr_pending_package_name");
+    sessionStorage.removeItem("hr_pending_package_rate");
+    sessionStorage.removeItem("hr_pending_package_base_price");
+    resetBooking();
+    router.push("/booking");
+  };
 
   useEffect(() => {
     if (!isBookingRefCopied) return;
@@ -245,10 +272,15 @@ ${shareUrl}`;
                 variant="secondary"
               />
               <MiniActionButton
-                label="Book Another Time"
+                label={
+                  isStartingAnotherBooking
+                    ? "Starting New Booking..."
+                    : "Book Another Time"
+                }
                 icon={<Ticket size={14} />}
                 onClick={handleBookAnother}
                 variant="tertiary"
+                disabled={isStartingAnotherBooking}
               />
             </div>
           </div>
@@ -399,10 +431,15 @@ ${shareUrl}`;
               variant="secondary"
             />
             <MiniActionButton
-              label="Book Another Time"
+              label={
+                isStartingAnotherBooking
+                  ? "Starting New Booking..."
+                  : "Book Another Time"
+              }
               icon={<Ticket size={14} />}
               onClick={handleBookAnother}
               variant="tertiary"
+              disabled={isStartingAnotherBooking}
             />
           </div>
         </div>

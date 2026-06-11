@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { calculateBookingPricing } from "@/lib/booking-pricing";
+import { PACKAGE_EXTRA_PERSON_PRICE } from "@/lib/package-guest-pricing";
 import { timeToMinutes } from "@/lib/time";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
@@ -755,7 +756,7 @@ export function AdminAddBookingForm({
               name: String(eventPackage.name ?? "Unnamed Package"),
               capacity: Number(venue.maxGuests ?? guestLimit),
               baseGuests: guestLimit,
-              extraPersonPrice: 25,
+              extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
               basePrice: packageAmount,
               decorationPrice: Number(eventPackage.decorationAddonPrice ?? 0),
               eventDurationHours: Number(eventPackage.eventDurationHours ?? 4),

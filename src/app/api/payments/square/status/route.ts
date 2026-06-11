@@ -1,6 +1,24 @@
 import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { createSuccessToken } from "@/services/booking/successToken.server";
+import { NextResponse } from "next/server";
+
+function terminalStatusResponse(data: Record<string, unknown>) {
+  const response = NextResponse.json(data);
+  response.cookies.set("ds_booking_session", "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  response.cookies.set("ds_lock_owner", "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  return response;
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -26,7 +44,7 @@ export async function GET(req: Request) {
   }
 
   if (booking.bookingStatus === "CONFIRMED" && booking.paymentStatus === "PAID") {
-    return Response.json({
+    return terminalStatusResponse({
       success: true,
       status: "CONFIRMED",
       bookingRef: booking.bookingRef,
@@ -35,7 +53,7 @@ export async function GET(req: Request) {
   }
 
   if (booking.bookingStatus === "PAID_EXPIRED") {
-    return Response.json({
+    return terminalStatusResponse({
       success: true,
       status: "PAID_EXPIRED",
       bookingRef: booking.bookingRef,
@@ -47,7 +65,7 @@ export async function GET(req: Request) {
     booking.bookingStatus === "ABANDONED" &&
     booking.paymentStatus === "MANUAL_REVIEW"
   ) {
-    return Response.json({
+    return terminalStatusResponse({
       success: true,
       status: "MANUAL_REVIEW",
       bookingRef: booking.bookingRef,

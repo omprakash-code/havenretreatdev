@@ -162,7 +162,7 @@ export async function createOrReplaceVenueBookingSession(
       );
     }
 
-    const currentBookingId = session?.bookingId ?? null;
+    let currentBookingId = session?.bookingId ?? null;
 
     if (currentBookingId) {
       const existing = await tx.booking.findUnique({
@@ -181,34 +181,54 @@ export async function createOrReplaceVenueBookingSession(
       });
 
       if (!existing) {
-        throw new VenueBookingSessionError(
-          "SESSION_STALE",
-          "The previous booking session is no longer valid."
-        );
-      }
-
-      if (
-        existing.lockVersion !== session?.lockVersion ||
-        !existing.holdExpiresAt ||
-        existing.holdExpiresAt <= now ||
-        !ACTIVE_RANGE_HOLD_STATUSES.includes(
+        currentBookingId = null;
+      } else {
+        const isActiveStatus = ACTIVE_RANGE_HOLD_STATUSES.includes(
           existing.bookingStatus as (typeof ACTIVE_RANGE_HOLD_STATUSES)[number]
-        )
-      ) {
-        throw new VenueBookingSessionError(
-          "SESSION_STALE",
-          "The previous booking session is no longer valid."
         );
-      }
+        const isExpired = !existing.holdExpiresAt || existing.holdExpiresAt <= now;
 
-      if (
-        existing.bookingStatus === "PAYMENT_PROCESSING" ||
-        existing.payment.length > 0
-      ) {
-        throw new VenueBookingSessionError(
-          "PAYMENT_IN_PROGRESS",
-          "The schedule cannot change after payment has started."
-        );
+        if (!isActiveStatus) {
+          currentBookingId = null;
+        } else if (
+          existing.bookingStatus === "PAYMENT_PROCESSING" ||
+          existing.payment.length > 0
+        ) {
+          throw new VenueBookingSessionError(
+            "PAYMENT_IN_PROGRESS",
+            "The schedule cannot change after payment has started."
+          );
+        } else if (isExpired) {
+          await tx.booking.update({
+            where: { id: existing.id },
+            data: {
+              bookingStatus: "ABANDONED",
+              cancelledAt: now,
+              cancelledReason: "SESSION_EXPIRED",
+              holdExpiresAt: null,
+            },
+          });
+          await tx.couponUsage.updateMany({
+            where: {
+              bookingId: existing.id,
+              status: "RESERVED",
+            },
+            data: {
+              status: "RELEASED",
+              discountAmount: 0,
+              releasedAt: now,
+              confirmedAt: null,
+            },
+          });
+          currentBookingId = null;
+        } else {
+          if (existing.lockVersion !== session?.lockVersion) {
+            throw new VenueBookingSessionError(
+              "SESSION_STALE",
+              "The active booking session was replaced in another tab."
+            );
+          }
+        }
       }
     }
 
