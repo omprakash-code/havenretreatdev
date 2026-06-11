@@ -6,6 +6,7 @@ import {
   BOOKING_REVIEW_MESSAGE,
   BOOKING_REVIEW_TITLE,
 } from "@/constants/booking-status-copy";
+import { SUCCESS_VENUE_IMAGE } from "@/components/booking/success/assets";
 
 export type PdfImage = {
   dataUrl: string;
@@ -50,8 +51,6 @@ const COLORS = {
   textMuted: [100, 116, 139] as const,
   textSuccess: [52, 127, 124] as const,
 };
-
-const SUCCESS_VENUE_IMAGE = "/media/booking/location/booking-bg-1.jpg";
 
 function bookingTimeRangeLabel(input: string) {
   const raw = String(input || "").trim();

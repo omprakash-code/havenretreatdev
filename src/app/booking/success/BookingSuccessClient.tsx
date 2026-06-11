@@ -21,8 +21,7 @@ import {
   markBookingSuccessPurchaseTracked,
   shouldTrackBookingSuccessPurchase,
 } from "@/components/booking/success/metaPurchase";
-
-const SUCCESS_VENUE_IMAGE = "/media/booking/success/pool-view.avif";
+import { SUCCESS_VENUE_IMAGE } from "@/components/booking/success/assets";
 
 export default function BookingSuccessClient() {
   const router = useRouter();

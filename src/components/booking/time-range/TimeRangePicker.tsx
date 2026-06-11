@@ -510,6 +510,8 @@ export default function TimeRangePicker({
                     ? !canUseDraftEndTime(time)
                     : !canUseStartTime(time);
                 const unavailableRange = findUnavailableRangeForTime(time);
+                const isPastOrBlocked =
+                  unavailableRange?.reason === "BLOCKED";
                 const chipMessage = getChipMessage({
                   time,
                   selected,
@@ -547,8 +549,10 @@ export default function TimeRangePicker({
                         ? "border-[#347f7c] bg-[#347f7c] text-white shadow-[0_14px_28px_rgba(52,127,124,0.24)]"
                       : isRangeInterior
                           ? "border-[#e4eeeb] bg-[#edf3f1] text-[#245e5b]"
-                        : unavailableRange
+                        : unavailableRange && !isPastOrBlocked
                           ? "cursor-not-allowed border-[#ead7d7] bg-[#fff5f5] text-[#b42318] line-through"
+                        : isPastOrBlocked
+                          ? "cursor-not-allowed border-[#edf0f2] bg-[#f6f7f8] text-[#a8b0bb] line-through"
                         : isShortEndOption
                           ? "cursor-not-allowed border-transparent bg-transparent text-[#c0c6cf] line-through"
                         : unavailable
@@ -609,7 +613,11 @@ export default function TimeRangePicker({
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2.5 border border-[#ead7d7] bg-[#fff5f5]" />
-                  Booked
+                  Booked / reserved
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 border border-[#edf0f2] bg-[#f6f7f8]" />
+                  Past / unavailable
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="size-2.5 border border-transparent bg-[#f6f7f8]" />

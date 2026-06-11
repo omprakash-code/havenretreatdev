@@ -84,7 +84,7 @@ export default function BookingSummary({
   submitLabel,
   hideSubmitOnMobile = false,
   onMobileInlineSubmitVisibilityChange,
-  showCouponControls = true,
+  showCouponControls = false,
   occasionPreview,
   extrasProgress,
   couponIdentityOverride,
