@@ -11,13 +11,7 @@ CREATE TYPE "PackageFeatureGroup" AS ENUM ('INCLUDED', 'DECORATION', 'CLEANING',
 CREATE TYPE "EventAddonCategory" AS ENUM ('DECORATION', 'FURNITURE', 'FOOD_BEVERAGE', 'ENTERTAINMENT', 'SERVICE', 'OTHER');
 
 -- CreateEnum
-CREATE TYPE "SlotStatus" AS ENUM ('AVAILABLE', 'BOOKED', 'LOCKED', 'DISABLED');
-
--- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('CUSTOMER', 'ADMIN', 'MANAGER');
-
--- CreateEnum
-CREATE TYPE "BookingLockStatus" AS ENUM ('ACTIVE', 'EXPIRED', 'RELEASED', 'CONSUMED');
 
 -- CreateEnum
 CREATE TYPE "BookingStatus" AS ENUM ('INCOMPLETE', 'AWAITING_PAYMENT', 'PAYMENT_PROCESSING', 'CONFIRMED', 'CANCELLED', 'ABANDONED', 'PAID_EXPIRED');
@@ -41,7 +35,7 @@ CREATE TYPE "CouponDiscountType" AS ENUM ('FLAT', 'PERCENTAGE');
 CREATE TYPE "CouponScope" AS ENUM ('BOOKING_TOTAL', 'PRODUCTS_ONLY', 'EXTRAS_ONLY');
 
 -- CreateEnum
-CREATE TYPE "CouponRuleType" AS ENUM ('SLOT_DATE_RANGE', 'SLOT_TIME_RANGE', 'SLOT_DURATION_MIN', 'SLOT_ID', 'THEATRE_ID', 'CATEGORY', 'PRODUCT_ID', 'USER_ID', 'TARGET_CATEGORY', 'TARGET_PRODUCT_ID', 'DECORATION_REQUIRED');
+CREATE TYPE "CouponRuleType" AS ENUM ('BOOKING_DATE_RANGE', 'BOOKING_TIME_RANGE', 'BOOKING_DURATION_MIN', 'CATEGORY', 'PRODUCT_ID', 'USER_ID', 'TARGET_CATEGORY', 'TARGET_PRODUCT_ID', 'DECORATION_REQUIRED');
 
 -- CreateEnum
 CREATE TYPE "RuleOperator" AS ENUM ('IN', 'NOT_IN', 'BETWEEN', 'EQUALS');
@@ -104,6 +98,9 @@ CREATE TABLE "EventPackage" (
     "subtotalAmount" INTEGER NOT NULL,
     "savingsAmount" INTEGER NOT NULL DEFAULT 0,
     "finalAmount" INTEGER NOT NULL,
+    "decorationAddonPrice" INTEGER NOT NULL DEFAULT 375,
+    "decorationDefault" BOOLEAN NOT NULL DEFAULT true,
+    "locationId" TEXT,
     "isPopular" BOOLEAN NOT NULL DEFAULT false,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
@@ -158,83 +155,6 @@ CREATE TABLE "AgreementTemplate" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "AgreementTemplate_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Theatre" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "images" TEXT[],
-    "locationId" TEXT NOT NULL,
-    "timezone" TEXT NOT NULL DEFAULT 'America/New_York',
-    "hasFood" BOOLEAN NOT NULL DEFAULT false,
-    "capacity" INTEGER NOT NULL,
-    "baseGuests" INTEGER NOT NULL DEFAULT 2,
-    "extraPersonPrice" INTEGER NOT NULL DEFAULT 300,
-    "decorationPrice" INTEGER NOT NULL DEFAULT 750,
-    "footerMessage" TEXT,
-    "mapUrl" TEXT,
-    "menuFile" TEXT,
-    "cardContent" JSONB,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "sortOrder" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Theatre_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "SlotTemplate" (
-    "id" TEXT NOT NULL,
-    "theatreId" TEXT NOT NULL,
-    "startTime" TEXT NOT NULL,
-    "endTime" TEXT NOT NULL,
-    "durationMin" INTEGER NOT NULL,
-    "bufferMin" INTEGER NOT NULL,
-    "regularPrice" INTEGER NOT NULL,
-    "salePrice" INTEGER,
-    "decorationMandatory" BOOLEAN NOT NULL DEFAULT false,
-    "isCustomTemplate" BOOLEAN NOT NULL DEFAULT false,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "SlotTemplate_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Slot" (
-    "id" TEXT NOT NULL,
-    "theatreId" TEXT NOT NULL,
-    "slotTemplateId" TEXT NOT NULL,
-    "date" TIMESTAMPTZ NOT NULL,
-    "startTime" TEXT NOT NULL,
-    "endTime" TEXT NOT NULL,
-    "durationMin" INTEGER NOT NULL,
-    "basePrice" INTEGER NOT NULL,
-    "baseGuests" INTEGER NOT NULL,
-    "regularPrice" INTEGER NOT NULL,
-    "salePrice" INTEGER,
-    "finalPrice" INTEGER NOT NULL,
-    "isSpecial" BOOLEAN NOT NULL DEFAULT false,
-    "discountText" TEXT,
-    "decorationMandatory" BOOLEAN NOT NULL DEFAULT false,
-    "status" "SlotStatus" NOT NULL DEFAULT 'AVAILABLE',
-    "lockedAt" TIMESTAMP(3),
-    "lockExpiresAt" TIMESTAMP(3),
-    "lockedBy" TEXT,
-    "isOverridden" BOOLEAN NOT NULL DEFAULT false,
-    "overrideReason" TEXT,
-    "slotModifiedAt" TIMESTAMP(3),
-    "slotModifiedBy" TEXT,
-    "isTimingOverridden" BOOLEAN NOT NULL DEFAULT false,
-    "isPricingOverridden" BOOLEAN NOT NULL DEFAULT false,
-    "isStatusOverridden" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Slot_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -294,8 +214,6 @@ CREATE TABLE "Booking" (
     "contactName" TEXT,
     "contactPhone" TEXT,
     "contactEmail" TEXT,
-    "theatreId" TEXT,
-    "slotId" TEXT,
     "venueId" TEXT,
     "packageId" TEXT,
     "eventDate" DATE,
@@ -314,6 +232,7 @@ CREATE TABLE "Booking" (
     "bufferMinutes" INTEGER,
     "timezone" TEXT,
     "lockVersion" INTEGER,
+    "holdExpiresAt" TIMESTAMPTZ(3),
     "guestCount" INTEGER NOT NULL,
     "decorationRequired" BOOLEAN NOT NULL DEFAULT false,
     "baseAmount" INTEGER NOT NULL,
@@ -357,65 +276,6 @@ CREATE TABLE "BookingReferenceCounter" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "BookingReferenceCounter_pkey" PRIMARY KEY ("year")
-);
-
--- CreateTable
-CREATE TABLE "BookingLock" (
-    "id" TEXT NOT NULL,
-    "bookingId" TEXT NOT NULL,
-    "theatreId" TEXT NOT NULL,
-    "lockOwnerHash" TEXT NOT NULL,
-    "version" INTEGER NOT NULL,
-    "eventDate" DATE NOT NULL,
-    "startTime" TEXT NOT NULL,
-    "endTime" TEXT NOT NULL,
-    "startsAtUtc" TIMESTAMPTZ(3) NOT NULL,
-    "endsAtUtc" TIMESTAMPTZ(3) NOT NULL,
-    "occupiedUntilUtc" TIMESTAMPTZ(3) NOT NULL,
-    "expiresAt" TIMESTAMPTZ(3) NOT NULL,
-    "status" "BookingLockStatus" NOT NULL DEFAULT 'ACTIVE',
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "BookingLock_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "AvailabilityBlock" (
-    "id" TEXT NOT NULL,
-    "theatreId" TEXT NOT NULL,
-    "eventDate" DATE NOT NULL,
-    "isFullDay" BOOLEAN NOT NULL DEFAULT false,
-    "startTime" TEXT,
-    "endTime" TEXT,
-    "startsAtUtc" TIMESTAMPTZ(3),
-    "endsAtUtc" TIMESTAMPTZ(3),
-    "internalNote" TEXT,
-    "recurrenceRule" TEXT,
-    "recurrenceStartDate" DATE,
-    "recurrenceEndDate" DATE,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdByAdminId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "AvailabilityBlock_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "BookingSettings" (
-    "id" TEXT NOT NULL,
-    "theatreId" TEXT NOT NULL,
-    "businessOpenTime" TEXT NOT NULL DEFAULT '09:00',
-    "businessCloseTime" TEXT NOT NULL DEFAULT '23:00',
-    "minimumDurationMinutes" INTEGER NOT NULL DEFAULT 240,
-    "bufferMinutes" INTEGER NOT NULL DEFAULT 60,
-    "lockDurationMinutes" INTEGER NOT NULL DEFAULT 10,
-    "maximumGuests" INTEGER NOT NULL DEFAULT 50,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "BookingSettings_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -637,6 +497,9 @@ CREATE UNIQUE INDEX "EventPackage_slug_key" ON "EventPackage"("slug");
 CREATE INDEX "EventPackage_venueId_isActive_sortOrder_idx" ON "EventPackage"("venueId", "isActive", "sortOrder");
 
 -- CreateIndex
+CREATE INDEX "EventPackage_locationId_isActive_sortOrder_idx" ON "EventPackage"("locationId", "isActive", "sortOrder");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "EventPackage_venueId_name_key" ON "EventPackage"("venueId", "name");
 
 -- CreateIndex
@@ -656,27 +519,6 @@ CREATE INDEX "AgreementTemplate_isActive_createdAt_idx" ON "AgreementTemplate"("
 
 -- CreateIndex
 CREATE UNIQUE INDEX "AgreementTemplate_title_version_key" ON "AgreementTemplate"("title", "version");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Theatre_name_locationId_key" ON "Theatre"("name", "locationId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "SlotTemplate_theatreId_startTime_endTime_key" ON "SlotTemplate"("theatreId", "startTime", "endTime");
-
--- CreateIndex
-CREATE INDEX "Slot_theatreId_date_status_idx" ON "Slot"("theatreId", "date", "status");
-
--- CreateIndex
-CREATE INDEX "Slot_date_status_startTime_idx" ON "Slot"("date", "status", "startTime");
-
--- CreateIndex
-CREATE INDEX "Slot_status_lockExpiresAt_idx" ON "Slot"("status", "lockExpiresAt");
-
--- CreateIndex
-CREATE INDEX "Slot_slotTemplateId_idx" ON "Slot"("slotTemplateId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Slot_theatreId_date_startTime_endTime_key" ON "Slot"("theatreId", "date", "startTime", "endTime");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Occasion_key_key" ON "Occasion"("key");
@@ -706,37 +548,13 @@ CREATE INDEX "Booking_paymentProvider_paymentOrderId_idx" ON "Booking"("paymentP
 CREATE INDEX "Booking_paymentProvider_paymentTransactionId_idx" ON "Booking"("paymentProvider", "paymentTransactionId");
 
 -- CreateIndex
-CREATE INDEX "Booking_slotId_idx" ON "Booking"("slotId");
-
--- CreateIndex
-CREATE INDEX "Booking_theatreId_idx" ON "Booking"("theatreId");
-
--- CreateIndex
 CREATE INDEX "Booking_venueId_packageId_eventDate_idx" ON "Booking"("venueId", "packageId", "eventDate");
 
 -- CreateIndex
-CREATE INDEX "BookingLock_theatreId_eventDate_idx" ON "BookingLock"("theatreId", "eventDate");
+CREATE INDEX "Booking_venueId_bookingStatus_holdExpiresAt_idx" ON "Booking"("venueId", "bookingStatus", "holdExpiresAt");
 
 -- CreateIndex
-CREATE INDEX "BookingLock_theatreId_startsAtUtc_occupiedUntilUtc_idx" ON "BookingLock"("theatreId", "startsAtUtc", "occupiedUntilUtc");
-
--- CreateIndex
-CREATE INDEX "BookingLock_status_expiresAt_idx" ON "BookingLock"("status", "expiresAt");
-
--- CreateIndex
-CREATE INDEX "BookingLock_lockOwnerHash_status_expiresAt_idx" ON "BookingLock"("lockOwnerHash", "status", "expiresAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "BookingLock_bookingId_version_key" ON "BookingLock"("bookingId", "version");
-
--- CreateIndex
-CREATE INDEX "AvailabilityBlock_theatreId_eventDate_isActive_idx" ON "AvailabilityBlock"("theatreId", "eventDate", "isActive");
-
--- CreateIndex
-CREATE INDEX "AvailabilityBlock_theatreId_startsAtUtc_endsAtUtc_idx" ON "AvailabilityBlock"("theatreId", "startsAtUtc", "endsAtUtc");
-
--- CreateIndex
-CREATE UNIQUE INDEX "BookingSettings_theatreId_key" ON "BookingSettings"("theatreId");
+CREATE INDEX "Booking_venueId_startsAtUtc_occupiedUntilUtc_idx" ON "Booking"("venueId", "startsAtUtc", "occupiedUntilUtc");
 
 -- CreateIndex
 CREATE INDEX "BookingItem_bookingId_idx" ON "BookingItem"("bookingId");
@@ -832,6 +650,9 @@ CREATE UNIQUE INDEX "CouponUsage_couponId_bookingId_key" ON "CouponUsage"("coupo
 ALTER TABLE "EventPackage" ADD CONSTRAINT "EventPackage_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "EventPackage" ADD CONSTRAINT "EventPackage_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "Location"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "PackageFeature" ADD CONSTRAINT "PackageFeature_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "EventPackage"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -841,46 +662,16 @@ ALTER TABLE "EventAddon" ADD CONSTRAINT "EventAddon_venueId_fkey" FOREIGN KEY ("
 ALTER TABLE "EventAddon" ADD CONSTRAINT "EventAddon_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "EventPackage"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Theatre" ADD CONSTRAINT "Theatre_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "Location"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "SlotTemplate" ADD CONSTRAINT "SlotTemplate_theatreId_fkey" FOREIGN KEY ("theatreId") REFERENCES "Theatre"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Slot" ADD CONSTRAINT "Slot_theatreId_fkey" FOREIGN KEY ("theatreId") REFERENCES "Theatre"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Slot" ADD CONSTRAINT "Slot_slotTemplateId_fkey" FOREIGN KEY ("slotTemplateId") REFERENCES "SlotTemplate"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "OccasionField" ADD CONSTRAINT "OccasionField_occasionId_fkey" FOREIGN KEY ("occasionId") REFERENCES "Occasion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Booking" ADD CONSTRAINT "Booking_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_theatreId_fkey" FOREIGN KEY ("theatreId") REFERENCES "Theatre"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Booking" ADD CONSTRAINT "Booking_slotId_fkey" FOREIGN KEY ("slotId") REFERENCES "Slot"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Booking" ADD CONSTRAINT "Booking_venueId_fkey" FOREIGN KEY ("venueId") REFERENCES "Venue"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Booking" ADD CONSTRAINT "Booking_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "EventPackage"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "BookingLock" ADD CONSTRAINT "BookingLock_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "BookingLock" ADD CONSTRAINT "BookingLock_theatreId_fkey" FOREIGN KEY ("theatreId") REFERENCES "Theatre"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "AvailabilityBlock" ADD CONSTRAINT "AvailabilityBlock_theatreId_fkey" FOREIGN KEY ("theatreId") REFERENCES "Theatre"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "BookingSettings" ADD CONSTRAINT "BookingSettings_theatreId_fkey" FOREIGN KEY ("theatreId") REFERENCES "Theatre"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "BookingItem" ADD CONSTRAINT "BookingItem_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -917,4 +708,3 @@ ALTER TABLE "CouponUsage" ADD CONSTRAINT "CouponUsage_bookingId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "CouponUsage" ADD CONSTRAINT "CouponUsage_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
