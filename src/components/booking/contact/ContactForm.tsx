@@ -50,7 +50,7 @@ export default function ContactForm({
   } = useBooking();
   const router = useRouter();
 
-  const theatre = booking.theatre;
+  const selectedPackage = booking.package;
 
   /* -----------------------------
      Refs
@@ -148,20 +148,20 @@ export default function ContactForm({
   /* -----------------------------
      Package logic
   ------------------------------ */
-  const decorationForced = booking.slot?.decorationMandatory ?? false;
+  const decorationForced = booking.schedule?.decorationMandatory ?? false;
   const decorationSelected = decorationForced
     ? true
     : booking.decorationRequired;
 
   useEffect(() => {
-    const slotId = booking.slot?.id ?? null;
-    if (!slotId) return;
+    const scheduleId = booking.schedule?.id ?? null;
+    if (!scheduleId) return;
 
-    if (initializedDecorationSlotRef.current === slotId) return;
-    initializedDecorationSlotRef.current = slotId;
+    if (initializedDecorationSlotRef.current === scheduleId) return;
+    initializedDecorationSlotRef.current = scheduleId;
 
   }, [
-    booking.slot?.id,
+    booking.schedule?.id,
     booking.decorationRequired,
     decorationForced,
     onDecorationChange,
@@ -181,23 +181,23 @@ export default function ContactForm({
   }, [showForcedDecorationMobileHint]);
 
   const venueGuestLimit = useMemo(
-    () => resolvePackageIncludedGuestCount(theatre),
-    [theatre]
+    () => resolvePackageIncludedGuestCount(selectedPackage),
+    [selectedPackage]
   );
 
   useEffect(() => {
-    if (!theatre || booking.guestCount >= theatre.baseGuests) return;
-    setGuestCount(theatre.baseGuests);
-  }, [booking.guestCount, setGuestCount, theatre]);
+    if (!selectedPackage || booking.guestCount >= selectedPackage.baseGuests) return;
+    setGuestCount(selectedPackage.baseGuests);
+  }, [booking.guestCount, setGuestCount, selectedPackage]);
 
   /* -----------------------------
      Guarded render
   ------------------------------ */
-  if (!theatre) {
+  if (!selectedPackage) {
     return null;
   }
 
-  const { baseGuests } = theatre;
+  const { baseGuests } = selectedPackage;
 
   const guests = Math.min(
     Math.max(booking.guestCount, baseGuests),
@@ -363,7 +363,7 @@ export default function ContactForm({
 
         {/* Decoration */}
         <div
-          key={`decoration-${booking.slot?.id ?? "none"}-${decorationForced ? "included" : "optional"}`}
+          key={`decoration-${booking.schedule?.id ?? "none"}-${decorationForced ? "included" : "optional"}`}
           className={`${decorationForced ? "animate-fade-in" : ""}`}
         >
           <div className="flex min-h-[24px] items-center gap-2 text-sm font-medium">
@@ -375,15 +375,15 @@ export default function ContactForm({
               </span>
             ) : (
               <span className="text-xs font-medium text-gray-500">
-                {`(Starting at ${formatCurrency(Math.max(theatre?.decorationPrice ?? 0, 0))})`}
+                {`(Starting at ${formatCurrency(Math.max(selectedPackage?.decorationPrice ?? 0, 0))})`}
               </span>
             )}
           </div>
 
           <p className="mb-2 text-xs text-gray-500">
             {decorationForced
-              ? "Decor setup included for this package slot."
-              : decorationSelected && theatre.decorationPrice > 0
+              ? "Decor setup included for this package schedule."
+              : decorationSelected && selectedPackage.decorationPrice > 0
               ? "Make your experience more special."
               : " "}
           </p>

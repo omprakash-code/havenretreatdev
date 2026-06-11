@@ -121,38 +121,36 @@ export async function POST(req: Request) {
             );
         }
 
-        if (booking.slotId === null) {
-            const cookieStore = await cookies();
-            const sessionToken = cookieStore.get("ds_booking_session")?.value ?? null;
-            const payload = sessionToken ? verifyBookingSessionToken(sessionToken) : null;
-            if (
-                !payload ||
-                payload.bookingId !== booking.id ||
-                typeof payload.lockVersion !== "number"
-            ) {
+        const cookieStore = await cookies();
+        const sessionToken = cookieStore.get("ds_booking_session")?.value ?? null;
+        const payload = sessionToken ? verifyBookingSessionToken(sessionToken) : null;
+        if (
+            !payload ||
+            payload.bookingId !== booking.id ||
+            typeof payload.lockVersion !== "number"
+        ) {
+            return bookingErrorResponse(
+                409,
+                "SESSION_EXPIRED",
+                BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
+            );
+        }
+
+        try {
+            await requireActiveRangeBookingSession({
+                bookingId: booking.id,
+                lockOwner: payload.lockOwner,
+                lockVersion: payload.lockVersion,
+            });
+        } catch (error) {
+            if (error instanceof RangeBookingSessionError) {
                 return bookingErrorResponse(
                     409,
                     "SESSION_EXPIRED",
                     BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
                 );
             }
-
-            try {
-                await requireActiveRangeBookingSession({
-                    bookingId: booking.id,
-                    lockOwner: payload.lockOwner,
-                    lockVersion: payload.lockVersion,
-                });
-            } catch (error) {
-                if (error instanceof RangeBookingSessionError) {
-                    return bookingErrorResponse(
-                        409,
-                        "SESSION_EXPIRED",
-                        BOOKING_SESSION_EXPIRED_MODAL_MESSAGE
-                    );
-                }
-                throw error;
-            }
+            throw error;
         }
 
         const resolvedUserId = await resolveBookingCouponUserId(prisma, {
@@ -259,8 +257,7 @@ export async function POST(req: Request) {
                 startsAtUtc: booking.startsAtUtc,
                 endsAtUtc: booking.endsAtUtc,
             },
-            slot: null,
-            theatreId: booking.theatreId ?? "",
+            venueId: booking.venueId ?? "",
             locationId: "",
             userId: resolvedUserId,
             contactPhone: normalizedContactPhone,

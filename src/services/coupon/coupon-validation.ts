@@ -140,20 +140,20 @@ function ensureValidDateIso(input: unknown, fieldLabel: string): Date {
 
 function normalizeRuleValue(rule: CouponRuleInput) {
   switch (rule.type) {
-    case "SLOT_DATE_RANGE": {
+    case "BOOKING_DATE_RANGE": {
       const value = ensureObject(rule.value);
       const from = String(value.from ?? "").trim();
       const to = String(value.to ?? "").trim();
       if (!from || !to) {
-        throw new CouponValidationError("SLOT_DATE_RANGE rule requires from/to dates.");
+        throw new CouponValidationError("BOOKING_DATE_RANGE rule requires from/to dates.");
       }
       const fromDate = new Date(from);
       const toDate = new Date(to);
       if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
-        throw new CouponValidationError("SLOT_DATE_RANGE rule has invalid date values.");
+        throw new CouponValidationError("BOOKING_DATE_RANGE rule has invalid date values.");
       }
       if (fromDate.getTime() > toDate.getTime()) {
-        throw new CouponValidationError("SLOT_DATE_RANGE from date cannot be after to date.");
+        throw new CouponValidationError("BOOKING_DATE_RANGE from date cannot be after to date.");
       }
       return {
         from,
@@ -161,13 +161,13 @@ function normalizeRuleValue(rule: CouponRuleInput) {
       };
     }
 
-    case "SLOT_TIME_RANGE": {
+    case "BOOKING_TIME_RANGE": {
       const value = ensureObject(rule.value);
       const start = String(value.start ?? "").trim();
       const end = String(value.end ?? "").trim();
 
       if (!TIME_PATTERN.test(start) || !TIME_PATTERN.test(end)) {
-        throw new CouponValidationError("SLOT_TIME_RANGE rule requires valid HH:mm start/end.");
+        throw new CouponValidationError("BOOKING_TIME_RANGE rule requires valid HH:mm start/end.");
       }
 
       return {
@@ -176,22 +176,22 @@ function normalizeRuleValue(rule: CouponRuleInput) {
       };
     }
 
-    case "SLOT_DURATION_MIN": {
+    case "BOOKING_DURATION_MIN": {
       if (rule.operator === "EQUALS") {
         const single = String(rule.value ?? "").trim();
         const parsed = Number(single);
         if (!Number.isInteger(parsed) || parsed < 1) {
           throw new CouponValidationError(
-            "SLOT_DURATION_MIN rule requires a valid duration in minutes."
+            "BOOKING_DURATION_MIN rule requires a valid duration in minutes."
           );
         }
         return String(parsed);
       }
 
-      const list = normalizeStringList(rule.value, "SLOT_DURATION_MIN rule value");
+      const list = normalizeStringList(rule.value, "BOOKING_DURATION_MIN rule value");
       if (list.length === 0) {
         throw new CouponValidationError(
-          "SLOT_DURATION_MIN rule requires at least one duration."
+          "BOOKING_DURATION_MIN rule requires at least one duration."
         );
       }
 
@@ -199,7 +199,7 @@ function normalizeRuleValue(rule: CouponRuleInput) {
         const parsed = Number(value);
         if (!Number.isInteger(parsed) || parsed < 1) {
           throw new CouponValidationError(
-            "SLOT_DURATION_MIN values must be positive whole minutes."
+            "BOOKING_DURATION_MIN values must be positive whole minutes."
           );
         }
         return String(parsed);
@@ -207,7 +207,7 @@ function normalizeRuleValue(rule: CouponRuleInput) {
 
       if (rule.operator === "BETWEEN") {
         if (normalizedDurations.length < 2) {
-          throw new CouponValidationError("SLOT_DURATION_MIN BETWEEN requires two values.");
+          throw new CouponValidationError("BOOKING_DURATION_MIN BETWEEN requires two values.");
         }
         return [normalizedDurations[0] as string, normalizedDurations[1] as string];
       }
@@ -285,7 +285,6 @@ function normalizeRuleValue(rule: CouponRuleInput) {
       );
     }
 
-    case "SLOT_ID":
     case "PRODUCT_ID": {
       if (rule.operator === "EQUALS") {
         const single = String(rule.value ?? "").trim();

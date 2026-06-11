@@ -63,24 +63,15 @@ async function getRangeConflicts(
   tx: Prisma.TransactionClient,
   input: {
     bookingId: string;
-    venueId?: string | null;
-    theatreId?: string | null;
+    venueId: string;
     startsAtUtc: Date;
     occupiedUntilUtc: Date;
   }
 ) {
-  const conflictFilter = input.venueId
-    ? { venueId: input.venueId }
-    : input.theatreId
-      ? { theatreId: input.theatreId }
-      : null;
-
-  if (!conflictFilter) return { booking: null };
-
   const booking = await tx.booking.findFirst({
     where: {
       id: { not: input.bookingId },
-      ...conflictFilter,
+      venueId: input.venueId,
       bookingStatus: "CONFIRMED",
       startsAtUtc: { lt: input.occupiedUntilUtc },
       occupiedUntilUtc: { gt: input.startsAtUtc },
@@ -111,7 +102,7 @@ export async function beginRangePaymentAttempt(input: {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
     });
-    if (!booking || booking.slotId !== null || !booking.eventDate) {
+    if (!booking || !booking.eventDate || !booking.venueId) {
       throw new RangePaymentError("BOOKING_NOT_FOUND", "Range booking not found.");
     }
     if (
@@ -145,14 +136,12 @@ export async function beginRangePaymentAttempt(input: {
       );
     }
 
-    const lockKey = booking.venueId ?? booking.theatreId ?? booking.id;
-    await acquireScheduleLock(tx, lockKey, booking.eventDate);
+    await acquireScheduleLock(tx, booking.venueId, booking.eventDate);
 
     if (booking.startsAtUtc && booking.occupiedUntilUtc) {
       const conflicts = await getRangeConflicts(tx, {
         bookingId: booking.id,
         venueId: booking.venueId,
-        theatreId: booking.theatreId,
         startsAtUtc: booking.startsAtUtc,
         occupiedUntilUtc: booking.occupiedUntilUtc,
       });
@@ -460,14 +449,30 @@ export async function finalizeRangePayment(input: {
       };
     }
 
-    const lockKey = booking.venueId ?? booking.theatreId ?? booking.id;
-    await acquireScheduleLock(tx, lockKey, booking.eventDate);
+    if (!booking.venueId) {
+      const reviewed = await markManualReview(tx, {
+        bookingId: booking.id,
+        paymentId: payment.id,
+        provider: input.provider,
+        providerOrderId: input.providerOrderId,
+        providerPaymentId: input.providerPaymentId,
+        providerPayload: input.providerPayload,
+        reason: "PAYMENT_BOOKING_VENUE_MISSING",
+        now,
+      });
+      return {
+        status: "MANUAL_REVIEW",
+        bookingId: reviewed.id,
+        bookingRef: reviewed.bookingRef,
+        reason: "PAYMENT_BOOKING_VENUE_MISSING",
+      };
+    }
+    await acquireScheduleLock(tx, booking.venueId, booking.eventDate);
 
     if (booking.startsAtUtc && booking.occupiedUntilUtc) {
       const conflicts = await getRangeConflicts(tx, {
         bookingId: booking.id,
         venueId: booking.venueId,
-        theatreId: booking.theatreId,
         startsAtUtc: booking.startsAtUtc,
         occupiedUntilUtc: booking.occupiedUntilUtc,
       });

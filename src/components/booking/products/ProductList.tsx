@@ -20,7 +20,7 @@ export default function ProductList({
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const locationId = booking.location?.id ?? "";
-  const selectedPackage = booking.theatre;
+  const selectedPackage = booking.package;
   const selectedPackageKey = selectedPackage
     ? `${selectedPackage.id}:${selectedPackage.capacity}:${selectedPackage.name}`
     : "";

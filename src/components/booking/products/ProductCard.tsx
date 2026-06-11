@@ -73,12 +73,10 @@ export default function ProductCard({
   const quantity = existing?.quantity ?? 0;
   const hasLedNumber = Boolean(existing?.ledNumber?.trim());
   const includedQuantity = getPackageIncludedProductQuantity(
-    booking.theatre,
+    booking.package,
     product
   );
   const isPackageIncluded = includedQuantity > 0;
-  const extraQuantity = Math.max(quantity - includedQuantity, 0);
-
   /* -----------------------------
      Local-only update (NO API)
   ------------------------------ */
@@ -92,7 +90,7 @@ export default function ProductCard({
         variant: activeVariant,
         quantity: nextQty,
         minimumQuantity: includedQuantity,
-        selectedPackage: booking.theatre,
+        selectedPackage: booking.package,
       })
     );
   };

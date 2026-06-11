@@ -6,19 +6,6 @@ export type LocationOption = {
   city?: string;
 };
 
-export type SlotStatus = "AVAILABLE" | "LOCKED" | "BOOKED" | "DISABLED" | "EXPIRED";
-
-export type SlotOption = {
-  id: string;
-  startTime: string;
-  endTime: string;
-  basePrice: number;
-  finalPrice: number;
-  decorationMandatory: boolean;
-  status: SlotStatus;
-  statusLabel: string;
-};
-
 export type TheatreOption = {
   id: string;
   venueId?: string;
@@ -31,7 +18,6 @@ export type TheatreOption = {
   basePrice?: number;
   eventDurationHours?: number;
   hourlyRate?: number;
-  slots: SlotOption[];
 };
 
 export type OccasionField = {
@@ -133,21 +119,4 @@ export function isLedNumberProduct(product: ProductOption) {
 
 export function getSelectionKey(productId: string, variantId: string) {
   return `${productId}:${variantId}`;
-}
-
-export function toTitleStatus(status: SlotStatus) {
-  if (status === "AVAILABLE") return "Available";
-  if (status === "BOOKED") return "Booked";
-  if (status === "LOCKED") return "Locked";
-  if (status === "DISABLED") return "Disabled";
-  return "Expired";
-}
-
-export function getSlotConflictMessage(slot: SlotOption | null) {
-  if (!slot) return null;
-  if (slot.status === "BOOKED") return "This slot is booked. Please choose another slot.";
-  if (slot.status === "DISABLED" || slot.status === "EXPIRED") {
-    return "This slot is not available. Please choose another slot.";
-  }
-  return null;
 }

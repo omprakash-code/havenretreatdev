@@ -27,6 +27,19 @@ vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
 }));
 
+vi.mock("@/services/booking/range-booking-api-session", () => ({
+  getRangeBookingApiIdentity: vi.fn().mockResolvedValue({
+    bookingId: "booking_1",
+    lockOwner: "owner_1",
+    lockVersion: 1,
+  }),
+}));
+
+vi.mock("@/services/booking/range-booking-session.service", () => ({
+  requireActiveRangeBookingSession: vi.fn().mockResolvedValue({}),
+  RangeBookingSessionError: class RangeBookingSessionError extends Error {},
+}));
+
 vi.mock("@/lib/booking-pricing", () => ({
   calculateBookingPricing: calculateBookingPricingMock,
 }));
@@ -71,24 +84,15 @@ function createTxMock() {
         contactPhone: "9999999999",
         decorationRequired: false,
         occasionData: null,
-        theatreId: "theatre_1",
-        theatre: {
-          locationId: "location_1",
-          baseGuests: 2,
+        venueId: "venue_1",
+        eventDate: new Date("2026-03-25T00:00:00.000Z"),
+        eventStartTime: "10:00",
+        eventEndTime: "14:00",
+        startsAtUtc: new Date("2026-03-25T14:00:00.000Z"),
+        endsAtUtc: new Date("2026-03-25T18:00:00.000Z"),
+        baseAmount: 1000,
+        packageSnapshot: {
           capacity: 6,
-          extraPersonPrice: 200,
-          decorationPrice: 300,
-        },
-        slot: {
-          id: "slot_1",
-          status: "LOCKED",
-          date: new Date("2026-03-25T12:00:00.000Z"),
-          startTime: "10:00",
-          endTime: "13:00",
-          durationMin: 180,
-          basePrice: 1000,
-          finalPrice: 1000,
-          decorationMandatory: false,
         },
       }),
       update: vi.fn().mockResolvedValue({}),

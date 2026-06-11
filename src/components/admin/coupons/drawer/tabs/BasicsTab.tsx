@@ -24,7 +24,7 @@ import {
 
 type ApplyDiscountOnMode =
   | "BOOKING_TOTAL"
-  | "SLOT_ONLY"
+  | "PACKAGE_ONLY"
   | "ALL_PRODUCTS"
   | "TARGET_CATEGORY"
   | "TARGET_PRODUCT_ID";
@@ -47,7 +47,7 @@ function deriveApplyDiscountOn(form: AdminCouponFormState): ApplyDiscountOnMode 
   if (hasCategoryTarget) return "TARGET_CATEGORY";
 
   if (form.scope === "PRODUCTS_ONLY") return "ALL_PRODUCTS";
-  if (form.scope === "SLOT_ONLY") return "SLOT_ONLY";
+  if (form.scope === "PACKAGE_ONLY") return "PACKAGE_ONLY";
   return "BOOKING_TOTAL";
 }
 
@@ -143,9 +143,9 @@ export default function BasicsTab({
       return;
     }
 
-    if (value === "SLOT_ONLY") {
+    if (value === "PACKAGE_ONLY") {
       patchForm({
-        scope: "SLOT_ONLY",
+        scope: "PACKAGE_ONLY",
         rules: replaceTargetRules(form.rules, []),
       });
       return;
@@ -290,7 +290,7 @@ export default function BasicsTab({
             onChange={(value) => setApplyDiscountOn(value as ApplyDiscountOnMode)}
             options={[
               { value: "BOOKING_TOTAL", label: "Booking Total" },
-              { value: "SLOT_ONLY", label: "Slot Price" },
+              { value: "PACKAGE_ONLY", label: "Package Price" },
               { value: "ALL_PRODUCTS", label: "All Booking Products" },
               { value: "TARGET_CATEGORY", label: "Product Category" },
               { value: "TARGET_PRODUCT_ID", label: "Products" },

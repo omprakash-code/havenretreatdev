@@ -25,7 +25,7 @@ export function getStackableCouponUiState(params: {
 export function shouldLoadTargetProductsOptions(params: {
   applyDiscountOn:
     | "BOOKING_TOTAL"
-    | "SLOT_ONLY"
+    | "PACKAGE_ONLY"
     | "ALL_PRODUCTS"
     | "TARGET_CATEGORY"
     | "TARGET_PRODUCT_ID";

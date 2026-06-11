@@ -35,14 +35,14 @@ function buildContext(
   patch: Partial<CouponEvaluationContext> = {}
 ): CouponEvaluationContext {
   return {
-    slot: {
-      id: "slot_1",
+    schedule: {
       date: new Date("2026-03-04T00:00:00.000Z"),
       startTime: "13:30",
       endTime: "16:30",
       durationMin: 180,
+    source: "BOOKING",
     },
-    theatreId: "theatre_1",
+    venueId: "theatre_1",
     locationId: "location_1",
     user: {
       id: "user_1",
@@ -75,12 +75,12 @@ describe("coupon evaluator validity checks", () => {
       validTill: new Date("2026-03-03T23:59:59.000Z"),
     });
     const context = buildContext({
-      slot: {
-        id: "slot_outside",
+      schedule: {
         date: new Date("2026-03-04T00:00:00.000Z"),
         startTime: "13:30",
         endTime: "16:30",
         durationMin: 180,
+      source: "BOOKING",
       },
     });
 
@@ -103,12 +103,12 @@ describe("coupon evaluator validity checks", () => {
       validTill: new Date("2026-03-10T23:59:59.000Z"),
     });
     const context = buildContext({
-      slot: {
-        id: "slot_inside",
+      schedule: {
         date: new Date("2026-03-04T00:00:00.000Z"),
         startTime: "13:30",
         endTime: "16:30",
         durationMin: 180,
+      source: "BOOKING",
       },
     });
 
@@ -131,12 +131,12 @@ describe("coupon evaluator validity checks", () => {
       validTill: null,
     });
     const context = buildContext({
-      slot: {
-        id: "slot_open_ended",
+      schedule: {
         date: new Date("2026-05-04T00:00:00.000Z"),
         startTime: "13:30",
         endTime: "16:30",
         durationMin: 180,
+      source: "BOOKING",
       },
     });
 

@@ -22,8 +22,6 @@ export function mapAdminBookingToSuccessData(
       startsAtUtc: booking.startsAtUtc,
       endsAtUtc: booking.endsAtUtc,
       timezone: booking.timezone,
-      theatreTimezone: booking.theatre.timezone,
-      slot: booking.slot,
     },
     "dd MMM yyyy"
   );
@@ -50,7 +48,7 @@ export function mapAdminBookingToSuccessData(
       phone: booking.customer?.phone ?? "",
       email: booking.customer?.email ?? undefined,
     },
-    theatreName: booking.theatre.name,
+    theatreName: booking.theatre?.name ?? "Haven Retreat",
     theatreImage: booking.theatreImage ?? null,
     date,
     timeSlot,

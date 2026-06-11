@@ -46,16 +46,14 @@ export async function GET(req: Request) {
         { status: 404 }
       );
     }
-    if (booking.slotId === null) {
-      const identity = await getRangeBookingApiIdentity(bookingId);
-      if (!identity) {
-        return NextResponse.json(
-          { success: false, code: "SESSION_EXPIRED" },
-          { status: 409 }
-        );
-      }
-      await requireActiveRangeBookingSession(identity);
+    const identity = await getRangeBookingApiIdentity(bookingId);
+    if (!identity) {
+      return NextResponse.json(
+        { success: false, code: "SESSION_EXPIRED" },
+        { status: 409 }
+      );
     }
+    await requireActiveRangeBookingSession(identity);
 
     /* -----------------------------
        Fetch booking items (snapshot)

@@ -107,8 +107,6 @@ export async function GET(req: Request) {
       startsAtUtc: booking.startsAtUtc,
       endsAtUtc: booking.endsAtUtc,
       timezone: booking.timezone,
-      theatreTimezone: 'America/New_York',
-      slot: null,
     }, "dd MMM yyyy");
 
     if (!schedule) {
@@ -169,27 +167,23 @@ export async function GET(req: Request) {
       durationHours !== null
         ? Math.max(durationHours - includedDurationHours, 0)
         : null;
-    const isRangeBooking = booking.slotId === null;
     const packageGuestLimit = resolveRangePackageGuestLimit(booking.packageSnapshot);
     const includedProductSource = { capacity: packageGuestLimit };
     const includedGuestCount = packageGuestLimit;
     const extraGuestCount = Math.max(booking.guestCount - includedGuestCount, 0);
-    const packageAmount = isRangeBooking
-      ? Number(
-          pricingSnapshot?.packageAmount ??
-            packageSnapshot?.subtotalAmount ??
-            packageSnapshot?.finalAmount ??
-            0
-        )
-      : Number(booking.baseAmount ?? 0);
+    const packageAmount = Number(
+      pricingSnapshot?.packageAmount ??
+        packageSnapshot?.subtotalAmount ??
+        packageSnapshot?.finalAmount ??
+        0
+    );
     const snapshotExtraDurationAmount = Number(
       pricingSnapshot?.extraDurationAmount ?? 0
     );
-    const extraDurationAmount = isRangeBooking
-      ? snapshotExtraDurationAmount > 0
+    const extraDurationAmount =
+      snapshotExtraDurationAmount > 0
         ? snapshotExtraDurationAmount
-        : Math.max(Number(booking.baseAmount ?? 0) - packageAmount, 0)
-      : 0;
+        : Math.max(Number(booking.baseAmount ?? 0) - packageAmount, 0);
 
     const items = assignNumberDecorationDetails(
       booking.items.map((item) => ({

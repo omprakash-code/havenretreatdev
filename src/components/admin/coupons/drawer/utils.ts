@@ -7,8 +7,6 @@ import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { RULE_TYPES, type RuleMeta, type RuleValueKind, type TabKey } from "./constants";
 
 const LEGACY_EQUALS_MULTI_RULE_TYPES = new Set<CouponRuleType>([
-  "SLOT_ID",
-  "THEATRE_ID",
   "CATEGORY",
   "PRODUCT_ID",
   "USER_ID",

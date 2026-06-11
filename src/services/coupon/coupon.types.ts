@@ -12,21 +12,13 @@ export type CouponScheduleContext = {
   durationMin: number
   startsAtUtc?: Date | null
   endsAtUtc?: Date | null
-  source: 'BOOKING' | 'SLOT'
+  source: 'BOOKING'
 }
 
 export type CouponEvaluationContext = {
   schedule?: CouponScheduleContext
 
-  slot?: {
-    id: string
-    date: Date              // Slot date (Timestamptz, IST-safe)
-    startTime: string       // "22:00"
-    endTime: string         // "02:00"
-    durationMin: number
-  } | null
-
-  theatreId: string
+  venueId: string
   locationId: string
 
   user?: {
@@ -93,23 +85,15 @@ export type CouponEntity = {
 
 export type CouponRuleValue =
   | {
-      type: 'SLOT_DATE_RANGE'
+      type: 'BOOKING_DATE_RANGE'
       value: { from: string; to: string }
     }
   | {
-      type: 'SLOT_TIME_RANGE'
+      type: 'BOOKING_TIME_RANGE'
       value: { start: string; end: string }
     }
   | {
-      type: 'SLOT_DURATION_MIN'
-      value: string[] | string
-    }
-  | {
-      type: 'SLOT_ID'
-      value: string[] | string
-    }
-  | {
-      type: 'THEATRE_ID'
+      type: 'BOOKING_DURATION_MIN'
       value: string[] | string
     }
   | {

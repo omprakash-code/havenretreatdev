@@ -31,9 +31,10 @@ export async function POST(
       items = [],
       extrasAmount = 0,
       slotAmount: bodySlotAmount = 0,
-      theatreId: bodyTheatreId = "",
+      venueId: bodyVenueId = "",
       locationId: bodyLocationId = "",
       decorationRequired = false,
+      bookingSchedule,
     } = await req.json();
 
     if (!couponId) {
@@ -65,11 +66,25 @@ export async function POST(
     const slotAmount = Math.max(Number(bodySlotAmount ?? 0), 0);
     const nonSlotAmount = extrasAmount + productsTotal;
     const minAdvanceAmount = await getRequiredAdminAdvanceAmount(prisma);
+    if (
+      !bookingSchedule?.eventDate ||
+      !bookingSchedule?.eventStartTime ||
+      !bookingSchedule?.eventEndTime
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Booking schedule is required for preview." },
+        { status: 400 }
+      );
+    }
     const result = await previewAdminCoupon(prisma, {
       rawCoupon,
       couponCode: rawCoupon.code,
-      slot: null,
-      theatreId: bodyTheatreId ? String(bodyTheatreId) : "",
+      bookingSchedule: {
+        eventDate: new Date(bookingSchedule.eventDate),
+        eventStartTime: String(bookingSchedule.eventStartTime),
+        eventEndTime: String(bookingSchedule.eventEndTime),
+      },
+      venueId: bodyVenueId ? String(bodyVenueId) : "",
       locationId: bodyLocationId ? String(bodyLocationId) : "",
       userId: userId ? String(userId) : null,
       userPhone: userPhone ? String(userPhone) : null,

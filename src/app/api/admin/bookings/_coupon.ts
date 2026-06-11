@@ -41,21 +41,14 @@ type CouponContextItem = {
 type EvaluateAdminCouponInput = {
   couponCode?: string | null;
   couponCodes?: string[] | null;
-  slot?: {
-    id: string;
-    date: Date;
-    startTime: string;
-    endTime: string;
-    durationMin: number;
-  } | null;
-  bookingSchedule?: {
+  bookingSchedule: {
     eventDate?: Date | null;
     eventStartTime?: string | null;
     eventEndTime?: string | null;
     startsAtUtc?: Date | null;
     endsAtUtc?: Date | null;
-  } | null;
-  theatreId: string;
+  };
+  venueId: string;
   locationId: string;
   userId?: string | null;
   userPhone?: string | null;
@@ -224,8 +217,7 @@ export async function previewAdminCoupon(
   });
   const context = buildBookingCouponContext({
     bookingSchedule: input.bookingSchedule,
-    slot: input.slot,
-    theatreId: input.theatreId,
+    venueId: input.venueId,
     locationId: input.locationId,
     userId: resolvedUserId,
     contactPhone: input.userPhone,
@@ -407,8 +399,7 @@ async function evaluateResolvedAdminCoupons(
   const debugSnapshots: CouponDebugSnapshot[] = [];
   const context = buildBookingCouponContext({
     bookingSchedule: input.bookingSchedule,
-    slot: input.slot,
-    theatreId: input.theatreId,
+    venueId: input.venueId,
     locationId: input.locationId,
     userId: resolvedUserId,
     contactPhone: input.userPhone,

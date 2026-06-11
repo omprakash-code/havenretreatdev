@@ -13,12 +13,9 @@ export function getSlotHoverHint(params: {
   locationId: string;
   date: string;
   theatreId: string;
-  slotId: string;
-  slotConflictMessage: string | null;
 }) {
   if (!params.locationId) return "Select location first.";
   if (!params.date) return "Select date first.";
   if (!params.theatreId) return "Select a package first.";
-  if (params.slotConflictMessage) return params.slotConflictMessage;
   return "";
 }

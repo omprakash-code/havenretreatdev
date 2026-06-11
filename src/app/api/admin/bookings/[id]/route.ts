@@ -315,7 +315,7 @@ export async function GET(
       booking.razorpayOrderId
     );
     const displaySpace = {
-      id: booking.venue?.id ?? booking.theatreId ?? "",
+      id: booking.venue?.id ?? "",
       name: booking.venue?.name ?? (booking.packageSnapshot as { name?: string } | null)?.name ?? "Haven Retreat",
       image: booking.venue?.images?.[0] ?? null,
       locationName: booking.venue?.name ?? "Miami",
@@ -342,8 +342,6 @@ export async function GET(
       startsAtUtc: booking.startsAtUtc,
       endsAtUtc: booking.endsAtUtc,
       timezone: booking.timezone,
-      theatreTimezone: null,
-      slot: null,
     });
 
     const pricingSnap =
@@ -423,7 +421,7 @@ export async function GET(
           timezone: booking.timezone,
           schedule,
           slot: {
-            id: booking.slotId ?? null,
+            id: null,
             date: schedule.date,
             startTime: schedule.startTime,
             endTime: schedule.endTime,
@@ -536,9 +534,7 @@ export async function GET(
         },
         locationId: booking.eventPackage?.locationId ?? "",
         date: schedule.date,
-        theatreId: booking.packageId ?? "",
         packageId: booking.packageId,
-        slotId: booking.slotId,
         guestCount: booking.guestCount,
         decorationRequired: booking.decorationRequired,
         occasionKey: booking.occasionKey ?? "",
@@ -1145,8 +1141,7 @@ export async function PATCH(
           startsAtUtc: rangeContext.range.startsAtUtc,
           endsAtUtc: rangeContext.range.endsAtUtc,
         },
-        slot: null,
-        theatreId: body.venueId ?? "",
+        venueId: booking.venueId ?? "",
         locationId: body.locationId,
         userId: linkedUserId,
         userPhone: phone,
@@ -1394,8 +1389,7 @@ export async function PATCH(
           contactName: customerName,
           contactPhone: phone,
           contactEmail: email,
-          theatreId: body.venueId ?? booking.theatreId,
-          slotId: null,
+          venueId: booking.venueId,
           eventDate: rangeContext.range.eventDate,
           eventStartTime: rangeStartTime,
           eventEndTime: rangeEndTime,

@@ -70,31 +70,29 @@ export async function POST(req: Request) {
       if (!isEditableBookingStatus(booking.bookingStatus)) {
         throw new Error("BOOKING_INVALID_STATE");
       }
-      if (booking.slotId === null) {
-        if (
-          !sessionPayload ||
-          sessionPayload.bookingId !== booking.id ||
-          typeof sessionPayload.lockVersion !== "number"
-        ) {
+      if (
+        !sessionPayload ||
+        sessionPayload.bookingId !== booking.id ||
+        typeof sessionPayload.lockVersion !== "number"
+      ) {
+        throw new Error("BOOKING_INVALID_STATE");
+      }
+
+      try {
+        await requireActiveRangeBookingSession(
+          {
+            bookingId: booking.id,
+            lockOwner: sessionPayload.lockOwner,
+            lockVersion: sessionPayload.lockVersion,
+          },
+          new Date(),
+          tx
+        );
+      } catch (error) {
+        if (error instanceof RangeBookingSessionError) {
           throw new Error("BOOKING_INVALID_STATE");
         }
-
-        try {
-          await requireActiveRangeBookingSession(
-            {
-              bookingId: booking.id,
-              lockOwner: sessionPayload.lockOwner,
-              lockVersion: sessionPayload.lockVersion,
-            },
-            new Date(),
-            tx
-          );
-        } catch (error) {
-          if (error instanceof RangeBookingSessionError) {
-            throw new Error("BOOKING_INVALID_STATE");
-          }
-          throw error;
-        }
+        throw error;
       }
 
       const resolvedUserId = await resolveBookingCouponUserId(tx, {
@@ -142,8 +140,7 @@ export async function POST(req: Request) {
           startsAtUtc: booking.startsAtUtc,
           endsAtUtc: booking.endsAtUtc,
         },
-        slot: null,
-        theatreId: booking.theatreId ?? '',
+        venueId: booking.venueId ?? '',
         locationId: '',
         userId: resolvedUserId,
         contactPhone: booking.contactPhone,

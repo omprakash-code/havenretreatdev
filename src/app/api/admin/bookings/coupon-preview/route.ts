@@ -11,8 +11,11 @@ type CouponPreviewPayload = {
   couponCode?: string;
   couponCodes?: string[];
   existingCouponCodes?: string[];
-  theatreId?: string;
+  venueId?: string;
   locationId?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
   userId?: string | null;
   userPhone?: string | null;
   decorationRequired?: boolean;
@@ -86,12 +89,25 @@ export async function POST(req: Request) {
       : [];
 
     const minAdvanceAmount = await getRequiredAdminAdvanceAmount(prisma);
+    const date = String(body?.date ?? "").trim();
+    const startTime = String(body?.startTime ?? "").trim();
+    const endTime = String(body?.endTime ?? "").trim();
+    if (!date || !startTime || !endTime) {
+      return NextResponse.json(
+        { success: false, message: "Booking date and time range are required." },
+        { status: 400 }
+      );
+    }
 
     const result = await prisma.$transaction((tx) =>
       evaluateAdminCoupons(tx, {
         couponCodes: nextCouponCodes,
-        slot: null,
-        theatreId: String(body?.theatreId ?? ""),
+        bookingSchedule: {
+          eventDate: new Date(`${date}T00:00:00`),
+          eventStartTime: startTime,
+          eventEndTime: endTime,
+        },
+        venueId: String(body?.venueId ?? ""),
         locationId: String(body?.locationId ?? ""),
         userId: body?.userId ?? null,
         userPhone: body?.userPhone ?? null,

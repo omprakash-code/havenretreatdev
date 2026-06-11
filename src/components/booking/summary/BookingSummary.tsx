@@ -1,7 +1,6 @@
 "use client";
 import Image from "next/image";
 import {
-  BadgeCheck,
   Clock3,
   DollarSign,
   PartyPopper,
@@ -20,7 +19,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   useBooking,
   type BookingItemSnapshot,
-  type SelectedTheatre,
+  type SelectedPackage,
 } from "@/context/BookingContext";
 import StepIndicator from "@/components/booking/steps/StepIndicator";
 import type { BookingSummaryProps } from "./types";
@@ -101,13 +100,12 @@ export default function BookingSummary({
   const [showCouponInput, setShowCouponInput] = useState(false);
   const [couponFeedback, setCouponFeedback] = useState<CouponFeedback | null>(null);
 
-  const theatre = booking.theatre;
-  const slot = booking.slot;
+  const selectedPackage = booking.package;
+  const schedule = booking.schedule;
   const pricing = booking.pricing;
   const appliedCoupons = booking.appliedCoupons ?? [];
   const isFinalExtrasPage = pathname === "/booking/extras/gift";
-  const canApplyCoupon =
-    Boolean(booking.bookingId) && booking.bookingMode === "LEGACY_SLOT";
+  const canApplyCoupon = Boolean(booking.bookingId);
   const couponIdentityGate = resolveCouponIdentityGate({
     phone: couponIdentityOverride?.phone ?? booking.contact?.phone,
     email: couponIdentityOverride?.email ?? booking.contact?.email,
@@ -376,8 +374,8 @@ export default function BookingSummary({
     }
   }, [clearCouponState]);
   const lockExpiresAt =
-    booking.slot && "lockExpiresAt" in booking.slot
-      ? (booking.slot as { lockExpiresAt?: string | null }).lockExpiresAt ?? null
+    booking.schedule && "lockExpiresAt" in booking.schedule
+      ? (booking.schedule as { lockExpiresAt?: string | null }).lockExpiresAt ?? null
       : null;
   useLockCountdown({
     lockExpiresAt: booking.bookingId ? lockExpiresAt : null,
@@ -390,14 +388,14 @@ export default function BookingSummary({
   /* -----------------------------
      HARD GUARD (no broken UI)
   ------------------------------ */
-  if (!theatre || !slot || !pricing) {
+  if (!selectedPackage || !schedule || !pricing) {
     return (
       <div className="bg-white rounded-2xl border border-gray-300 p-6 shadow-sm w-full">
         <h3 className="text-lg font-bold mb-4 text-black">
           Your Booking Summary
         </h3>
         <p className="text-sm text-gray-400">
-          Select a slot to see pricing details.
+          Select a schedule to see pricing details.
         </p>
       </div>
     );
@@ -414,9 +412,8 @@ export default function BookingSummary({
   const extraHourlyRate = Number(pricing.extraHourlyRate) || 0;
   // For range bookings use the server snapshot's booked duration so the label stays
   // correct if booking.durationHours is temporarily stale in context.
-  const snapshotBookedHours = booking.bookingMode === "RANGE"
-    ? Number(booking.rangePricingSnapshot?.bookedDurationHours ?? 0) || 0
-    : 0;
+  const snapshotBookedHours =
+    Number(booking.rangePricingSnapshot?.bookedDurationHours ?? 0) || 0;
   const rentalDurationHours = snapshotBookedHours > 0 ? snapshotBookedHours : (Number(booking.durationHours) || 0);
   const includedRentalHours = Math.max(rentalDurationHours - extraDurationHours, 0);
   const extrasPrice = Number(pricing.extras) || 0;
@@ -429,10 +426,10 @@ export default function BookingSummary({
   const subtotalBeforeDiscount =
     basePrice + extraHoursPrice + extrasPrice + decorationPrice + productsPrice;
   const displayedGuestCount = Math.max(
-    booking.guestCount ?? theatre.baseGuests,
-    theatre.baseGuests
+    booking.guestCount ?? selectedPackage.baseGuests,
+    selectedPackage.baseGuests
   );
-  const extraGuestCount = Math.max(displayedGuestCount - theatre.baseGuests, 0);
+  const extraGuestCount = Math.max(displayedGuestCount - selectedPackage.baseGuests, 0);
   const fallbackOccasionLabel = booking.occasion?.key
     ? booking.occasion.key
       .replace(/_/g, " ")
@@ -483,7 +480,7 @@ export default function BookingSummary({
         bookingId: booking.bookingId,
         items: booking.bookingItems,
         guestCount: booking.guestCount,
-        decorationRequired: booking.slot?.decorationMandatory
+        decorationRequired: booking.schedule?.decorationMandatory
           ? true
           : booking.decorationRequired,
       }),
@@ -688,7 +685,7 @@ export default function BookingSummary({
             <section className="border border-[#d7e4e1] bg-white p-3.5 [&>div:last-child]:mb-0 [&>div:last-child]:border-b-0 [&>div:last-child]:pb-0">
               <SummaryRow
                 label="Package"
-                value={theatre.name}
+                value={selectedPackage.name}
                 labelClassName="text-gray-500 text-sm font-normal"
                 icon={Ticket}
                 customLabel={
@@ -706,7 +703,7 @@ export default function BookingSummary({
 
               <SummaryRow
                 label="Date & Slot"
-                value={`${booking.date ? formatISTDate(booking.date) : "—"}, ${slot.time}`}
+                value={`${booking.date ? formatISTDate(booking.date) : "—"}, ${schedule.time}`}
                 labelClassName="text-gray-500 text-sm font-normal"
                 customLabel={
                   <span className="inline-flex items-center gap-1.5">                    
@@ -746,10 +743,10 @@ export default function BookingSummary({
                     <span>
                       <span className="block">People</span>
                       <span className="mt-0.5 block text-xs font-normal text-gray-400">
-                        {theatre.baseGuests} included with package
+                        {selectedPackage.baseGuests} included with package
                         {extraGuestCount > 0
                           ? ` · ${extraGuestCount} extra × ${formatCurrency(
-                              theatre.extraPersonPrice
+                              selectedPackage.extraPersonPrice
                             )}`
                           : ""}
                       </span>
@@ -813,7 +810,7 @@ export default function BookingSummary({
                     <SummaryProductRow
                       key={item.id}
                       item={item}
-                      theatre={theatre}
+                      selectedPackage={selectedPackage}
                       onRemoveItem={onRemoveItem}
                     />
                   ))}
@@ -1215,19 +1212,19 @@ export default function BookingSummary({
 ------------------------------ */
 function SummaryProductRow({
   item,
-  theatre,
+  selectedPackage,
   onRemoveItem,
 }: {
   item: BookingItemSnapshot;
-  theatre: SelectedTheatre | null;
+  selectedPackage: SelectedPackage | null;
   onRemoveItem?: (id: string) => void;
 }) {
-  const includedQuantity = getPackageIncludedProductQuantity(theatre, {
+  const includedQuantity = getPackageIncludedProductQuantity(selectedPackage, {
     productSlug: item.productSlug,
     name: item.productName,
   });
   const extraQuantity = getPackageIncludedProductExtraQuantity(
-    theatre,
+    selectedPackage,
     {
       productSlug: item.productSlug,
       name: item.productName,

@@ -127,7 +127,7 @@ export function openRazorpayCheckout({
             }
             toast.error(
               json?.message ||
-                "This slot is already booked. Please choose another slot.",
+                "This time range is already booked. Please choose another time range.",
               { id: "verify" }
             );
             window.location.href = "/booking";
@@ -138,7 +138,7 @@ export function openRazorpayCheckout({
             onVerificationError?.(json);
             toast.error(
               json?.message ||
-                "This slot is no longer available. Please rebook.",
+                "This time range is no longer available. Please rebook.",
               { id: "verify" }
             );
             window.location.href = "/booking";

@@ -35,24 +35,16 @@ function buildRuleSpecificMessage(rule: CouponRuleEntity) {
       : "This coupon is available only when decoration is not selected for the booking.";
   }
 
-  if (rule.type === "SLOT_ID" && (rule.operator === "IN" || rule.operator === "EQUALS")) {
-    return "This coupon is not valid for the selected slot.";
-  }
-
-  if (rule.type === "THEATRE_ID" && (rule.operator === "IN" || rule.operator === "EQUALS")) {
-    return "This coupon is not valid for the selected theatre.";
-  }
-
-  if (rule.type === "SLOT_DATE_RANGE") {
+  if (rule.type === "BOOKING_DATE_RANGE") {
     return "This coupon is not valid for the selected date.";
   }
 
-  if (rule.type === "SLOT_TIME_RANGE") {
+  if (rule.type === "BOOKING_TIME_RANGE") {
     return "This coupon is not valid for the selected time.";
   }
 
-  if (rule.type === "SLOT_DURATION_MIN") {
-    return "This coupon is not valid for the selected slot duration.";
+  if (rule.type === "BOOKING_DURATION_MIN") {
+    return "This coupon is not valid for the selected booking duration.";
   }
 
   if (rule.type === "CATEGORY" && rule.operator === "IN") {

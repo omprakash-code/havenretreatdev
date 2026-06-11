@@ -144,8 +144,8 @@ export default function BookingHeaderControls({
     !isSuccessPage && !canEditDateAndLocation;
 
   const lockExpiresAt =
-    booking.slot && "lockExpiresAt" in booking.slot
-      ? (booking.slot as { lockExpiresAt?: string | null }).lockExpiresAt ?? null
+    booking.schedule && "lockExpiresAt" in booking.schedule
+      ? (booking.schedule as { lockExpiresAt?: string | null }).lockExpiresAt ?? null
       : null;
   const { remainingSec: lockRemainingSec, formatted: lockCountdown } =
     useLockCountdown({

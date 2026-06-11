@@ -77,7 +77,6 @@ export async function POST(req: Request) {
       select: {
         id: true,
         bookingRef: true,
-        slotId: true,
         advancePaid: true,
         bookingStatus: true,
         paymentStatus: true,
@@ -94,66 +93,57 @@ export async function POST(req: Request) {
       );
     }
 
-    if (bookingSnapshot.slotId === null) {
-      const result = await finalizeRangePayment({
-        provider: "RAZORPAY",
-        bookingId: bookingSnapshot.id,
-        providerOrderId: razorpay_order_id,
-        providerPaymentId: razorpay_payment_id,
-        amount:
-          bookingSnapshot.advancePaid > 0
-            ? bookingSnapshot.advancePaid
-            : await getRequiredAdvancePaymentAmount(prisma),
-        providerPayload: payload?.providerPayload ?? {
-          source: "checkout_verification",
-          orderId: razorpay_order_id,
-          paymentId: razorpay_payment_id,
-        },
+    const result = await finalizeRangePayment({
+      provider: "RAZORPAY",
+      bookingId: bookingSnapshot.id,
+      providerOrderId: razorpay_order_id,
+      providerPaymentId: razorpay_payment_id,
+      amount:
+        bookingSnapshot.advancePaid > 0
+          ? bookingSnapshot.advancePaid
+          : await getRequiredAdvancePaymentAmount(prisma),
+      providerPayload: payload?.providerPayload ?? {
+        source: "checkout_verification",
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+      },
+    });
+    if (result.status === "CONFIRMED" || result.status === "ALREADY_CONFIRMED") {
+      const response = NextResponse.json({
+        success: true,
+        bookingRef: result.bookingRef,
+        successToken: result.successToken,
       });
-      if (result.status === "CONFIRMED" || result.status === "ALREADY_CONFIRMED") {
-        const response = NextResponse.json({
-          success: true,
-          bookingRef: result.bookingRef,
-          successToken: result.successToken,
-        });
-        response.cookies.set("ds_booking_session", "", {
-          httpOnly: true,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 0,
-        });
-        response.cookies.set("ds_lock_owner", "", {
-          httpOnly: true,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 0,
-        });
-        return response;
-      }
-      if (result.status === "MANUAL_REVIEW") {
-        return bookingErrorResponse(
-          409,
-          "PAYMENT_MANUAL_REVIEW",
-          "Payment was received, but the reservation requires manual review.",
-          {
-            paymentCaptured: true,
-            bookingRef: result.bookingRef,
-            cancelledReason: result.reason,
-          }
-        );
-      }
+      response.cookies.set("ds_booking_session", "", {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+      response.cookies.set("ds_lock_owner", "", {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+      });
+      return response;
+    }
+    if (result.status === "MANUAL_REVIEW") {
       return bookingErrorResponse(
         409,
-        "PAYMENT_ATTEMPT_NOT_FOUND",
-        "Payment attempt could not be matched to this booking."
+        "PAYMENT_MANUAL_REVIEW",
+        "Payment was received, but the reservation requires manual review.",
+        {
+          paymentCaptured: true,
+          bookingRef: result.bookingRef,
+          cancelledReason: result.reason,
+        }
       );
     }
-
-    // Slot-based bookings are no longer supported.
     return bookingErrorResponse(
       409,
-      "BOOKING_INVALID_STATE",
-      "This booking type is no longer supported for direct slot-based payment verification."
+      "PAYMENT_ATTEMPT_NOT_FOUND",
+      "Payment attempt could not be matched to this booking."
     );
   } catch (error) {
     console.error("RAZORPAY_VERIFY_ERROR", error);

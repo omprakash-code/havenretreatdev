@@ -14,7 +14,6 @@ import {
   AdvancePaymentConfigError,
   getRequiredAdvancePaymentAmount,
 } from "@/lib/advance-payment";
-import { createSuccessToken } from "@/services/booking/successToken.server";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import {
   createRazorpayOrder,
@@ -156,23 +155,15 @@ export async function POST(req: Request) {
       );
     }
 
-    if (booking.slotId === null) {
-      const order = await createRangeRazorpayOrder(booking);
-      return Response.json({
-        success: true,
-        orderId: order.id,
-        amount: order.amount,
-        advancePayable: order.advancePayable,
-        totalAmount: order.totalAmount,
-        remainingPayable: order.remainingPayable,
-      });
-    }
-
-    return jsonError(
-      409,
-      "BOOKING_INVALID_STATE",
-      "Legacy slot-based payment is no longer supported."
-    );
+    const order = await createRangeRazorpayOrder(booking);
+    return Response.json({
+      success: true,
+      orderId: order.id,
+      amount: order.amount,
+      advancePayable: order.advancePayable,
+      totalAmount: order.totalAmount,
+      remainingPayable: order.remainingPayable,
+    });
   } catch (error) {
     console.error("RAZORPAY_ORDER_ERROR", error);
 

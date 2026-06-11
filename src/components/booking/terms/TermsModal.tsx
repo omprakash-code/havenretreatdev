@@ -118,8 +118,8 @@ export default function TermsModal({
                   </div>
 
                   <ul className="list-disc pl-5 space-y-1.5 sm:space-y-2">
-                    <li>The advance amount is fully refundable if the slot is canceled at least 72 hours before the slot time.</li>
-                    <li>If your slot is less than 72 hours away from the time of payment, no refund or slot rescheduling will be possible under any circumstances.</li>
+                    <li>The advance amount is fully refundable if the booking is canceled at least 72 hours before the event start time.</li>
+                    <li>If your booking is less than 72 hours away from the time of payment, no refund or booking rescheduling will be possible under any circumstances.</li>
                   </ul>
                 </div>
               </div>

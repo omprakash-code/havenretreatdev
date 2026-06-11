@@ -21,31 +21,29 @@ export default function ContactPage() {
   const formId = "booking-contact-form";
 
 
-  const isRangeBooking = booking.bookingMode === "RANGE";
-
   const [contact, setLocalContact] = useState(() => booking.contact ?? null);
   const [couponIdentityPhone, setCouponIdentityPhone] = useState(
     () => booking.contact?.phone ?? ""
   );
   const decorationRequiredRef = useRef(
-    booking.slot?.decorationMandatory
+    booking.schedule?.decorationMandatory
       ? true
       : booking.decorationRequired
   );
 
   const hasMissingContactDetails =
-    !booking.theatre ||
-    (!isRangeBooking && !booking.slot) ||
+    !booking.package ||
+    !booking.schedule ||
     !contact;
   const isSubmitDisabled =
     hasMissingContactDetails ||
     isSubmitting;
 
   useEffect(() => {
-    decorationRequiredRef.current = booking.slot?.decorationMandatory
+    decorationRequiredRef.current = booking.schedule?.decorationMandatory
       ? true
       : booking.decorationRequired;
-  }, [booking.slot?.decorationMandatory, booking.decorationRequired]);
+  }, [booking.schedule?.decorationMandatory, booking.decorationRequired]);
 
   useEffect(() => {
     if (!couponIdentityPhone && booking.contact?.phone) {
@@ -54,12 +52,12 @@ export default function ContactPage() {
   }, [booking.contact?.phone, couponIdentityPhone]);
 
   const locationId = booking.location?.id ?? "";
-  const selectedPackageKey = booking.theatre
-    ? `${booking.theatre.id}:${booking.theatre.baseGuests}`
+  const selectedPackageKey = booking.package
+    ? `${booking.package.id}:${booking.package.baseGuests}`
     : "";
 
   useEffect(() => {
-    if (!hydrated || !locationId || !booking.theatre) return;
+    if (!hydrated || !locationId || !booking.package) return;
     let cancelled = false;
 
     fetch(`/api/products?bookingCategory=add-ons&locationId=${locationId}`, {
@@ -73,7 +71,7 @@ export default function ContactPage() {
           ensurePackageIncludedProducts({
             currentItems,
             products,
-            selectedPackage: booking.theatre,
+            selectedPackage: booking.package,
           })
         );
       })
@@ -82,7 +80,7 @@ export default function ContactPage() {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, locationId, selectedPackageKey]);
+  }, [booking.package, hydrated, locationId, selectedPackageKey, setBookingItems]);
 
   const handleDecorationChange = useCallback((value: boolean) => {
     decorationRequiredRef.current = value;
@@ -132,8 +130,8 @@ export default function ContactPage() {
 
   const hasValidSession = Boolean(
     booking.bookingId &&
-    booking.theatre &&
-    (isRangeBooking || booking.slot)
+    booking.package &&
+    booking.schedule
   );
 
   useEffect(() => {
@@ -199,7 +197,7 @@ export default function ContactPage() {
         hidden={showInlineSummarySubmit}
         isInvalid={hasMissingContactDetails && !isSubmitting}
         enableInvalidSubmitFeedback
-        totalPrice={booking.pricing?.total ?? booking.slot?.basePrice ?? null}
+        totalPrice={booking.pricing?.total ?? booking.schedule?.basePrice ?? null}
         advancePay={booking.pricing?.advancePay ?? null}
       />
     </div>

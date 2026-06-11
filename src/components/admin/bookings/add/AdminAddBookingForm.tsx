@@ -41,7 +41,6 @@ import ConfirmActionModal from "@/components/admin/drawer/ConfirmActionModal";
 import {  isValidPhone, normalizePhone,} from "@/lib/phone";
 import {
   getSelectionKey,
-  getSlotConflictMessage,
   getVariantPrice,
   isValidEmail,
   type ActiveVariantMap,
@@ -61,10 +60,6 @@ import {
   getSlotHoverHint,
   getTheatreHoverHint,
 } from "@/components/admin/bookings/add/sections/scheduleSection.helpers";
-
-const ADMIN_RANGE_BOOKING_ENABLED =
-  process.env.ADMIN_RANGE_BOOKING_ENABLED === "true" ||
-  process.env.NEXT_PUBLIC_ADMIN_RANGE_BOOKING_ENABLED === "true";
 
 type AdminAddBookingFormProps = {
   embedded?: boolean;
@@ -94,8 +89,8 @@ type EditBookingResponse = {
   };
   locationId: string;
   date: string;
-  theatreId: string;
-  slotId: string;
+  eventStartTime: string;
+  eventEndTime: string;
   guestCount: number;
   decorationRequired: boolean;
   occasionKey: string;
@@ -222,7 +217,6 @@ export function AdminAddBookingForm({
   const [locationId, setLocationId] = useState("");
   const [date, setDate] = useState("");
   const [theatreId, setTheatreId] = useState("");
-  const [slotId, setSlotId] = useState("");
   const [startTime, setStartTime] = useState<string | null>(null);
   const [endTime, setEndTime] = useState<string | null>(null);
 
@@ -277,7 +271,6 @@ export function AdminAddBookingForm({
   const [loadingEditData, setLoadingEditData] = useState(false);
   const [editPrefill, setEditPrefill] = useState<EditBookingResponse | null>(null);
   const [editProductsHydrated, setEditProductsHydrated] = useState(false);
-  const [initialSlotId, setInitialSlotId] = useState<string | null>(null);
   const [initialFullPaid, setInitialFullPaid] = useState(false);
   const [initialAdvancePaid, setInitialAdvancePaid] = useState(0);
   const [slotOverrideModalOpen, setSlotOverrideModalOpen] = useState(false);
@@ -396,16 +389,14 @@ export function AdminAddBookingForm({
 
         setEditPrefill(booking);
         setEditProductsHydrated(false);
-        setInitialSlotId(booking.slotId);
         setInitialFullPaid(booking.payment.status === "PAID" && booking.pricing.remainingPayable <= 0);
         setInitialAdvancePaid(Math.max(Number(booking.pricing.advancePaid ?? 0), 0));
 
         setLocationId(booking.locationId);
         setDate(booking.date);
-        setTheatreId(booking.theatreId);
-        setSlotId(booking.slotId);
-        setStartTime(null);
-        setEndTime(null);
+        setTheatreId(booking.packageId ?? "");
+        setStartTime(booking.eventStartTime);
+        setEndTime(booking.eventEndTime);
 
         setName(booking.customer.name ?? "");
         setPhone(normalizePhone(booking.customer.phone ?? ""));
@@ -840,7 +831,6 @@ export function AdminAddBookingForm({
     if (theatres.length === 0) return;
     if (!theatres.some((theatre) => theatre.id === theatreId)) {
       setTheatreId("");
-      setSlotId("");
       setStartTime(null);
       setEndTime(null);
     }
@@ -856,26 +846,6 @@ export function AdminAddBookingForm({
     () => locations.find((location) => location.id === locationId) ?? null,
     [locations, locationId]
   );
-  const theatreSlots = useMemo(() => selectedTheatre?.slots ?? [], [selectedTheatre]);
-  const selectedSlot = useMemo(
-    () => theatreSlots.find((slot) => slot.id === slotId) ?? null,
-    [slotId, theatreSlots]
-  );
-  useEffect(() => {
-    if (!selectedSlot) return;
-    setStartTime(selectedSlot.startTime);
-    setEndTime(selectedSlot.endTime);
-  }, [selectedSlot]);
-
-  const slotConflictMessage = useMemo(() => {
-    const conflict = getSlotConflictMessage(selectedSlot);
-    if (!conflict) return null;
-
-    if (mode === "edit" && initialSlotId && slotId === initialSlotId) {
-      return null;
-    }
-    return conflict;
-  }, [selectedSlot, mode, initialSlotId, slotId]);
   const dateHoverHint = useMemo(() => getDateHoverHint(locationId), [locationId]);
   const theatreHoverHint = useMemo(
     () => getTheatreHoverHint(locationId, date),
@@ -887,16 +857,12 @@ export function AdminAddBookingForm({
         locationId,
         date,
         theatreId: selectedReservableTheatreId || theatreId,
-        slotId,
-        slotConflictMessage,
       }),
     [
       locationId,
       date,
       theatreId,
       selectedReservableTheatreId,
-      slotId,
-      slotConflictMessage,
     ]
   );
 
@@ -977,7 +943,7 @@ export function AdminAddBookingForm({
     setCustomAdvanceAmount((prev) => Math.max(prev, minimumAdvanceAmount));
   }, [minimumAdvanceAmount, isEditMode]);
 
-  const isDecorationMandatory = Boolean(selectedSlot?.decorationMandatory);
+  const isDecorationMandatory = false;
 
   useEffect(() => {
     if (isDecorationMandatory) {
@@ -1175,11 +1141,10 @@ export function AdminAddBookingForm({
 
   const pricingBase = useMemo<PricingSummary | null>(() => {
     if (!selectedTheatre) return null;
-    const hasRange = (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) && Boolean(startTime) && Boolean(endTime);
-    if (!selectedSlot && !hasRange) return null;
+    if (!startTime || !endTime) return null;
 
-    const slotBasePrice = selectedSlot?.basePrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.basePrice ?? 0;
-    const slotFinalPrice = selectedSlot?.finalPrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.finalPrice ?? slotBasePrice;
+    const slotBasePrice = selectedTheatre.basePrice ?? 0;
+    const slotFinalPrice = selectedTheatre.basePrice ?? slotBasePrice;
     const bookingDurationHours = startTime && endTime
       ? Math.max((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60, 0)
       : 0;
@@ -1203,8 +1168,6 @@ export function AdminAddBookingForm({
     });
   }, [
     selectedTheatre,
-    selectedSlot,
-    theatreSlots.length,
     startTime,
     endTime,
     isDecorationMandatory,
@@ -1231,11 +1194,10 @@ export function AdminAddBookingForm({
   }, [isEditMode, totalAfterDiscount, editAdvancePaidAlready]);
 
   const pricing = useMemo<PricingSummary | null>(() => {
-    const hasRange = (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) && Boolean(startTime) && Boolean(endTime);
-    if (!selectedTheatre || (!selectedSlot && !hasRange) || !pricingBase) return null;
+    if (!selectedTheatre || !startTime || !endTime || !pricingBase) return null;
 
-    const slotBasePrice = selectedSlot?.basePrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.basePrice ?? 0;
-    const slotFinalPrice = selectedSlot?.finalPrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.finalPrice ?? slotBasePrice;
+    const slotBasePrice = selectedTheatre.basePrice ?? 0;
+    const slotFinalPrice = selectedTheatre.basePrice ?? slotBasePrice;
 
     const normalizedAdvanceInput = Math.max(customAdvanceAmount, 0);
     let desiredAdvance: number;
@@ -1280,8 +1242,6 @@ export function AdminAddBookingForm({
   }, [
     pricingBase,
     selectedTheatre,
-    selectedSlot,
-    theatreSlots.length,
     startTime,
     endTime,
     isDecorationMandatory,
@@ -1320,7 +1280,11 @@ export function AdminAddBookingForm({
   const hasPriceImpactingChanges = useMemo(() => {
     if (!isEditMode || !editPrefill) return false;
 
-    const slotChanged = slotId !== editPrefill.slotId;
+    const scheduleChanged =
+      date !== editPrefill.date ||
+      startTime !== editPrefill.eventStartTime ||
+      endTime !== editPrefill.eventEndTime ||
+      theatreId !== (editPrefill.packageId ?? "");
     const guestChanged = guestCount !== editPrefill.guestCount;
     const decorationChanged =
       effectiveDecorationRequired !== Boolean(editPrefill.decorationRequired);
@@ -1370,11 +1334,14 @@ export function AdminAddBookingForm({
       initialCoupons.length !== currentCoupons.length ||
       initialCoupons.some((coupon, index) => coupon !== currentCoupons[index]);
 
-    return slotChanged || guestChanged || decorationChanged || productsChanged || couponsChanged;
+    return scheduleChanged || guestChanged || decorationChanged || productsChanged || couponsChanged;
   }, [
     isEditMode,
     editPrefill,
-    slotId,
+    date,
+    startTime,
+    endTime,
+    theatreId,
     guestCount,
     effectiveDecorationRequired,
     selectedProductItems,
@@ -1413,7 +1380,7 @@ export function AdminAddBookingForm({
       .join("|");
 
     return [
-      selectedSlot?.id ?? "",
+      `${date}:${startTime ?? ""}:${endTime ?? ""}`,
       existingUserId ?? "",
       normalizedPhone,
       String(pricingBase?.totalAmount ?? 0),
@@ -1421,7 +1388,7 @@ export function AdminAddBookingForm({
       String(pricingBase?.extrasAmount ?? 0),
       productSignature,
     ].join("::");
-  }, [selectedSlot?.id, existingUserId, phone, pricingBase, selectedProductItems]);
+  }, [date, startTime, endTime, existingUserId, phone, pricingBase, selectedProductItems]);
 
   function clearAppliedCouponState() {
     setCouponCode("");
@@ -1433,8 +1400,8 @@ export function AdminAddBookingForm({
   }
 
   const previewCoupons = useCallback(async (couponCodes: string[]) => {
-    if (!selectedSlot || !pricingBase) {
-      setCouponError("Select location, package and time slot before applying coupon.");
+    if (!startTime || !endTime || !pricingBase) {
+      setCouponError("Select location, package and time range before applying coupon.");
       return { success: false, appliedCodes: new Set<string>() };
     }
 
@@ -1454,7 +1421,10 @@ export function AdminAddBookingForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         couponCodes: normalizedCodes,
-        slotId: selectedSlot.id,
+        venueId: selectedTheatre?.venueId ?? selectedReservableTheatreId,
+        date,
+        startTime,
+        endTime,
         userId: existingUserId,
         userPhone: normalizePhone(phone),
         decorationRequired: effectiveDecorationRequired,
@@ -1501,7 +1471,11 @@ export function AdminAddBookingForm({
       appliedCodes: new Set(nextAppliedCoupons.map((coupon: AppliedAdminCoupon) => coupon.code)),
     };
   }, [
-    selectedSlot,
+    startTime,
+    endTime,
+    date,
+    selectedTheatre,
+    selectedReservableTheatreId,
     pricingBase,
     existingUserId,
     phone,
@@ -1554,7 +1528,7 @@ export function AdminAddBookingForm({
       setCouponApplying(false);
       return;
     }
-    if (!selectedSlot || !pricingBase) return;
+    if (!startTime || !endTime || !pricingBase) return;
     if (couponApplying) return;
 
     const autoRefreshKey = `${appliedCouponCodes.join("|")}::${pricingCouponRefreshKey}`;
@@ -1571,7 +1545,8 @@ export function AdminAddBookingForm({
   }, [
     appliedCouponCodes,
     pricingCouponRefreshKey,
-    selectedSlot,
+    startTime,
+    endTime,
     pricingBase,
     couponApplying,
     previewCoupons,
@@ -1584,7 +1559,6 @@ export function AdminAddBookingForm({
       setLocationId(nextLocationId);
       setDate(resolvedNextDate);
       setTheatreId("");
-      setSlotId("");
       setStartTime(null);
       setEndTime(null);
       setTheatres([]);
@@ -1599,24 +1573,21 @@ export function AdminAddBookingForm({
 
     setDate(nextDate);
     setTheatreId("");
-    setSlotId("");
     setStartTime(null);
     setEndTime(null);
     setExtraGuestCount(0);
     setEditProductsHydrated(false);
   }
 
-  function handleTheatreSlotChange(nextTheatreId: string, nextSlotId: string) {
+  function handleTheatreSlotChange(nextTheatreId: string) {
     clearAppliedCouponState();
     if (nextTheatreId !== theatreId) {
       setTheatreId(nextTheatreId);
-      setSlotId(nextSlotId);
       setStartTime(null);
       setEndTime(null);
       setExtraGuestCount(0);
       return;
     }
-    setSlotId(nextSlotId);
   }
 
   function handleTimeRangeChange(nextStartTime: string | null, nextEndTime: string | null) {
@@ -1624,23 +1595,6 @@ export function AdminAddBookingForm({
     setStartTime(nextStartTime);
     setEndTime(nextEndTime);
 
-    if (!nextStartTime || !nextEndTime) {
-      setSlotId("");
-      return;
-    }
-
-    const exactSlot = theatreSlots.find(
-      (slot) => slot.startTime === nextStartTime && slot.endTime === nextEndTime
-    );
-    if (exactSlot) {
-      setSlotId(exactSlot.id);
-      return;
-    }
-
-    setSlotId("");
-    if (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) {
-      return;
-    }
   }
 
   function incrementGuests() {
@@ -1937,19 +1891,14 @@ export function AdminAddBookingForm({
 
   function buildFormErrors(options?: {
     enforceAdvanceNumeric?: boolean;
-    resolvedSlotId?: string;
   }) {
-    const { enforceAdvanceNumeric = true, resolvedSlotId = slotId } = options ?? {};
+    const { enforceAdvanceNumeric = true } = options ?? {};
     const nextErrors: Record<string, string> = {};
 
     if (!locationId) nextErrors.locationId = "Location is required.";
     if (!date) nextErrors.date = "Date is required.";
     if (!theatreId) nextErrors.theatreId = "Package is required.";
-    if (!startTime || !endTime) nextErrors.slotId = "Event time is required.";
-    if (startTime && endTime && !resolvedSlotId && !ADMIN_RANGE_BOOKING_ENABLED && theatreSlots.length > 0) {
-      nextErrors.slotId = "Event time must be resolved before saving.";
-    }
-    if (slotConflictMessage) nextErrors.slotStatus = slotConflictMessage;
+    if (!startTime || !endTime) nextErrors.timeRange = "Event time is required.";
     if (!name.trim()) nextErrors.name = "Name is required.";
 
     const normalized = normalizePhone(phone);
@@ -2015,10 +1964,9 @@ export function AdminAddBookingForm({
     return nextErrors;
   }
 
-  function validateForm(resolvedSlotId = slotId) {
+  function validateForm() {
     const nextErrors = buildFormErrors({
       enforceAdvanceNumeric: true,
-      resolvedSlotId,
     });
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -2505,9 +2453,7 @@ export function AdminAddBookingForm({
       return;
     }
 
-    const resolvedSlotId = slotId;
-
-    if (!validateForm(resolvedSlotId)) {
+    if (!validateForm()) {
       toast.error("Please fix the highlighted fields.");
       return;
     }
@@ -2528,7 +2474,6 @@ export function AdminAddBookingForm({
         date,
         theatreId: selectedReservableTheatreId,
         packageId: selectedTheatre?.packageId,
-        slotId: resolvedSlotId,
         startTime,
         endTime,
         customer: {
@@ -2710,7 +2655,6 @@ export function AdminAddBookingForm({
           occasionKey={occasionKey}
           occasions={occasions}
           selectedOccasion={selectedOccasion}
-          selectedSlot={selectedSlot}
           decorationRequired={decorationRequired}
           occasionData={occasionData}
           errors={errors}
@@ -2811,7 +2755,6 @@ export function AdminAddBookingForm({
           date={date}
           selectedTheatre={selectedTheatre}
           theatreId={theatreId}
-          selectedSlot={selectedSlot}
           startTime={startTime}
           endTime={endTime}
           includedDurationHours={

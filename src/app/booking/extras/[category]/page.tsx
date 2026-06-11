@@ -361,7 +361,7 @@ export default function ExtrasCategoryPage() {
         label={submitLabel}
         onClick={handleContinue}
         hidden={showInlineSummarySubmit}
-        totalPrice={booking.pricing?.total ?? booking.slot?.basePrice ?? null}
+        totalPrice={booking.pricing?.total ?? booking.schedule?.basePrice ?? null}
         advancePay={booking.pricing?.advancePay ?? null}
       />
     </div>

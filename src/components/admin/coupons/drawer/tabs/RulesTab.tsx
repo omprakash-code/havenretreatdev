@@ -96,7 +96,7 @@ export default function RulesTab({
           "USER_ID",
           "TARGET_CATEGORY",
           "TARGET_PRODUCT_ID",
-          "SLOT_TIME_RANGE",
+          "BOOKING_TIME_RANGE",
         ].includes(item.value)
     ).map((item) => ({
       value: item.value,

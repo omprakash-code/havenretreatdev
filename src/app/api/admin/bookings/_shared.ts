@@ -12,8 +12,7 @@ type CoreField =
 type BookingMutationPayloadCore = {
   locationId?: string;
   date?: string;
-  theatreId?: string;
-  slotId?: string;
+  packageId?: string;
   customer?: unknown;
   payment?: unknown;
 };
@@ -81,7 +80,7 @@ export function assertBookingMutationPayload<T extends BookingMutationPayloadCor
   if (
     !payload.locationId ||
     !payload.date ||
-    (requireSlot && !payload.slotId) ||
+    (requireSlot && !payload.packageId) ||
     !payload.customer ||
     !payload.payment
   ) {

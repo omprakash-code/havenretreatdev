@@ -16,9 +16,7 @@ export function mergeRuleOptions(
 ): CouponRuleOptions {
   return {
     locations: incoming.locations ?? current.locations,
-    theatres: incoming.theatres ?? current.theatres,
     products: incoming.products ?? current.products,
-    slots: incoming.slots ?? current.slots,
     slotDurations: incoming.slotDurations ?? current.slotDurations,
     coupons: incoming.coupons ?? current.coupons,
   };

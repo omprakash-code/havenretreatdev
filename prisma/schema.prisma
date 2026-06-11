@@ -260,10 +260,6 @@ enum UserRole {
 
 // Booking
 // Core transaction entity.
-// Phase 1 note:
-// - venueId/packageId/eventDate/event time fields are additive for Haven Retreat
-// - theatreId/slotId are retained as LEGACY bridge fields for migration safety
-// - business logic migration is intentionally deferred to a later phase
 model Booking {
   id         String @id @default(cuid())
   bookingRef String @unique // HRMMDDYYYYNNNNN, e.g. HR0607202600001
@@ -273,12 +269,6 @@ model Booking {
   contactPhone String?
   contactEmail String?
 
-  // LEGACY THEATRE BRIDGE FIELDS
-  // TODO(Haven Phase 2): Remove mandatory dependence on these once venue flow owns booking creation.
-  theatreId String?
-  slotId    String?
-
-  // VENUE EVENT MODULE BRIDGE FIELDS
   venueId   String?
   packageId String?
 
@@ -300,7 +290,7 @@ model Booking {
   timezone           String?
   lockVersion        Int?
   holdExpiresAt      DateTime? @db.Timestamptz(3)
-  guestCount         Int // shared across legacy theatre and venue event flows
+  guestCount         Int
   decorationRequired Boolean @default(false)
 
   baseAmount       Int
@@ -701,10 +691,9 @@ model CouponRule {
 }
 
 enum CouponRuleType {
-  SLOT_DATE_RANGE // slot.date between X and Y
-  SLOT_TIME_RANGE // slot start/end time
-  SLOT_DURATION_MIN // slot duration in minutes
-  SLOT_ID // specific slots
+  BOOKING_DATE_RANGE
+  BOOKING_TIME_RANGE
+  BOOKING_DURATION_MIN
   CATEGORY // booking items category
   PRODUCT_ID
   USER_ID

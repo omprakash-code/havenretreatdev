@@ -10,7 +10,6 @@ import {
 import { ACTIVE_RANGE_HOLD_STATUSES } from "@/lib/booking-policy";
 
 export type AdminRangeBookingErrorCode =
-  | "ADMIN_RANGE_BOOKING_DISABLED"
   | "INVALID_RANGE"
   | "OUTSIDE_BUSINESS_HOURS"
   | "MINIMUM_DURATION"
@@ -45,10 +44,6 @@ type AdminRangeSettings = {
 export type AdminRangeValidationResult = {
   range: AdminRange;
 };
-
-export function isAdminRangeBookingEnabled() {
-  return String(process.env.ADMIN_RANGE_BOOKING_ENABLED ?? "").toLowerCase() === "true";
-}
 
 export async function acquireAdminRangeTransactionLock(
   tx: Prisma.TransactionClient,

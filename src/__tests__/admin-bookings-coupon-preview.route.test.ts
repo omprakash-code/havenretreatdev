@@ -2,9 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
-    slot: {
-      findUnique: vi.fn(),
-    },
     appSetting: {
       findUnique: vi.fn(),
     },
@@ -38,18 +35,6 @@ describe("POST /api/admin/bookings/coupon-preview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getAuthenticatedAdminIdFromCookiesMock.mockResolvedValue("admin-1");
-    prismaMock.slot.findUnique.mockResolvedValue({
-      id: "slot-1",
-      theatreId: "theatre-1",
-      date: new Date("2026-04-01T00:00:00.000Z"),
-      startTime: "10:00",
-      endTime: "11:30",
-      durationMin: 90,
-      theatre: {
-        id: "theatre-1",
-        locationId: "loc-1",
-      },
-    });
     prismaMock.appSetting.findUnique.mockResolvedValue({ value: "750" });
     evaluateAdminCouponsMock.mockResolvedValue({
       totalDiscount: 600,
@@ -76,7 +61,11 @@ describe("POST /api/admin/bookings/coupon-preview", () => {
         },
         body: JSON.stringify({
           couponCode: "DS600",
-          slotId: "slot-1",
+          venueId: "venue-1",
+          locationId: "loc-1",
+          date: "2026-04-01",
+          startTime: "10:00",
+          endTime: "14:00",
           decorationRequired: true,
           items: [],
           amounts: {

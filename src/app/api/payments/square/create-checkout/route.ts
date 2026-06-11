@@ -146,17 +146,8 @@ export async function POST(req: Request) {
       return jsonError(404, "BOOKING_NOT_FOUND", "Booking not found.");
     }
 
-    if (booking.slotId === null) {
-      const checkout = await createRangeSquareCheckout(req, booking);
-      return Response.json({ success: true, ...checkout });
-    }
-
-    // Slot-based bookings are no longer supported.
-    return jsonError(
-      409,
-      "BOOKING_INVALID_STATE",
-      "This booking type is no longer supported for slot-based Square checkout."
-    );
+    const checkout = await createRangeSquareCheckout(req, booking);
+    return Response.json({ success: true, ...checkout });
   } catch (error) {
     console.error("SQUARE_CHECKOUT_ERROR", error);
 

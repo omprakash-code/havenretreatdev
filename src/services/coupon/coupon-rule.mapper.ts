@@ -13,50 +13,38 @@ export function mapPrismaRuleToDomain(
   rule: PrismaCouponRule
 ): CouponRuleEntity {
   switch (rule.type) {
-    case 'SLOT_DATE_RANGE': {
+    case 'BOOKING_DATE_RANGE': {
       const value = rule.value as { from: string; to: string }
 
       return {
         id: rule.id,
         couponId: rule.couponId,
         operator: rule.operator,
-        type: 'SLOT_DATE_RANGE',
+        type: 'BOOKING_DATE_RANGE',
         value,
       }
     }
 
-    case 'SLOT_TIME_RANGE': {
+    case 'BOOKING_TIME_RANGE': {
       const value = rule.value as { start: string; end: string }
 
       return {
         id: rule.id,
         couponId: rule.couponId,
         operator: rule.operator,
-        type: 'SLOT_TIME_RANGE',
+        type: 'BOOKING_TIME_RANGE',
         value,
       }
     }
 
-    case 'SLOT_DURATION_MIN': {
+    case 'BOOKING_DURATION_MIN': {
       const value = rule.value as string[]
 
       return {
         id: rule.id,
         couponId: rule.couponId,
         operator: rule.operator,
-        type: 'SLOT_DURATION_MIN',
-        value,
-      }
-    }
-
-    case 'SLOT_ID': {
-      const value = rule.value as string[]
-
-      return {
-        id: rule.id,
-        couponId: rule.couponId,
-        operator: rule.operator,
-        type: 'SLOT_ID',
+        type: 'BOOKING_DURATION_MIN',
         value,
       }
     }

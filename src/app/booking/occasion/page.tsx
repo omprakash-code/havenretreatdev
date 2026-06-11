@@ -148,10 +148,10 @@ export default function OccasionPage() {
   useEffect(() => {
     if (!hydrated) return;
 
-    if (!booking.bookingId || !booking.theatre || !booking.slot) {
+    if (!booking.bookingId || !booking.package || !booking.schedule) {
       router.replace("/booking");
     }
-  }, [hydrated, booking.bookingId, booking.theatre, booking.slot, router]);
+  }, [hydrated, booking.bookingId, booking.package, booking.schedule, router]);
 
   const validate = () => {
     if (!selectedOccasion) return false;
@@ -576,7 +576,7 @@ export default function OccasionPage() {
         isInvalid={!canContinue && !submitting}
         enableInvalidSubmitFeedback
         invalidSubmitMessage="Please select your occasion and fill the details to continue."
-        totalPrice={booking.pricing?.total ?? booking.slot?.basePrice ?? null}
+        totalPrice={booking.pricing?.total ?? booking.schedule?.basePrice ?? null}
         advancePay={booking.pricing?.advancePay ?? null}
       />
     </div>

@@ -52,14 +52,12 @@ function createCouponUsageCountTxMock({
 
 const sharedInput = {
   couponCode: "SAVE100",
-  slot: {
-    id: "slot-1",
-    date: new Date("2026-03-25T00:00:00.000Z"),
-    startTime: "10:00",
-    endTime: "11:30",
-    durationMin: 90,
+  bookingSchedule: {
+    eventDate: new Date("2026-03-25T00:00:00.000Z"),
+    eventStartTime: "10:00",
+    eventEndTime: "11:30",
   },
-  theatreId: "theatre-1",
+  venueId: "theatre-1",
   locationId: "loc-1",
   userPhone: "9876543210",
   decorationRequired: false,

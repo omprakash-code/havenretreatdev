@@ -289,8 +289,6 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       startsAtUtc: booking.startsAtUtc,
       endsAtUtc: booking.endsAtUtc,
       timezone: booking.timezone,
-      theatreTimezone: null,
-      slot: null,
     });
 
     if (!schedule) {

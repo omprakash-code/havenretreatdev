@@ -10,56 +10,56 @@ describe("coupon drawer restriction picker helpers", () => {
   it("keeps the selected restriction option visible even after it becomes unavailable", () => {
     const restrictionTypeOptions = [
       { value: "__LOCATION__", label: "Location" },
-      { value: "THEATRE_ID", label: "Theatre" },
-      { value: "SLOT_DURATION_MIN", label: "Slot Duration" },
+      { value: "BOOKING_DATE_RANGE", label: "Booking Date Range" },
+      { value: "BOOKING_DURATION_MIN", label: "Booking Duration" },
     ];
 
     const result = buildRestrictionPickerOptions({
       restrictionTypeOptions,
       availableRestrictionOptions: [
         { value: "__LOCATION__", label: "Location" },
-        { value: "SLOT_DURATION_MIN", label: "Slot Duration" },
+        { value: "BOOKING_DURATION_MIN", label: "Booking Duration" },
       ],
-      selectedRestrictionType: "THEATRE_ID",
+      selectedRestrictionType: "BOOKING_DATE_RANGE",
     });
 
     expect(result.map((option) => option.value)).toEqual([
       "",
       "__LOCATION__",
-      "SLOT_DURATION_MIN",
-      "THEATRE_ID",
+      "BOOKING_DURATION_MIN",
+      "BOOKING_DATE_RANGE",
     ]);
   });
 
   it("does not duplicate the selected restriction when it is already available", () => {
     const restrictionTypeOptions = [
       { value: "__LOCATION__", label: "Location" },
-      { value: "THEATRE_ID", label: "Theatre" },
+      { value: "BOOKING_DATE_RANGE", label: "Booking Date Range" },
     ];
 
     const result = buildRestrictionPickerOptions({
       restrictionTypeOptions,
       availableRestrictionOptions: [
         { value: "__LOCATION__", label: "Location" },
-        { value: "THEATRE_ID", label: "Theatre" },
+        { value: "BOOKING_DATE_RANGE", label: "Booking Date Range" },
       ],
-      selectedRestrictionType: "THEATRE_ID",
+      selectedRestrictionType: "BOOKING_DATE_RANGE",
     });
 
     expect(result.map((option) => option.value)).toEqual([
       "",
       "__LOCATION__",
-      "THEATRE_ID",
+      "BOOKING_DATE_RANGE",
     ]);
   });
 
   it("preserves existing restriction order and appends new items at the end", () => {
     expect(
       mergeRestrictionOrder(
-        ["location", "THEATRE_ID:0", "SLOT_DURATION_MIN:0"],
-        ["location", "SLOT_DURATION_MIN:0", "PRODUCT_ID:0"]
+        ["location", "BOOKING_DATE_RANGE:0", "BOOKING_DURATION_MIN:0"],
+        ["location", "BOOKING_DURATION_MIN:0", "PRODUCT_ID:0"]
       )
-    ).toEqual(["location", "SLOT_DURATION_MIN:0", "PRODUCT_ID:0"]);
+    ).toEqual(["location", "BOOKING_DURATION_MIN:0", "PRODUCT_ID:0"]);
   });
 
   it("adds location immediately when locations are already available", () => {

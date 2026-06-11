@@ -163,6 +163,7 @@ export async function POST(req: Request) {
       // 0 Lock booking FIRST
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
+        include: { eventPackage: { select: { locationId: true } } },
       });
 
       if (!booking) {
@@ -177,15 +178,12 @@ export async function POST(req: Request) {
         throw new Error("BOOKING_INVALID_STATE");
       }
 
-      const isRangeBooking = booking.slotId === null;
-      if (isRangeBooking) {
-        if (!rangeIdentity) throw new Error("SESSION_EXPIRED");
-        await requireActiveRangeBookingSession(rangeIdentity, new Date(), tx);
-      }
+      if (!rangeIdentity) throw new Error("SESSION_EXPIRED");
+      await requireActiveRangeBookingSession(rangeIdentity, new Date(), tx);
 
-      const locationId: string | null = null;
-      const slot = {
-        id: isRangeBooking ? `range:${booking.id}` : (booking.slotId ?? booking.id),
+      const locationId: string | null = booking.eventPackage?.locationId ?? null;
+      const schedule = {
+        id: `range:${booking.id}`,
         date: booking.eventDate!,
         startTime: booking.eventStartTime!,
         endTime: booking.eventEndTime!,
@@ -212,10 +210,9 @@ export async function POST(req: Request) {
             slug: { in: packageIncludedProductSlugs },
             isActive: true,
             bookingCategorySlug: "add-ons",
-            OR: [
-              { locationId },
-              { locationId: null },
-            ],
+            ...(locationId
+              ? { OR: [{ locationId }, { locationId: null }] }
+              : {}),
           },
           include: {
             variants: {
@@ -253,10 +250,9 @@ export async function POST(req: Request) {
                 isActive: true,
                 product: {
                   isActive: true,
-                  OR: [
-                    { locationId },
-                    { locationId: null },
-                  ],
+                  ...(locationId
+                    ? { OR: [{ locationId }, { locationId: null }] }
+                    : {}),
                 },
               },
               include: {
@@ -387,7 +383,7 @@ export async function POST(req: Request) {
         requestedDecorationRequiredRaw == null
           ? booking.decorationRequired
           : requestedDecorationRequiredRaw;
-      const effectiveDecorationRequired = slot.decorationMandatory
+      const effectiveDecorationRequired = schedule.decorationMandatory
         ? true
         : requestedDecorationRequired;
       const durationPricing = await resolveBookingDurationPricingConfig(tx);
@@ -396,20 +392,18 @@ export async function POST(req: Request) {
       const effectiveExtraHourlyRate =
         packageHourlyRate || durationPricing.extraHourlyRate;
       const durationHours = resolveSlotDurationHours({
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        durationMin: slot.durationMin,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        durationMin: schedule.durationMin,
       });
 
-      const rangePricing = isRangeBooking
-        ? buildRangePricingSnapshot({
-            packageSnapshot: booking.packageSnapshot,
-            pricingSnapshot: booking.pricingSnapshot,
-            guestCount: requestedGuestCount,
-            productsAmount,
-            discountAmount: 0,
-          })
-        : null;
+      const rangePricing = buildRangePricingSnapshot({
+        packageSnapshot: booking.packageSnapshot,
+        pricingSnapshot: booking.pricingSnapshot,
+        guestCount: requestedGuestCount,
+        productsAmount,
+        discountAmount: 0,
+      });
       const pricingBase = rangePricing
         ? {
             baseAmount:
@@ -419,8 +413,8 @@ export async function POST(req: Request) {
             decorationAmount: 0,
           }
         : calculateBookingPricing({
-            slotBasePrice: slot.basePrice,
-            slotFinalPrice: slot.finalPrice,
+            slotBasePrice: schedule.basePrice,
+            slotFinalPrice: schedule.finalPrice,
             durationHours,
             includedDurationHours: durationPricing.includedDurationHours,
             extraHourlyRate: effectiveExtraHourlyRate,
@@ -430,7 +424,7 @@ export async function POST(req: Request) {
             theatreDecorationPrice:
               (booking.packageSnapshot as { decorationAddonPrice?: number } | null)?.decorationAddonPrice
               ?? 0,
-            slotDecorationMandatory: slot.decorationMandatory,
+            slotDecorationMandatory: schedule.decorationMandatory,
             decorationRequired: effectiveDecorationRequired,
             productsAmount: 0,
             discountAmount: 0,
@@ -455,8 +449,7 @@ export async function POST(req: Request) {
           startsAtUtc: booking.startsAtUtc,
           endsAtUtc: booking.endsAtUtc,
         },
-        slot: null,
-        theatreId: booking.theatreId ?? '',
+        venueId: booking.venueId ?? '',
         locationId: locationId ?? '',
         userId: resolvedUserId,
         contactPhone: booking.contactPhone,
@@ -483,15 +476,13 @@ export async function POST(req: Request) {
         minimumPayable: advanceFloor,
       });
       const totalAmount = bookingTotalBeforeDiscount - totalDiscount;
-      const finalRangePricing = isRangeBooking
-        ? buildRangePricingSnapshot({
-            packageSnapshot: booking.packageSnapshot,
-            pricingSnapshot: booking.pricingSnapshot,
-            guestCount: requestedGuestCount,
-            productsAmount,
-            discountAmount: totalDiscount,
-          })
-        : null;
+      const finalRangePricing = buildRangePricingSnapshot({
+        packageSnapshot: booking.packageSnapshot,
+        pricingSnapshot: booking.pricingSnapshot,
+        guestCount: requestedGuestCount,
+        productsAmount,
+        discountAmount: totalDiscount,
+      });
 
       const shouldInvalidatePaymentOrder =
         booking.bookingStatus === "AWAITING_PAYMENT" ||

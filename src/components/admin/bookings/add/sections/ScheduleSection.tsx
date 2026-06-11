@@ -227,7 +227,7 @@ export function ScheduleSection({
           <label className="mb-1 block text-xs font-medium text-slate-700">
             Event Time <span className="text-red-500">*</span>
           </label>
-          <FieldTooltip message={slotHoverHint || errors.slotId || errors.slotStatus}>
+          <FieldTooltip message={slotHoverHint || errors.timeRange}>
             <div>
               <TimeRangePicker
                 startTime={startTime}
@@ -247,7 +247,7 @@ export function ScheduleSection({
               )}
             </div>
           </FieldTooltip>
-          {errors.slotId && <p className="mt-1 text-xs text-red-600">{errors.slotId}</p>}
+          {errors.timeRange && <p className="mt-1 text-xs text-red-600">{errors.timeRange}</p>}
         </div>
       </div>
     </section>

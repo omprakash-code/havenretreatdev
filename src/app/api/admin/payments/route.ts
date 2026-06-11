@@ -170,8 +170,6 @@ export async function GET(req: Request) {
           startsAtUtc: payment.booking.startsAtUtc,
           endsAtUtc: payment.booking.endsAtUtc,
           timezone: payment.booking.timezone,
-          theatreTimezone: 'America/New_York',
-          slot: null,
         });
         const packageSnapshot = payment.booking.packageSnapshot &&
           typeof payment.booking.packageSnapshot === "object" &&

@@ -3,7 +3,7 @@ import {
   type BookingSchedulePresenterInput,
 } from "@/lib/booking-schedule-presenter";
 
-export type ReportingScheduleSource = "BOOKING" | "SLOT" | "MISSING";
+export type ReportingScheduleSource = "BOOKING" | "MISSING";
 
 export type ReportingSchedule = {
   source: ReportingScheduleSource;

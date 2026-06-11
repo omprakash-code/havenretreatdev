@@ -5,14 +5,12 @@ import {
   sectionClass,
   selectableInputClass,
   type OccasionOption,
-  type SlotOption,
 } from "@/components/admin/bookings/add/shared";
 
 type OccasionSectionProps = {
   occasionKey: string;
   occasions: OccasionOption[];
   selectedOccasion: OccasionOption | null;
-  selectedSlot: SlotOption | null;
   decorationRequired: boolean;
   occasionData: Record<string, string>;
   errors: Record<string, string>;
@@ -25,7 +23,6 @@ export function OccasionSection({
   occasionKey,
   occasions,
   selectedOccasion,
-  selectedSlot,
   decorationRequired,
   occasionData,
   errors,
@@ -33,7 +30,7 @@ export function OccasionSection({
   onOccasionFieldChange,
   onDecorationRequiredChange,
 }: OccasionSectionProps) {
-  const decorationMandatory = Boolean(selectedSlot?.decorationMandatory);
+  const decorationMandatory = false;
   const decorationLabel = decorationRequired ? "Yes" : "No";
 
   return (

@@ -21,11 +21,9 @@ export type AdminCouponFormState = {
 
 
 export type CouponRuleType =
-  | "SLOT_DATE_RANGE"
-  | "SLOT_TIME_RANGE"
-  | "SLOT_DURATION_MIN"
-  | "SLOT_ID"
-  | "THEATRE_ID"
+  | "BOOKING_DATE_RANGE"
+  | "BOOKING_TIME_RANGE"
+  | "BOOKING_DURATION_MIN"
   | "CATEGORY"
   | "PRODUCT_ID"
   | "USER_ID"

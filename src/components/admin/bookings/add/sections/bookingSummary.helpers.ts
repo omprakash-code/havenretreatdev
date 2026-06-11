@@ -1,31 +1,9 @@
-import type { SlotOption } from "@/components/admin/bookings/add/shared";
-
-type ProgressiveHintParams = {
-  locationId: string;
-  date: string;
-  theatreId: string;
-  selectedSlot: SlotOption | null;
-};
-
-export function getSummaryHint({
-  locationId,
-  date,
-  theatreId,
-  selectedSlot,
-}: ProgressiveHintParams) {
-  if (!locationId) return "Select a location.";
-  if (!date) return "Select a date.";
-  if (!theatreId) return "Select a package.";
-  if (!selectedSlot) return "Select a time slot.";
-  return null;
-}
-
 export function getSubmitBlockerMessage(errors: Record<string, string>) {
   if (errors.locationId) return "Select a location.";
   if (errors.date) return "Select a date.";
   if (errors.theatreId) return "Select a package.";
   if (errors.slotStatus) return errors.slotStatus;
-  if (errors.slotId) return "Select a time slot.";
+  if (errors.timeRange) return "Select a time range.";
   if (errors.name) return "Enter customer name.";
   if (errors.phone) return "Enter a valid phone number.";
   if (errors.email) return "Enter a valid email address.";

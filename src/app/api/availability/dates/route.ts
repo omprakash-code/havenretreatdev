@@ -31,13 +31,28 @@ export async function GET(req: Request) {
   }
 
   // Find venue IDs associated with this location via EventPackage
-  const packageRows = await prisma.eventPackage.findMany({
+  let packageRows = await prisma.eventPackage.findMany({
     where: { locationId, isActive: true, venue: { isActive: true } },
     select: { venueId: true },
     distinct: ["venueId"],
   });
 
-  // If no packages for this location, also check if any venue exists at all
+  // Fallback: packages may not have locationId set yet (single-location / legacy data).
+  // If the location exists and is active, use all active packages with active venues.
+  if (packageRows.length === 0) {
+    const locationExists = await prisma.location.findFirst({
+      where: { id: locationId, isActive: true },
+      select: { id: true },
+    });
+    if (locationExists) {
+      packageRows = await prisma.eventPackage.findMany({
+        where: { isActive: true, venue: { isActive: true } },
+        select: { venueId: true },
+        distinct: ["venueId"],
+      });
+    }
+  }
+
   const venueIds = packageRows.map((p) => p.venueId);
   if (venueIds.length === 0) {
     return NextResponse.json({ success: true, data: [] });

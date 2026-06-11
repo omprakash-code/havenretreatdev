@@ -1,0 +1,3 @@
+ALTER TABLE "Booking"
+DROP COLUMN IF EXISTS "slotId",
+DROP COLUMN IF EXISTS "theatreId";

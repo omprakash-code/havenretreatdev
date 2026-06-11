@@ -6,14 +6,14 @@ function buildContext(
   patch: Partial<CouponEvaluationContext> = {}
 ): CouponEvaluationContext {
   return {
-    slot: {
-      id: "slot_1",
+    schedule: {
       date: new Date("2026-02-26T00:00:00.000Z"),
       startTime: "13:30",
       endTime: "16:30",
       durationMin: 180,
+    source: "BOOKING",
     },
-    theatreId: "theatre_1",
+    venueId: "theatre_1",
     locationId: "location_1",
     user: {
       id: "user_1",
@@ -33,32 +33,32 @@ function buildContext(
 }
 
 describe("coupon rule evaluator", () => {
-  it("supports same-day SLOT_DATE_RANGE boundaries", () => {
+  it("supports same-day BOOKING_DATE_RANGE boundaries", () => {
     const rule = {
       id: "rule_date_same_day",
       couponId: "coupon_1",
-      type: "SLOT_DATE_RANGE",
+      type: "BOOKING_DATE_RANGE",
       operator: "BETWEEN",
       value: { from: "2026-03-04", to: "2026-03-04" },
     } satisfies CouponRuleEntity;
     const context = buildContext({
-      slot: {
-        id: "slot_same_day",
+      schedule: {
         date: new Date("2026-03-04T09:00:00.000Z"),
         startTime: "13:30",
         endTime: "16:30",
         durationMin: 180,
+      source: "BOOKING",
       },
     });
 
     expect(evaluateRule(rule, context)).toBe(true);
   });
 
-  it("prefers booking-owned schedule fields over legacy slot fields", () => {
+  it("evaluates booking-owned schedule fields", () => {
     const rule = {
       id: "rule_booking_schedule",
       couponId: "coupon_1",
-      type: "SLOT_TIME_RANGE",
+      type: "BOOKING_TIME_RANGE",
       operator: "BETWEEN",
       value: { start: "09:00", end: "13:00" },
     } satisfies CouponRuleEntity;
@@ -70,76 +70,47 @@ describe("coupon rule evaluator", () => {
         durationMin: 240,
         source: "BOOKING",
       },
-      slot: {
-        id: "legacy_slot_late",
-        date: new Date("2026-03-04T00:00:00.000Z"),
-        startTime: "18:00",
-        endTime: "22:00",
-        durationMin: 240,
-      },
     });
 
     expect(evaluateRule(rule, context)).toBe(true);
   });
 
-  it("keeps legacy slot schedule fallback when booking schedule is absent", () => {
-    const rule = {
-      id: "rule_slot_fallback",
-      couponId: "coupon_1",
-      type: "SLOT_TIME_RANGE",
-      operator: "BETWEEN",
-      value: { start: "09:00", end: "13:00" },
-    } satisfies CouponRuleEntity;
-    const context = buildContext({
-      schedule: undefined,
-      slot: {
-        id: "legacy_slot_morning",
-        date: new Date("2026-03-04T00:00:00.000Z"),
-        startTime: "09:00",
-        endTime: "13:00",
-        durationMin: 240,
-      },
-    });
-
-    expect(evaluateRule(rule, context)).toBe(true);
-  });
-
-  it("requires SLOT_TIME_RANGE to fully contain slot timing", () => {
+  it("requires BOOKING_TIME_RANGE to fully contain slot timing", () => {
     const rule = {
       id: "rule_1",
       couponId: "coupon_1",
-      type: "SLOT_TIME_RANGE",
+      type: "BOOKING_TIME_RANGE",
       operator: "BETWEEN",
       value: { start: "09:00", end: "16:00" },
     } satisfies CouponRuleEntity;
     const context = buildContext({
-      slot: {
-        id: "slot_2",
+      schedule: {
         date: new Date("2026-02-26T00:00:00.000Z"),
         startTime: "13:30",
         endTime: "16:30",
         durationMin: 180,
+      source: "BOOKING",
       },
     });
 
     expect(evaluateRule(rule, context)).toBe(false);
   });
 
-  it("passes SLOT_TIME_RANGE when slot fully fits inside range", () => {
+  it("passes BOOKING_TIME_RANGE when slot fully fits inside range", () => {
     const rule = {
       id: "rule_2",
       couponId: "coupon_1",
-      type: "SLOT_TIME_RANGE",
+      type: "BOOKING_TIME_RANGE",
       operator: "BETWEEN",
       value: { start: "09:00", end: "16:00" },
     } satisfies CouponRuleEntity;
     const context = buildContext({
-      slot: {
-        id: "slot_3",
+      schedule: {
         date: new Date("2026-02-26T00:00:00.000Z"),
         startTime: "13:30",
         endTime: "15:30",
         durationMin: 120,
+      source: "BOOKING",
       },
     });
 
@@ -197,21 +168,21 @@ describe("coupon rule evaluator", () => {
     expect(evaluateRule(rule, context)).toBe(true);
   });
 
-  it("supports SLOT_DURATION_MIN rules from slot duration", () => {
+  it("supports BOOKING_DURATION_MIN rules from booking duration", () => {
     const rule = {
       id: "rule_6",
       couponId: "coupon_1",
-      type: "SLOT_DURATION_MIN",
+      type: "BOOKING_DURATION_MIN",
       operator: "IN",
       value: ["90", "180"],
     } satisfies CouponRuleEntity;
     const context = buildContext({
-      slot: {
-        id: "slot_4",
+      schedule: {
         date: new Date("2026-02-26T00:00:00.000Z"),
         startTime: "10:00",
         endTime: "13:00",
         durationMin: 180,
+      source: "BOOKING",
       },
     });
 

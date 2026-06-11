@@ -1,4 +1,4 @@
-import { SelectedTheatre } from "@/context/BookingContext";
+import { SelectedPackage } from "@/context/BookingContext";
 
 /* -----------------------------
  Types
@@ -20,7 +20,7 @@ export type PricingBreakdown = {
  * DO NOT calculate pricing anywhere else.
  */
 export function calculatePricing(params: {
-  theatre: SelectedTheatre;
+  theatre: SelectedPackage;
   guestCount: number;
   decorationSelected: boolean;
 }): PricingBreakdown {

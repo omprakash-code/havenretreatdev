@@ -81,7 +81,7 @@ describe("coupon rule rejection messages", () => {
         {
           id: "rule_2",
           couponId: "coupon_1",
-          type: "SLOT_DATE_RANGE",
+          type: "BOOKING_DATE_RANGE",
           operator: "BETWEEN",
           value: {
             from: "2026-03-20",

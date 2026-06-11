@@ -37,6 +37,25 @@ vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: vi.fn(() => ({ value: "session-token" })),
+  })),
+}));
+
+vi.mock("@/services/booking/bookingSession.server", () => ({
+  verifyBookingSessionToken: vi.fn(() => ({
+    bookingId: "booking_1",
+    lockOwner: "owner_1",
+    lockVersion: 1,
+  })),
+}));
+
+vi.mock("@/services/booking/range-booking-session.service", () => ({
+  requireActiveRangeBookingSession: vi.fn().mockResolvedValue({}),
+  RangeBookingSessionError: class RangeBookingSessionError extends Error {},
+}));
+
 vi.mock("@/services/coupon", () => ({
   evaluateCoupon: evaluateCouponMock,
 }));
@@ -99,17 +118,10 @@ describe("POST /api/bookings/apply-coupon", () => {
       userId: null,
       contactPhone: "9999999999",
       decorationRequired: false,
-      theatreId: "theatre_1",
-      theatre: {
-        locationId: "location_1",
-      },
-      slot: {
-        id: "slot_1",
-        status: "LOCKED",
-        date: new Date("2026-03-25T12:00:00.000Z"),
-        startTime: "10:00",
-        endTime: "13:00",
-      },
+      venueId: "venue_1",
+      eventDate: new Date("2026-03-25T00:00:00.000Z"),
+      eventStartTime: "10:00",
+      eventEndTime: "14:00",
       items: [],
     });
 

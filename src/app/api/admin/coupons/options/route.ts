@@ -67,10 +67,6 @@ export async function GET(req: Request) {
       data.locations = locations;
     }
 
-    if (includeSet.has("theatres")) {
-      data.theatres = [];
-    }
-
     if (includeSet.has("products")) {
       data.products = products.map((item) => ({
         id: item.id,

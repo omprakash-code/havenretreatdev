@@ -3,11 +3,9 @@ import { calculateDurationHours } from "@/lib/booking-time-range";
 import { ArrowRight } from "lucide-react";
 
 import {
-  toTitleStatus,
   type LocationOption,
   type PricingSummary,
   type SelectedProductSummaryItem,
-  type SlotOption,
   type TheatreOption,
 } from "@/components/admin/bookings/add/shared";
 import {
@@ -24,7 +22,6 @@ type BookingSummarySectionProps = {
   date: string;
   selectedTheatre: TheatreOption | null;
   theatreId: string;
-  selectedSlot: SlotOption | null;
   startTime?: string | null;
   endTime?: string | null;
   includedDurationHours?: number;
@@ -82,7 +79,6 @@ export function BookingSummarySection({
   date,
   selectedTheatre,
   theatreId,
-  selectedSlot,
   startTime = null,
   endTime = null,
   includedDurationHours = 4,
@@ -103,24 +99,20 @@ export function BookingSummarySection({
   const hasLocation = Boolean(locationId);
   const hasDate = Boolean(date);
   const hasTheatre = Boolean(theatreId);
-  const hasSlot = Boolean(selectedSlot);
-  const hasTimeRange = Boolean(!selectedSlot && startTime && endTime);
-  const effectiveStart = selectedSlot?.startTime ?? startTime;
-  const effectiveEnd = selectedSlot?.endTime ?? endTime;
+  const hasTimeRange = Boolean(startTime && endTime);
+  const effectiveStart = startTime;
+  const effectiveEnd = endTime;
   const durationHours = calculateDurationHours(effectiveStart, effectiveEnd) ?? 0;
   const extraDurationHours = Math.max(durationHours - includedDurationHours, 0);
   const extraHoursCharge = Math.round(extraDurationHours * extraHourlyRate);
-  const showDurationBreakdown = (hasSlot || hasTimeRange) && durationHours > 0;
+  const showDurationBreakdown = hasTimeRange && durationHours > 0;
 
-  const selectedSlotLabel = selectedSlot
-    ? `${formatSlotTime(selectedSlot.startTime, selectedSlot.endTime)} (${selectedSlot.statusLabel || toTitleStatus(selectedSlot.status)})`
-    : hasTimeRange
+  const selectedTimeRangeLabel = hasTimeRange
     ? formatSlotTime(startTime!, endTime!)
     : "";
 
   const packageAmount =
     pricing?.packageBaseAmount ??
-    selectedSlot?.finalPrice ??
     selectedTheatre?.basePrice ??
     0;
   const billedExtraHoursAmount =
@@ -192,8 +184,8 @@ export function BookingSummarySection({
           {hasLocation && hasDate && hasTheatre ? (
             <SummaryRow label="Package" value={selectedTheatre?.name ?? "Selected"} />
           ) : null}
-          {hasLocation && hasDate && hasTheatre && (hasSlot || hasTimeRange) ? (
-            <SummaryRow label="Time" value={selectedSlotLabel} />
+          {hasLocation && hasDate && hasTheatre && hasTimeRange ? (
+            <SummaryRow label="Time" value={selectedTimeRangeLabel} />
           ) : null}
 
           {showDurationBreakdown ? (
@@ -229,12 +221,12 @@ export function BookingSummarySection({
             </div>
           ) : null}
 
-          {(hasSlot || (hasTimeRange && Boolean(pricing))) ? (
+          {hasTimeRange && pricing ? (
             <>
               <div className="my-3 border-t border-slate-200" />
 
               <SummaryRow
-                label={hasSlot ? "Slot price" : "Package price"}
+                label="Package price"
                 value={formatCurrency(packageAmount)}
               />
 

@@ -30,21 +30,14 @@ type BookingCouponItem = {
 };
 
 type BuildBookingCouponContextInput = {
-  slot?: {
-    id: string;
-    date: Date;
-    startTime: string;
-    endTime: string;
-    durationMin: number;
-  } | null;
-  bookingSchedule?: {
+  bookingSchedule: {
     eventDate?: Date | null;
     eventStartTime?: string | null;
     eventEndTime?: string | null;
     startsAtUtc?: Date | null;
     endsAtUtc?: Date | null;
-  } | null;
-  theatreId: string;
+  };
+  venueId: string;
   locationId: string;
   userId?: string | null;
   contactPhone?: string | null;
@@ -117,10 +110,8 @@ export function buildBookingCouponContext(
   return {
     schedule: buildCouponScheduleContext({
       bookingSchedule: input.bookingSchedule,
-      slot: input.slot,
     }),
-    slot: input.slot ?? null,
-    theatreId: input.theatreId,
+    venueId: input.venueId,
     locationId: input.locationId,
     user:
       input.userId || input.contactPhone

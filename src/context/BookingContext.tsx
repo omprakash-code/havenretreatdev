@@ -21,7 +21,6 @@ import { calculateDurationHours } from "@/lib/booking-time-range";
 import { formatSlotTime } from "@/lib/formatters";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
-  resolvePackageIncludedGuestCount,
 } from "@/lib/package-guest-pricing";
 import {
   BOOKING_SESSION_EXPIRED_MODAL_MESSAGE,
@@ -38,7 +37,7 @@ export type Location = {
   city?: string;
 };
 
-export type SelectedSlot = {
+export type SelectedSchedule = {
   id: string;
   time: string;
   basePrice: number;
@@ -46,7 +45,7 @@ export type SelectedSlot = {
   lockExpiresAt?: string | null;
 };
 
-export type SelectedTheatre = {
+export type SelectedPackage = {
   id: string;
   name: string;
   capacity: number;
@@ -160,7 +159,6 @@ function normalizeBookingItems(
 
 
 type BookingState = {
-  bookingMode: "LEGACY_SLOT" | "RANGE";
   rangePricingSnapshot?: {
     packageAmount?: number;
     extraDurationAmount?: number;
@@ -176,8 +174,8 @@ type BookingState = {
   startTime: string | null;
   endTime: string | null;
   durationHours: number | null;
-  theatre: SelectedTheatre | null;
-  slot: SelectedSlot | null;
+  package: SelectedPackage | null;
+  schedule: SelectedSchedule | null;
 
   bookingId?: string;
   advancePaidSnapshot?: number;
@@ -214,14 +212,9 @@ type BookingContextType = {
   extraHourlyRate: number;
   refreshBooking: () => Promise<void>;
 
-  // Temporary setters (will be removed later phase)
   setLocation: (l: Location) => void;
   setDate: (d: Date) => void;
   setTimeRange: (startTime: string | null, endTime: string | null) => void;
-  setTheatreAndSlot: (
-    theatre: SelectedTheatre,
-    slot: SelectedSlot
-  ) => void;
   setGuestCount: (n: number) => void;
   setDecorationRequired: (v: boolean) => void;
   setBookingItems: (
@@ -232,7 +225,6 @@ type BookingContextType = {
       ) => BookingItemSnapshot[])
   ) => void;
   setBookingId: (id: string) => void;
-  setSlotLockExpiresAt: (value: string | null) => void;
   setContact: (c: BookingState["contact"]) => void;
   setOccasion: (key: string, data: Record<string, string>) => void;
   setItemsHydrated: (v: boolean) => void;
@@ -256,15 +248,14 @@ const BookingContext = createContext<BookingContextType | null>(null);
 ------------------------------ */
 
 const INITIAL_BOOKING: BookingState = {
-  bookingMode: "LEGACY_SLOT",
   location: null,
   date: null,
   selectedDate: null,
   startTime: null,
   endTime: null,
   durationHours: null,
-  theatre: null,
-  slot: null,
+  package: null,
+  schedule: null,
   guestCount: 2,
   decorationRequired: true,
   bookingItems: [],
@@ -427,57 +418,50 @@ const loadBooking = async () => {
           : undefined
       );
 
+      // Resolve location: prefer explicit locationId on the package, fall back to
+      // the first active location (covers single-location setups where locationId
+      // may not yet be populated on existing EventPackage rows).
+      let resolvedLocation: Location | null = null;
+      if (data.eventPackage?.locationId) {
+        resolvedLocation = {
+          id: data.eventPackage.locationId,
+          name: data.eventPackage.location?.name ?? "Miami",
+          city: data.eventPackage.location?.city,
+        };
+      } else {
+        try {
+          const locRes = await fetch("/api/locations", { credentials: "include" });
+          const locJson = await locRes.json().catch(() => null);
+          if (locJson?.success && Array.isArray(locJson.data) && locJson.data.length > 0) {
+            const first = locJson.data[0] as { id: string; name: string; city?: string };
+            resolvedLocation = { id: first.id, name: first.name, city: first.city };
+          }
+        } catch {
+          // non-critical: location will be null, products will not load
+        }
+      }
+
       setBooking({
-        bookingMode: data.rangeSchedule ? "RANGE" : "LEGACY_SLOT",
         bookingId: data.id,
-        rangePricingSnapshot:
-          data.rangeSchedule && data.pricingSnapshot
-            ? data.pricingSnapshot
-            : undefined,
+        rangePricingSnapshot: data.pricingSnapshot ?? undefined,
         advancePaidSnapshot:
           Number.isFinite(Number(data.advancePaid)) && Number(data.advancePaid) > 0
             ? Number(data.advancePaid)
             : undefined,
-        location: data.theatre?.location
-          ?? (data.rangeSchedule && data.eventPackage?.locationId
-            ? { id: data.eventPackage.locationId }
-            : null),
+        location: resolvedLocation,
         date: data.rangeSchedule?.eventDate
           ? new Date(data.rangeSchedule.eventDate)
-          : data.slot?.date
-            ? new Date(data.slot.date)
           : null,
         selectedDate: data.rangeSchedule?.eventDate
           ? new Date(data.rangeSchedule.eventDate)
-          : data.slot?.date
-            ? new Date(data.slot.date)
           : null,
-        startTime:
-          data.rangeSchedule?.startTime ?? data.slot?.startTime ?? null,
-        endTime:
-          data.rangeSchedule?.endTime ?? data.slot?.endTime ?? null,
+        startTime: data.rangeSchedule?.startTime ?? null,
+        endTime: data.rangeSchedule?.endTime ?? null,
         durationHours: calculateDurationHours(
-          data.rangeSchedule?.startTime ?? data.slot?.startTime,
-          data.rangeSchedule?.endTime ?? data.slot?.endTime
+          data.rangeSchedule?.startTime,
+          data.rangeSchedule?.endTime
         ),
-        theatre: data.theatre
-          ? {
-              id: data.theatre.id,
-              name: (data.packageSnapshot as { name?: string } | null)?.name ?? data.theatre.name,
-              capacity:
-                data.rangeSchedule?.maximumGuests ?? data.theatre.capacity,
-              basePrice: data.baseAmount ?? data.slot?.basePrice ?? 0,
-              baseGuests:
-                Number(data.packageSnapshot?.guestLimit) ||
-                resolvePackageIncludedGuestCount(data.theatre),
-              extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
-              decorationPrice:
-                (data.packageSnapshot as { decorationAddonPrice?: number } | null)?.decorationAddonPrice
-                ?? data.theatre?.decorationPrice
-                ?? 0,
-              hourlyRate: Number(data.packageSnapshot?.hourlyRate) || undefined,
-            }
-          : data.rangeSchedule && data.packageSnapshot
+        package: data.rangeSchedule && data.packageSnapshot
           ? {
               id: (data.packageId ?? data.id) as string,
               name: String((data.packageSnapshot as { name?: string })?.name ?? "Package"),
@@ -489,7 +473,7 @@ const loadBooking = async () => {
               hourlyRate: Number((data.packageSnapshot as { hourlyRate?: number })?.hourlyRate) || undefined,
             }
           : null,
-        slot: data.rangeSchedule
+        schedule: data.rangeSchedule
           ? {
               id: `range-lock:${data.rangeSchedule.lockId}`,
               time: formatSlotTime(
@@ -503,19 +487,6 @@ const loadBooking = async () => {
                     data.rangeSchedule.lockExpiresAt
                   ).toISOString()
                 : null,
-            }
-          : data.slot
-          ? {
-              id: data.slot.id,
-              time: formatSlotTime(data.slot.startTime, data.slot.endTime),
-              basePrice: data.slot.basePrice,
-              decorationMandatory: Boolean(data.slot.decorationMandatory),
-              lockExpiresAt:
-                typeof data.slot.lockExpiresAt === "string"
-                  ? data.slot.lockExpiresAt
-                  : data.slot.lockExpiresAt
-                    ? new Date(data.slot.lockExpiresAt).toISOString()
-                    : null,
             }
           : null,
         guestCount: data.guestCount ?? 2,
@@ -579,16 +550,15 @@ const loadBooking = async () => {
 
   const pricing = useMemo(() => {
     if (
-      !booking.theatre ||
-      !booking.slot ||
+      !booking.package ||
+      !booking.schedule ||
       configuredAdvanceAmount === null
     )
       return undefined;
 
-    if (booking.bookingMode === "RANGE") {
       const snapshot = booking.rangePricingSnapshot ?? {};
       const packageBase = Math.max(
-        Number(snapshot.packageAmount ?? booking.slot.basePrice) || 0,
+        Number(snapshot.packageAmount ?? booking.schedule.basePrice) || 0,
         0
       );
       const extraHours = Math.max(
@@ -596,10 +566,10 @@ const loadBooking = async () => {
         0
       );
       const extras =
-        Math.max(booking.guestCount - booking.theatre.baseGuests, 0) *
+        Math.max(booking.guestCount - booking.package.baseGuests, 0) *
         Math.max(
           Number(
-            snapshot.extraGuestPrice ?? booking.theatre.extraPersonPrice
+            snapshot.extraGuestPrice ?? booking.package.extraPersonPrice
           ) || 0,
           0
         );
@@ -608,7 +578,7 @@ const loadBooking = async () => {
         0
       );
       const decoration = booking.decorationRequired
-        ? Math.max(Number(booking.theatre.decorationPrice) || 0, 0)
+        ? Math.max(Number(booking.package.decorationPrice) || 0, 0)
         : 0;
       const discount = Math.max(0, Number(booking.couponDiscount) || 0);
       const total = Math.max(
@@ -639,77 +609,17 @@ const loadBooking = async () => {
         total,
         advancePay: resolvedAdvance,
       };
-    }
-
-    const base = booking.slot.basePrice;
-    const extraDurationHours = Math.max(
-      (booking.durationHours ?? minimumBookingDurationHours) -
-        minimumBookingDurationHours,
-      0
-    );
-    const packageHourlyRate = booking.theatre.hourlyRate ?? extraHourlyRate;
-    const extraHours = Math.round(extraDurationHours * packageHourlyRate);
-
-    const extras =
-      Math.max(
-        booking.guestCount -
-        booking.theatre.baseGuests,
-        0
-      ) *
-      booking.theatre.extraPersonPrice;
-
-    const decoration =
-      booking.decorationRequired ||
-        booking.slot.decorationMandatory
-        ? booking.theatre.decorationPrice
-        : 0;
-
-    const products = booking.bookingItems.reduce(
-      (sum, i) => sum + i.totalPrice,
-      0
-    );
-
-    const discount = Math.max(0, Number(booking.couponDiscount) || 0);
-    const total = Math.max(
-      base + extraHours + extras + decoration + products - discount,
-      0
-    );
-
-    const resolvedAdvance =
-      booking.advancePaidSnapshot && booking.advancePaidSnapshot > 0
-        ? booking.advancePaidSnapshot
-        : configuredAdvanceAmount;
-
-    return {
-      base,
-      packageBase: base,
-      extraDurationHours,
-      extraHourlyRate: packageHourlyRate,
-      extraHours,
-      extras,
-      products,
-      decoration,
-      discount,
-      total,
-      advancePay: resolvedAdvance,
-    };
   }, [
     booking,
     configuredAdvanceAmount,
-    extraHourlyRate,
-    minimumBookingDurationHours,
   ]);
-
-  /* -----------------------------
-   Temporary Local Setters
-  ------------------------------ */
 
   const setLocation = (location: Location) =>
     setBooking((p) => ({
       ...p,
       location,
-      theatre: null,
-      slot: null,
+      package: null,
+      schedule: null,
       bookingId: undefined,
       rangePricingSnapshot: undefined,
       advancePaidSnapshot: undefined,
@@ -728,8 +638,8 @@ const loadBooking = async () => {
       ...p,
       date,
       selectedDate: date,
-      theatre: null,
-      slot: null,
+      package: null,
+      schedule: null,
       bookingId: undefined,
       rangePricingSnapshot: undefined,
       advancePaidSnapshot: undefined,
@@ -749,25 +659,6 @@ const loadBooking = async () => {
       startTime,
       endTime,
       durationHours: calculateDurationHours(startTime, endTime),
-    }));
-
-  const setTheatreAndSlot = (
-    theatre: SelectedTheatre,
-    slot: SelectedSlot
-  ) =>
-    setBooking((p) => ({
-      ...p,
-      bookingMode: "LEGACY_SLOT",
-      rangePricingSnapshot: undefined,
-      theatre,
-      slot,
-      guestCount: theatre.baseGuests,
-      bookingId: undefined,
-      advancePaidSnapshot: undefined,
-      bookingItems: [],
-      couponDiscount: 0,
-      appliedCoupons: [],
-      occasion: undefined,
     }));
 
   const setGuestCount = (guestCount: number) =>
@@ -797,18 +688,6 @@ const loadBooking = async () => {
 
   const setBookingId = (id: string) =>
     setBooking((p) => ({ ...p, bookingId: id }));
-
-  const setSlotLockExpiresAt = (value: string | null) =>
-    setBooking((p) => {
-      if (!p.slot) return p;
-      return {
-        ...p,
-        slot: {
-          ...p.slot,
-          lockExpiresAt: value,
-        },
-      };
-    });
 
   const setContact = (
     contact: BookingState["contact"]
@@ -863,12 +742,10 @@ const loadBooking = async () => {
         setLocation,
         setDate,
         setTimeRange,
-        setTheatreAndSlot,
         setGuestCount,
         setDecorationRequired,
         setBookingItems,
         setBookingId,
-        setSlotLockExpiresAt,
         setContact,
         setOccasion,
         setItemsHydrated,

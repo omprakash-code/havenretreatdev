@@ -3,7 +3,6 @@ import { formatInTimeZone } from "date-fns-tz";
 import { formatSlotTime } from "@/lib/formatters";
 import { timeToMinutes } from "@/lib/time";
 
-export const LEGACY_SLOT_TIMEZONE = "Asia/Kolkata";
 export const DEFAULT_BOOKING_TIMEZONE = "America/New_York";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -17,17 +16,10 @@ export type BookingSchedulePresenterInput = {
   startsAtUtc?: DateLike;
   endsAtUtc?: DateLike;
   timezone?: string | null;
-  theatreTimezone?: string | null;
-  slot?: {
-    date?: DateLike;
-    startTime?: string | null;
-    endTime?: string | null;
-    durationMin?: number | null;
-  } | null;
 };
 
 export type PresentedBookingSchedule = {
-  source: "BOOKING" | "SLOT";
+  source: "BOOKING";
   timezone: string;
   dateKey: string;
   startTime: string;
@@ -67,27 +59,6 @@ function durationHoursFromTimes(startTime: string, endTime: string) {
   return (end - start) / 60;
 }
 
-function resolveEndInstant(input: {
-  dateKey: string;
-  startTime: string;
-  endTime: string;
-  endsAtUtc?: DateLike;
-  timezone: string;
-}) {
-  const explicitEnd = toDate(input.endsAtUtc);
-  if (explicitEnd) return explicitEnd;
-
-  if (input.timezone === LEGACY_SLOT_TIMEZONE) {
-    let endAt = new Date(`${input.dateKey}T${input.endTime}:00+05:30`);
-    if (timeToMinutes(input.endTime) <= timeToMinutes(input.startTime)) {
-      endAt = new Date(endAt.getTime() + ONE_DAY_MS);
-    }
-    return endAt;
-  }
-
-  return null;
-}
-
 export function resolvePresentedBookingSchedule(
   input: BookingSchedulePresenterInput,
   datePattern = "EEE, dd MMM yyyy"
@@ -95,10 +66,7 @@ export function resolvePresentedBookingSchedule(
   const bookingStart = input.eventStartTime?.trim();
   const bookingEnd = input.eventEndTime?.trim();
   if (input.eventDate && bookingStart && bookingEnd) {
-    const timezone =
-      input.timezone?.trim() ||
-      input.theatreTimezone?.trim() ||
-      DEFAULT_BOOKING_TIMEZONE;
+    const timezone = input.timezone?.trim() || DEFAULT_BOOKING_TIMEZONE;
     const startsAtUtc = toDate(input.startsAtUtc);
     const dateKey =
       startsAtUtc != null
@@ -107,13 +75,7 @@ export function resolvePresentedBookingSchedule(
 
     if (!dateKey) return null;
 
-    const endsAtUtc = resolveEndInstant({
-      dateKey,
-      startTime: bookingStart,
-      endTime: bookingEnd,
-      endsAtUtc: input.endsAtUtc,
-      timezone,
-    });
+    const endsAtUtc = toDate(input.endsAtUtc);
     const durationHours =
       startsAtUtc && endsAtUtc
         ? (endsAtUtc.getTime() - startsAtUtc.getTime()) / 36e5
@@ -140,45 +102,5 @@ export function resolvePresentedBookingSchedule(
     };
   }
 
-  const slotDate = input.slot?.date;
-  const slotStart = input.slot?.startTime?.trim();
-  const slotEnd = input.slot?.endTime?.trim();
-  if (!slotDate || !slotStart || !slotEnd) return null;
-
-  const slotDateObject = toDate(slotDate);
-  const dateKey = slotDateObject
-    ? formatInTimeZone(slotDateObject, LEGACY_SLOT_TIMEZONE, "yyyy-MM-dd")
-    : dateKeyFromDateOnly(slotDate);
-  if (!dateKey) return null;
-
-  const endsAtUtc = resolveEndInstant({
-    dateKey,
-    startTime: slotStart,
-    endTime: slotEnd,
-    timezone: LEGACY_SLOT_TIMEZONE,
-  });
-  const durationHours =
-    typeof input.slot?.durationMin === "number"
-      ? input.slot.durationMin / 60
-      : durationHoursFromTimes(slotStart, slotEnd);
-  const date = slotDateObject
-    ? formatInTimeZone(slotDateObject, LEGACY_SLOT_TIMEZONE, datePattern)
-    : renderDateKey(dateKey, datePattern);
-  const timeSlot = formatSlotTime(slotStart, slotEnd);
-
-  return {
-    source: "SLOT",
-    timezone: LEGACY_SLOT_TIMEZONE,
-    dateKey,
-    startTime: slotStart,
-    endTime: slotEnd,
-    timeSlot,
-    date,
-    dateTime: `${date}, ${timeSlot}`,
-    durationHours: Number.isFinite(durationHours) ? durationHours : null,
-    endsAtUtc,
-    successTokenExpiresAt: endsAtUtc
-      ? new Date(endsAtUtc.getTime() + ONE_DAY_MS)
-      : null,
-  };
+  return null;
 }

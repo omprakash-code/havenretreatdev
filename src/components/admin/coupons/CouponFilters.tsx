@@ -122,7 +122,7 @@ export default function CouponFilters({
             options={[
               { value: "ALL", label: "All Scope" },
               { value: "BOOKING_TOTAL", label: "Booking Total" },
-              { value: "SLOT_ONLY", label: "Slot Only" },
+              { value: "PACKAGE_ONLY", label: "Package Only" },
               { value: "PRODUCTS_ONLY", label: "Products Only" },
             ]}
           />

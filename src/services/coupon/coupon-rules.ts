@@ -18,13 +18,13 @@ export function evaluateRule(
   const schedule = resolveCouponScheduleContext(ctx)
 
   switch (rule.type) {
-    case 'SLOT_DATE_RANGE': {
+    case 'BOOKING_DATE_RANGE': {
       const inRange = isDateInRange(schedule.date, rule.value)
       return resolveRangeOperator(rule.operator, inRange)
     }
 
-    case 'SLOT_TIME_RANGE': {
-      const fitsWithinRange = doesSlotFitTimeRange(
+    case 'BOOKING_TIME_RANGE': {
+      const fitsWithinRange = doesBookingFitTimeRange(
         schedule.startTime,
         schedule.endTime,
         rule.value
@@ -32,25 +32,10 @@ export function evaluateRule(
       return resolveRangeOperator(rule.operator, fitsWithinRange)
     }
 
-    case 'SLOT_DURATION_MIN':
+    case 'BOOKING_DURATION_MIN':
       return evaluateValueOperator(
         rule.operator,
         String(schedule.durationMin),
-        toStringList(rule.value)
-      )
-
-    case 'SLOT_ID':
-      if (!ctx.slot?.id) return rule.operator === 'NOT_IN'
-      return evaluateValueOperator(
-        rule.operator,
-        ctx.slot.id,
-        toStringList(rule.value)
-      )
-
-    case 'THEATRE_ID':
-      return evaluateValueOperator(
-        rule.operator,
-        ctx.theatreId,
         toStringList(rule.value)
       )
 
@@ -234,7 +219,7 @@ function isDateInRange(
  * Overnight-safe time containment check.
  * Slot must fully fit in rule range.
  */
-function doesSlotFitTimeRange(
+function doesBookingFitTimeRange(
   slotStart: string,
   slotEnd: string,
   rule: { start: string; end: string }

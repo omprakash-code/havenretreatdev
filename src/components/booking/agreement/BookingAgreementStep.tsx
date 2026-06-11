@@ -121,11 +121,11 @@ export default function BookingAgreementStep({
   useEffect(() => {
     if (
       hydrated &&
-      (!booking.bookingId || !booking.theatre || !booking.slot || !booking.contact)
+      (!booking.bookingId || !booking.package || !booking.schedule || !booking.contact)
     ) {
       router.replace(BOOKING_ROUTES.ROOT);
     }
-  }, [booking.bookingId, booking.contact, booking.slot, booking.theatre, hydrated, router]);
+  }, [booking.bookingId, booking.contact, booking.schedule, booking.package, hydrated, router]);
 
   useEffect(() => {
     const root = scrollRootRef.current;
@@ -208,7 +208,7 @@ export default function BookingAgreementStep({
       ? "agreement-attention transition"
       : "transition";
 
-  if (!hydrated || !booking.bookingId || !booking.theatre || !booking.slot || !booking.contact) {
+  if (!hydrated || !booking.bookingId || !booking.package || !booking.schedule || !booking.contact) {
     return null;
   }
 
@@ -317,7 +317,7 @@ export default function BookingAgreementStep({
                   type="button"
                   onClick={() => {
                     const decorationActive =
-                      booking.decorationRequired || booking.slot?.decorationMandatory;
+                      booking.decorationRequired || booking.schedule?.decorationMandatory;
                     router.push(
                       decorationActive
                         ? BOOKING_ROUTES.EXTRAS("add-ons")
@@ -551,7 +551,7 @@ export default function BookingAgreementStep({
         enableInvalidSubmitFeedback
         invalidSubmitMessage={missingAgreementMessage}
         hidden={showInlineSummarySubmit}
-        totalPrice={booking.pricing?.total ?? booking.slot?.basePrice ?? null}
+        totalPrice={booking.pricing?.total ?? booking.schedule?.basePrice ?? null}
         advancePay={booking.pricing?.advancePay ?? null}
       />
       <style jsx>{`

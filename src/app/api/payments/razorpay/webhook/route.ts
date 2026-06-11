@@ -68,7 +68,6 @@ async function resolveBookingByPaymentEntity(payment: RazorpayPaymentEntity) {
       where: { razorpayOrderId: orderId },
       select: {
         id: true,
-        slotId: true,
         lockVersion: true,
         bookingStatus: true,
         paymentStatus: true,
@@ -88,7 +87,6 @@ async function resolveBookingByPaymentEntity(payment: RazorpayPaymentEntity) {
     where: { id: bookingIdFromNotes },
     select: {
       id: true,
-      slotId: true,
       lockVersion: true,
       bookingStatus: true,
       paymentStatus: true,
@@ -212,7 +210,6 @@ async function handlePaymentFailed(payment: RazorpayPaymentEntity) {
       where: { id: booking.id },
       select: {
         id: true,
-        slotId: true,
         lockVersion: true,
         bookingStatus: true,
         paymentStatus: true,
@@ -225,46 +222,6 @@ async function handlePaymentFailed(payment: RazorpayPaymentEntity) {
       fresh.bookingStatus === "CONFIRMED" &&
       fresh.paymentStatus === "PAID";
     if (bookingIsPaid) return;
-
-    if (fresh.slotId === null) {
-      // Range booking: reset to awaiting payment on failure.
-      await tx.booking.update({
-        where: { id: fresh.id },
-        data: {
-          bookingStatus: "AWAITING_PAYMENT",
-          paymentStatus: "FAILED",
-        },
-      });
-      if (paymentId) {
-        const existingAttempt = await tx.payment.findFirst({
-          where: {
-            bookingId: fresh.id,
-            provider: "RAZORPAY",
-            transactionId: paymentId,
-          },
-          orderBy: { createdAt: "desc" },
-          select: { id: true },
-        });
-        if (existingAttempt) {
-          await tx.payment.update({
-            where: { id: existingAttempt.id },
-            data: { status: "FAILED", method: taggedMethod },
-          });
-        } else {
-          await tx.payment.create({
-            data: {
-              bookingId: fresh.id,
-              provider: "RAZORPAY",
-              method: taggedMethod,
-              transactionId: paymentId,
-              amount: amountInRupees,
-              status: "FAILED",
-            },
-          });
-        }
-      }
-      return;
-    }
 
     await tx.booking.update({
       where: { id: fresh.id },

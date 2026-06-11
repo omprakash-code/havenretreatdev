@@ -38,14 +38,14 @@ function buildContext(
   patch: Partial<CouponEvaluationContext> = {}
 ): CouponEvaluationContext {
   return {
-    slot: {
-      id: "slot-1",
+    schedule: {
       date: new Date("2026-04-01T00:00:00.000Z"),
       startTime: "10:00",
       endTime: "11:00",
       durationMin: 60,
+    source: "BOOKING",
     },
-    theatreId: "theatre-1",
+    venueId: "theatre-1",
     locationId: "location-1",
     user: {
       id: "user-1",

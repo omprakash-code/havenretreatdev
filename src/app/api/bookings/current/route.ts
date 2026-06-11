@@ -56,7 +56,6 @@ export async function GET() {
                 success: true,
                 data: {
                     ...booking,
-                    slot: null,
                     rangeSchedule: {
                         eventDate: booking.eventDate,
                         startTime: booking.eventStartTime,
@@ -97,6 +96,7 @@ export async function GET() {
     const booking = await prisma.booking.findUnique({
         where: { id: bookingId },
         include: {
+            eventPackage: { include: { location: true } },
             items: {
                 include: {
                     product: {

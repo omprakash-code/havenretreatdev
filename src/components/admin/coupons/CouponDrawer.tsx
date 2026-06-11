@@ -36,9 +36,7 @@ type CouponDetailsResponse = {
 function createEmptyRuleOptions(): CouponRuleOptions {
   return {
     locations: [],
-    theatres: [],
     products: [],
-    slots: [],
     slotDurations: [],
     coupons: [],
   };
@@ -173,7 +171,7 @@ export default function CouponDrawer({
     setEditorInstanceKey((prev) => prev + 1);
     setError(null);
     setErrorKind(null);
-    void ensureRuleOptions(["locations", "theatres", "slotDurations"]);
+    void ensureRuleOptions(["locations", "slotDurations"]);
 
     if (mode === "create") {
       setForm(createEmptyCouponForm());
@@ -199,7 +197,7 @@ export default function CouponDrawer({
     });
   }
 
-  function addRule(type: CouponRuleType = "THEATRE_ID") {
+  function addRule(type: CouponRuleType = "BOOKING_DATE_RANGE") {
     const meta = getRuleMeta(type);
     const nextRule: CouponRuleFormState = {
       type,

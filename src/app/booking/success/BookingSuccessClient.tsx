@@ -109,8 +109,8 @@ export default function BookingSuccessClient() {
 
     if (
       booking.bookingId ||
-      booking.slot ||
-      booking.theatre ||
+      booking.schedule ||
+      booking.package ||
       booking.location
     ) {
       hasResetRef.current = true;

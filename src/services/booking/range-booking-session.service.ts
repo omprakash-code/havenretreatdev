@@ -31,7 +31,7 @@ export async function requireActiveRangeBookingSession(
   const booking = await db.booking.findUnique({
     where: { id: identity.bookingId },
     include: {
-      eventPackage: true,
+      eventPackage: { include: { location: true } },
       items: {
         include: {
           product: { select: { image: true, slug: true } },
@@ -48,12 +48,6 @@ export async function requireActiveRangeBookingSession(
     throw new RangeBookingSessionError(
       "BOOKING_NOT_FOUND",
       "Booking not found."
-    );
-  }
-  if (booking.slotId !== null) {
-    throw new RangeBookingSessionError(
-      "SESSION_EXPIRED",
-      "This is not a range booking session."
     );
   }
   if (booking.bookingStatus === "CONFIRMED") {

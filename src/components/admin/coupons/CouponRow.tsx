@@ -15,7 +15,7 @@ type Props = {
 const SCOPE_LABEL: Record<AdminCouponListItem["scope"], string> = {
   BOOKING_TOTAL: "Booking Total",
   PRODUCTS_ONLY: "Products Only",
-  SLOT_ONLY: "Slot Only",
+  PACKAGE_ONLY: "Package Only",
 };
 
 export default function CouponRow({ srNo, coupon, onEdit, onView, onDelete }: Props) {

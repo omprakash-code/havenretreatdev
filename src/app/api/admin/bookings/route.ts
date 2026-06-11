@@ -176,7 +176,6 @@ export async function GET(req: Request) {
       timezone: true,
       packageSnapshot: true,
       pricingSnapshot: true,
-      theatreId: true,
       venue: {
         select: {
           id: true,
@@ -290,8 +289,6 @@ export async function GET(req: Request) {
         startsAtUtc: b.startsAtUtc,
         endsAtUtc: b.endsAtUtc,
         timezone: b.timezone,
-        theatreTimezone: 'America/New_York',
-        slot: null,
       });
       return {
         srNo: index + 1,
@@ -306,7 +303,7 @@ export async function GET(req: Request) {
         },
 
         theatre: {
-          id: b.venue?.id ?? b.theatreId ?? "",
+          id: b.venue?.id ?? "",
           name: b.venue?.name ?? (b.packageSnapshot as { name?: string } | null)?.name ?? "Haven Retreat",
           timezone: 'America/New_York' as string | null,
           locationName: 'Miami' as string | null,

@@ -3,14 +3,6 @@ import { differenceInMinutes } from "date-fns";
 import type { CouponScheduleContext } from "@/services/coupon/coupon.types";
 import type { CouponEvaluationContext } from "@/services/coupon/coupon.types";
 
-type LegacySlotScheduleInput = {
-  id: string;
-  date: Date;
-  startTime: string;
-  endTime: string;
-  durationMin: number;
-};
-
 type BookingOwnedScheduleInput = {
   eventDate?: Date | null;
   eventStartTime?: string | null;
@@ -20,8 +12,7 @@ type BookingOwnedScheduleInput = {
 };
 
 export function buildCouponScheduleContext(input: {
-  bookingSchedule?: BookingOwnedScheduleInput | null;
-  slot?: LegacySlotScheduleInput | null;
+  bookingSchedule: BookingOwnedScheduleInput;
 }): CouponScheduleContext {
   const bookingSchedule = input.bookingSchedule;
   if (
@@ -45,18 +36,6 @@ export function buildCouponScheduleContext(input: {
     };
   }
 
-  if (input.slot) {
-    return {
-      date: input.slot.date,
-      startTime: input.slot.startTime,
-      endTime: input.slot.endTime,
-      durationMin: input.slot.durationMin,
-      startsAtUtc: null,
-      endsAtUtc: null,
-      source: "SLOT",
-    };
-  }
-
   throw new Error("COUPON_SCHEDULE_REQUIRED");
 }
 
@@ -65,9 +44,7 @@ export function resolveCouponScheduleContext(
 ): CouponScheduleContext {
   if (context.schedule) return context.schedule;
 
-  return buildCouponScheduleContext({
-    slot: context.slot ?? null,
-  });
+  throw new Error("COUPON_SCHEDULE_REQUIRED");
 }
 
 function resolveDurationMinutes(input: {

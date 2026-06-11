@@ -33,8 +33,8 @@ export function useContactSubmit() {
 
     if (
       !booking.bookingId ||
-      !booking.theatre ||
-      !booking.slot
+      !booking.package ||
+      !booking.schedule
     ) {
       toast.error("Booking is incomplete. Please restart booking.");
       router.replace("/booking");

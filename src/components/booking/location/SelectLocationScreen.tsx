@@ -85,19 +85,14 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
 
   const releaseBookingSession = useCallback(async () => {
     try {
-      await fetch(
-        booking.bookingMode === "RANGE"
-          ? "/api/booking-locks"
-          : "/api/bookings/release",
-        {
-        method: booking.bookingMode === "RANGE" ? "DELETE" : "POST",
+      await fetch("/api/bookings/release", {
+        method: "POST",
         keepalive: true,
-        }
-      );
+      });
     } catch {
       // best effort; local state still updates
     }
-  }, [booking.bookingMode]);
+  }, []);
 
   const persistPrebooking = useCallback(
     async (location: Location, date: Date) => {
@@ -156,7 +151,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
    -------------------------------------- */
   useEffect(() => {
     // Don't auto-select location if there is already an active booking session —
-    // calling setLocation resets theatre + bookingId and would wipe the session.
+    // calling setLocation resets package + bookingId and would wipe the session.
     if (booking.bookingId) return;
     if (!booking.location && locations.length > 0) {
       setLocation(locations[0]);
@@ -276,7 +271,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
 
   useEffect(() => {
     // Don't auto-select date if there is already an active booking session —
-    // calling setDate resets theatre + bookingId and would wipe the session.
+    // calling setDate resets package + bookingId and would wipe the session.
     if (booking.bookingId) return;
     if (!booking.location || datesLoading || booking.date || availableDates.length === 0) return;
 
@@ -426,7 +421,7 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
                 maximumFractionDigits: 0,
               }).format(
                 selectedHourlyRate ||
-                booking.theatre?.hourlyRate ||
+                booking.package?.hourlyRate ||
                 lowestPackageRate ||
                 extraHourlyRate
               )}
