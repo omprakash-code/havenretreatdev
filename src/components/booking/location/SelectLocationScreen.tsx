@@ -20,6 +20,8 @@ import {
 
 type Props = {
   onContinue: () => void;
+  selectedPackageName?: string;
+  selectedPackageBasePrice?: number;
   selectedHourlyRate?: number;
   continueLabel?: string;
   continueDisabled?: boolean;
@@ -40,7 +42,7 @@ function getWeekdayShort(date: Date): string {
 }
 
 
-export default function SelectLocationScreen({ onContinue, selectedHourlyRate, continueLabel, continueDisabled }: Props) {
+export default function SelectLocationScreen({ onContinue, selectedPackageName, selectedPackageBasePrice, selectedHourlyRate, continueLabel, continueDisabled }: Props) {
   const {
     booking,
     setDate,
@@ -315,6 +317,27 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
     (loc) => loc.id === booking.location?.id
   );
 
+  const effectiveHourlyRate =
+    selectedHourlyRate ||
+    booking.package?.hourlyRate ||
+    lowestPackageRate ||
+    extraHourlyRate;
+  const packageBasePrice =
+    selectedPackageBasePrice ??
+    booking.package?.basePrice ??
+    0;
+  const packageTitle =
+    selectedPackageName ||
+    booking.package?.name ||
+    null;
+  const isExactRate = Boolean(selectedHourlyRate || booking.package?.hourlyRate);
+  const formatCurrency = (v: number) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(v);
+
   const quickDates = [
     { label: "Today", offset: 0 },
     { label: "Tomorrow", offset: 1 },
@@ -405,33 +428,37 @@ export default function SelectLocationScreen({ onContinue, selectedHourlyRate, c
       </div>
 
       <BookingHeroCard
-        title="Your Private Retreat"
+        title={packageTitle ?? "Your Private Retreat"}
         subtitle={booking.location?.name ?? "Miami"}
         rateLabel={
           <>
-            {!selectedHourlyRate && (
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#347f7c] mb-0.5">
-                Starting at
-              </p>
+            {packageBasePrice > 0 ? (
+              <>
+                <p className="text-2xl font-bold leading-none tracking-[-0.05em] text-[#101828]">
+                  {formatCurrency(packageBasePrice)}
+                </p>
+                <p className="mt-0.5 text-[10px] font-medium text-[#667085]">
+                  Package price
+                </p>
+              </>
+            ) : (
+              <>
+                {!isExactRate && (
+                  <p className="mb-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#347f7c]">
+                    Starting at
+                  </p>
+                )}
+                <p className="text-2xl font-bold leading-none tracking-[-0.05em] text-[#101828]">
+                  {formatCurrency(effectiveHourlyRate)}
+                  <span className="ml-1 text-sm font-medium tracking-normal text-[#101828]">
+                    /hr
+                  </span>
+                </p>
+              </>
             )}
-            <p className="text-2xl font-bold leading-none tracking-[-0.05em] text-[#101828]">
-              {new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: "USD",
-                maximumFractionDigits: 0,
-              }).format(
-                selectedHourlyRate ||
-                booking.package?.hourlyRate ||
-                lowestPackageRate ||
-                extraHourlyRate
-              )}
-              <span className="ml-1 text-sm font-medium tracking-normal text-[#101828]">
-                /hr
-              </span>
-            </p>
-            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#101828]">
-              Minimum {minimumBookingDurationHours}{" "}
-              {minimumBookingDurationHours === 1 ? "hour" : "hours"}
+            <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#101828]">
+              {formatCurrency(effectiveHourlyRate)}/hr &nbsp;·&nbsp; {minimumBookingDurationHours}{" "}
+              {minimumBookingDurationHours === 1 ? "hr" : "hrs"} min
             </p>
           </>
         }

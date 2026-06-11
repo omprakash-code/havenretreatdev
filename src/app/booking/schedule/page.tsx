@@ -12,6 +12,8 @@ function ScheduleContent() {
   const router = useRouter();
   const { booking, refreshBooking } = useBooking();
   const [selectedPackageRate, setSelectedPackageRate] = useState<number | null>(null);
+  const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null);
+  const [selectedPackageBasePrice, setSelectedPackageBasePrice] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -22,6 +24,10 @@ function ScheduleContent() {
     }
     const rate = Number(sessionStorage.getItem("hr_pending_package_rate") || "0");
     if (rate > 0) setSelectedPackageRate(rate);
+    const name = sessionStorage.getItem("hr_pending_package_name") || "";
+    if (name) setSelectedPackageName(name);
+    const basePrice = Number(sessionStorage.getItem("hr_pending_package_base_price") || "0");
+    if (basePrice > 0) setSelectedPackageBasePrice(basePrice);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -72,7 +78,9 @@ function ScheduleContent() {
       }
 
       sessionStorage.removeItem("hr_pending_package_id");
+      sessionStorage.removeItem("hr_pending_package_name");
       sessionStorage.removeItem("hr_pending_package_rate");
+      sessionStorage.removeItem("hr_pending_package_base_price");
       await refreshBooking();
       router.push(BOOKING_ROUTES.CONTACT);
     } finally {
@@ -84,8 +92,10 @@ function ScheduleContent() {
     <main className="min-h-[calc(100vh-160px)]">
       <SelectLocationScreen
         onContinue={handleContinue}
+        selectedPackageName={selectedPackageName ?? undefined}
+        selectedPackageBasePrice={selectedPackageBasePrice ?? undefined}
         selectedHourlyRate={selectedPackageRate ?? undefined}
-        continueLabel={isSubmitting ? "Please wait..." : "Confirm Date & Time"}
+        continueLabel={isSubmitting ? "Please wait..." : "Reserve This Date"}
         continueDisabled={isSubmitting}
       />
     </main>

@@ -43,7 +43,9 @@ export default function RangePackageList() {
     if (navigating) return;
     setNavigating(true);
     sessionStorage.setItem("hr_pending_package_id", eventPackage.id);
+    sessionStorage.setItem("hr_pending_package_name", eventPackage.name);
     sessionStorage.setItem("hr_pending_package_rate", String(eventPackage.hourlyRate ?? 0));
+    sessionStorage.setItem("hr_pending_package_base_price", String(eventPackage.subtotalAmount ?? 0));
     router.push(BOOKING_ROUTES.SCHEDULE);
   }
 
