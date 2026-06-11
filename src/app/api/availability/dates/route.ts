@@ -2,11 +2,22 @@ import { NextResponse } from "next/server";
 import { addDays, startOfDay } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/db";
+import {
+  ACTIVE_RANGE_HOLD_STATUSES,
+  BOOKING_BUFFER_MINUTES,
+  BOOKING_BUSINESS_CLOSE_TIME,
+  BOOKING_BUSINESS_OPEN_TIME,
+  BOOKING_TIME_ZONE,
+} from "@/lib/booking-policy";
+import { timeToMinutes } from "@/lib/booking-range";
 
-const VENUE_TIMEZONE = "America/New_York";
+function minutesToTime(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+}
+
 const AVAILABILITY_HORIZON_DAYS = 90;
-const BUSINESS_OPEN_TIME = "09:00";
-const BUSINESS_CLOSE_TIME = "23:00";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -27,14 +38,13 @@ export async function GET(req: Request) {
   });
 
   // If no packages for this location, also check if any venue exists at all
-  const venueIds =
-    packageRows.length > 0
-      ? packageRows.map((p) => p.venueId)
-      : await prisma.venue
-          .findMany({ where: { isActive: true }, select: { id: true } })
-          .then((rows) => rows.map((r) => r.id));
+  const venueIds = packageRows.map((p) => p.venueId);
+  if (venueIds.length === 0) {
+    return NextResponse.json({ success: true, data: [] });
+  }
 
-  const nowInVenue = toZonedTime(new Date(), VENUE_TIMEZONE);
+  const now = new Date();
+  const nowInVenue = toZonedTime(now, BOOKING_TIME_ZONE);
   const todayInVenue = startOfDay(nowInVenue);
 
   // Find dates that are fully blocked (CONFIRMED booking occupies entire day window)
@@ -43,7 +53,13 @@ export async function GET(req: Request) {
   const confirmedBookings = await prisma.booking.findMany({
     where: {
       venueId: { in: venueIds },
-      bookingStatus: "CONFIRMED",
+      OR: [
+        { bookingStatus: "CONFIRMED" },
+        {
+          bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
+          holdExpiresAt: { gt: now },
+        },
+      ],
       eventDate: {
         gte: todayInVenue,
         lte: addDays(todayInVenue, AVAILABILITY_HORIZON_DAYS),
@@ -58,13 +74,17 @@ export async function GET(req: Request) {
 
   // Build a set of fully blocked dates
   const fullyBlockedDates = new Set<string>();
+  const latestEventEnd = minutesToTime(
+    (timeToMinutes(BOOKING_BUSINESS_CLOSE_TIME) ?? 0) -
+      BOOKING_BUFFER_MINUTES
+  );
   for (const b of confirmedBookings) {
     if (
       b.eventDate &&
-      b.eventStartTime === BUSINESS_OPEN_TIME &&
-      b.eventEndTime === BUSINESS_CLOSE_TIME
+      b.eventStartTime === BOOKING_BUSINESS_OPEN_TIME &&
+      b.eventEndTime === latestEventEnd
     ) {
-      const dateKey = formatInTimeZone(b.eventDate, VENUE_TIMEZONE, "yyyy-MM-dd");
+      const dateKey = formatInTimeZone(b.eventDate, BOOKING_TIME_ZONE, "yyyy-MM-dd");
       fullyBlockedDates.add(dateKey);
     }
   }
@@ -72,7 +92,7 @@ export async function GET(req: Request) {
   const dates: { date: string }[] = [];
   for (let i = 0; i < AVAILABILITY_HORIZON_DAYS; i++) {
     const day = addDays(todayInVenue, i);
-    const dateKey = formatInTimeZone(day, VENUE_TIMEZONE, "yyyy-MM-dd");
+    const dateKey = formatInTimeZone(day, BOOKING_TIME_ZONE, "yyyy-MM-dd");
     if (!fullyBlockedDates.has(dateKey)) {
       dates.push({ date: dateKey });
     }

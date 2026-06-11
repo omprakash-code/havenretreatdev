@@ -58,7 +58,7 @@ export async function POST(req: Request) {
         bookingStatus: booking.bookingStatus,
         paymentStatus: booking.paymentStatus,
         lockVersion: booking.lockVersion,
-        lockExpiresAt: null,
+        lockExpiresAt: booking.holdExpiresAt,
         advancePayable,
         totalAmount: booking.totalAmount,
         remainingPayable: Math.max(

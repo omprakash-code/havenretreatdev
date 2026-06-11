@@ -67,10 +67,16 @@ function makeTxClient(overrides: Record<string, unknown> = {}) {
     },
     booking: {
       findUnique: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue(null), // no conflict
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       update: vi.fn().mockResolvedValue({ id: "booking-1", lockVersion: 2 }),
       create: vi.fn().mockResolvedValue({ id: "booking-new", lockVersion: 1 }),
     },
+    couponUsage: {
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    $queryRaw: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -188,6 +194,7 @@ describe("createOrReplaceVenueBookingSession", () => {
       id: "booking-1",
       bookingStatus: "INCOMPLETE",
       lockVersion: 1,
+      holdExpiresAt: new Date("2030-07-15T17:00:00.000Z"),
       payment: [{ id: "pay-1" }],
     });
     withTx(tx);
@@ -206,6 +213,7 @@ describe("createOrReplaceVenueBookingSession", () => {
       id: "booking-1",
       bookingStatus: "PAYMENT_PROCESSING",
       lockVersion: 1,
+      holdExpiresAt: new Date("2030-07-15T17:00:00.000Z"),
       payment: [],
     });
     withTx(tx);
@@ -267,6 +275,7 @@ describe("createOrReplaceVenueBookingSession", () => {
         id: "booking-1",
         bookingStatus: "INCOMPLETE",
         lockVersion: 3,
+        holdExpiresAt: new Date("2030-07-15T17:00:00.000Z"),
         payment: [],
       })
       .mockResolvedValueOnce({ lockVersion: 3 }); // second call for increment
@@ -289,6 +298,7 @@ describe("createOrReplaceVenueBookingSession", () => {
         id: "booking-1",
         bookingStatus: "INCOMPLETE",
         lockVersion: 1,
+        holdExpiresAt: new Date("2030-07-15T17:00:00.000Z"),
         payment: [],
       })
       .mockResolvedValueOnce({ lockVersion: 1 });

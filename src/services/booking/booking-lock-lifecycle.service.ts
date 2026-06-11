@@ -95,7 +95,6 @@ export async function expireBookingLockSession(
   db: DbClient,
   {
     bookingId,
-    slotId: _slotId,
     now = new Date(),
     cancelledReason = "SESSION_EXPIRED",
   }: ExpireLockInput
@@ -131,6 +130,7 @@ export async function expireBookingLockSession(
           bookingToRelease.bookingStatus,
           cancelledReason
         ),
+        holdExpiresAt: null,
         ...(bookingToRelease.bookingStatus === BookingStatus.INCOMPLETE
           ? {}
           : {
@@ -163,7 +163,6 @@ export async function expireBookingLockSession(
 export async function releaseSiblingSessionLocks(
   db: DbClient,
   {
-    lockOwner: _lockOwner,
     keepSlotId,
     now = new Date(),
     cancelledReason = "SESSION_SLOT_SWITCHED",
@@ -206,6 +205,7 @@ export async function releaseSiblingSessionLocks(
         bookingStatus: BookingStatus.ABANDONED,
         cancelledAt: now,
         cancelledReason,
+        holdExpiresAt: null,
       },
     });
   }
@@ -225,6 +225,7 @@ export async function releaseSiblingSessionLocks(
             db,
             booking.id
           ),
+          holdExpiresAt: null,
         },
       });
     }

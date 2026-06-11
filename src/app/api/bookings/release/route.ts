@@ -42,7 +42,7 @@ export async function POST() {
       );
     }
 
-    const { bookingId, lockOwner } = payload;
+    const { bookingId } = payload;
     let released = false;
     const abandonedBookingIds: string[] = [];
 
@@ -74,6 +74,7 @@ export async function POST() {
             bookingStatus: BookingStatus.ABANDONED,
             cancelledAt: new Date(),
             cancelledReason: "SESSION_EXPIRED",
+            holdExpiresAt: null,
           },
         });
         abandonedBookingIds.push(bookingId);
@@ -94,6 +95,7 @@ export async function POST() {
               tx,
               bookingId
             ),
+            holdExpiresAt: null,
           },
         });
       }

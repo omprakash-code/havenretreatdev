@@ -6,18 +6,21 @@ import {
   localBookingTimeToUtc,
   timeToMinutes,
   toBookingDate,
-  BOOKING_TIME_ZONE,
 } from "@/lib/booking-range";
+import {
+  ACTIVE_RANGE_HOLD_STATUSES,
+  BOOKING_BUFFER_MINUTES,
+  BOOKING_BUSINESS_CLOSE_TIME,
+  BOOKING_BUSINESS_OPEN_TIME,
+  BOOKING_TIME_ZONE,
+  getBookingHoldExpiry,
+} from "@/lib/booking-policy";
 import { prisma } from "@/lib/db";
 import {
   buildInitialPricingSnapshot,
   buildPackageSnapshot,
 } from "@/services/booking/booking-snapshot.service";
 import { allocateBookingRef } from "@/services/booking/bookingId.service";
-
-const BUSINESS_OPEN_TIME = "09:00";
-const BUSINESS_CLOSE_TIME = "23:00";
-const BUFFER_MINUTES = 30;
 
 export const venueBookingSessionInputSchema = z.object({
   packageId: z.string().trim().min(1),
@@ -80,8 +83,8 @@ function normalizeRange(
 
   const start = timeToMinutes(input.startTime);
   const end = timeToMinutes(input.endTime);
-  const open = timeToMinutes(BUSINESS_OPEN_TIME);
-  const close = timeToMinutes(BUSINESS_CLOSE_TIME);
+  const open = timeToMinutes(BOOKING_BUSINESS_OPEN_TIME);
+  const close = timeToMinutes(BOOKING_BUSINESS_CLOSE_TIME);
 
   if (
     start === null ||
@@ -96,10 +99,10 @@ function normalizeRange(
     );
   }
 
-  if (start < open || end > close) {
+  if (start < open || end + BOOKING_BUFFER_MINUTES > close) {
     throw new VenueBookingSessionError(
       "OUTSIDE_BUSINESS_HOURS",
-      `Bookings must be between ${BUSINESS_OPEN_TIME} and ${BUSINESS_CLOSE_TIME}.`
+      `Bookings and cleanup time must fit between ${BOOKING_BUSINESS_OPEN_TIME} and ${BOOKING_BUSINESS_CLOSE_TIME}.`
     );
   }
 
@@ -115,7 +118,7 @@ function normalizeRange(
   const eventDate = toBookingDate(input.eventDate, timeZone);
   const startsAtUtc = localBookingTimeToUtc(input.eventDate, input.startTime, timeZone);
   const endsAtUtc = localBookingTimeToUtc(input.eventDate, input.endTime, timeZone);
-  const bufferMs = BUFFER_MINUTES * 60_000;
+  const bufferMs = BOOKING_BUFFER_MINUTES * 60_000;
   const occupiedUntilUtc = new Date(endsAtUtc.getTime() + bufferMs);
 
   return { eventDate, startsAtUtc, endsAtUtc, occupiedUntilUtc, durationMinutes };
@@ -123,7 +126,7 @@ function normalizeRange(
 
 export async function createOrReplaceVenueBookingSession(
   input: VenueBookingSessionInput,
-  lockOwner: string,
+  _lockOwner: string,
   session: { bookingId: string; lockVersion: number | null } | null,
   now = new Date()
 ): Promise<VenueBookingSessionResult> {
@@ -168,6 +171,7 @@ export async function createOrReplaceVenueBookingSession(
           id: true,
           bookingStatus: true,
           lockVersion: true,
+          holdExpiresAt: true,
           payment: {
             where: { status: { in: ["INITIALIZED", "AWAITING_PAYMENT"] } },
             select: { id: true },
@@ -177,6 +181,20 @@ export async function createOrReplaceVenueBookingSession(
       });
 
       if (!existing) {
+        throw new VenueBookingSessionError(
+          "SESSION_STALE",
+          "The previous booking session is no longer valid."
+        );
+      }
+
+      if (
+        existing.lockVersion !== session?.lockVersion ||
+        !existing.holdExpiresAt ||
+        existing.holdExpiresAt <= now ||
+        !ACTIVE_RANGE_HOLD_STATUSES.includes(
+          existing.bookingStatus as (typeof ACTIVE_RANGE_HOLD_STATUSES)[number]
+        )
+      ) {
         throw new VenueBookingSessionError(
           "SESSION_STALE",
           "The previous booking session is no longer valid."
@@ -194,12 +212,57 @@ export async function createOrReplaceVenueBookingSession(
       }
     }
 
-    // Conflict check: no other CONFIRMED bookings overlap
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext(${eventPackage.venueId}),
+        hashtext(${input.eventDate})
+      )::text AS "lock"
+    `;
+
+    const expiredBookings = await tx.booking.findMany({
+      where: {
+        venueId: eventPackage.venueId,
+        bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
+        holdExpiresAt: { lte: now },
+        id: currentBookingId ? { not: currentBookingId } : undefined,
+      },
+      select: { id: true },
+    });
+    const expiredBookingIds = expiredBookings.map((booking) => booking.id);
+    await tx.booking.updateMany({
+      where: { id: { in: expiredBookingIds } },
+      data: {
+        bookingStatus: "ABANDONED",
+        cancelledAt: now,
+        cancelledReason: "SESSION_EXPIRED",
+      },
+    });
+    if (expiredBookingIds.length > 0) {
+      await tx.couponUsage.updateMany({
+        where: {
+          bookingId: { in: expiredBookingIds },
+          status: "RESERVED",
+        },
+        data: {
+          status: "RELEASED",
+          discountAmount: 0,
+          releasedAt: now,
+          confirmedAt: null,
+        },
+      });
+    }
+
     const bookingConflict = await tx.booking.findFirst({
       where: {
         venueId: eventPackage.venueId,
-        bookingStatus: "CONFIRMED",
         id: currentBookingId ? { not: currentBookingId } : undefined,
+        OR: [
+          { bookingStatus: "CONFIRMED" },
+          {
+            bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
+            holdExpiresAt: { gt: now },
+          },
+        ],
         startsAtUtc: { lt: range.occupiedUntilUtc },
         occupiedUntilUtc: { gt: range.startsAtUtc },
       },
@@ -242,7 +305,7 @@ export async function createOrReplaceVenueBookingSession(
           startsAtUtc: range.startsAtUtc,
           endsAtUtc: range.endsAtUtc,
           occupiedUntilUtc: range.occupiedUntilUtc,
-          bufferMinutes: BUFFER_MINUTES,
+          bufferMinutes: BOOKING_BUFFER_MINUTES,
           timezone: timeZone,
           guestCount: eventPackage.guestLimit,
           packageSnapshot,
@@ -256,6 +319,7 @@ export async function createOrReplaceVenueBookingSession(
           advancePaid: 0,
           remainingPayable: pricingSnapshot.remainingPayable,
           lockVersion: newVersion,
+          holdExpiresAt: getBookingHoldExpiry(now),
           bookingStatus: "INCOMPLETE",
           paymentStatus: null,
         },
@@ -275,7 +339,7 @@ export async function createOrReplaceVenueBookingSession(
           startsAtUtc: range.startsAtUtc,
           endsAtUtc: range.endsAtUtc,
           occupiedUntilUtc: range.occupiedUntilUtc,
-          bufferMinutes: BUFFER_MINUTES,
+          bufferMinutes: BOOKING_BUFFER_MINUTES,
           timezone: timeZone,
           guestCount: eventPackage.guestLimit,
           packageSnapshot,
@@ -288,6 +352,7 @@ export async function createOrReplaceVenueBookingSession(
           remainingPayable: pricingSnapshot.remainingPayable,
           bookingStatus: "INCOMPLETE",
           lockVersion: newVersion,
+          holdExpiresAt: getBookingHoldExpiry(now),
         },
       });
       bookingId = booking.id;

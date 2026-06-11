@@ -41,6 +41,13 @@ import {
 import {
   BookingOverlapError,
 } from "@/services/booking/booking-safety.service";
+import {
+  BOOKING_BUFFER_MINUTES,
+  BOOKING_BUSINESS_CLOSE_TIME,
+  BOOKING_BUSINESS_OPEN_TIME,
+  BOOKING_TIME_ZONE,
+  DEFAULT_MINIMUM_BOOKING_MINUTES,
+} from "@/lib/booking-policy";
 
 const NON_EDITABLE_BOOKING_STATUSES: BookingStatus[] = [
   BookingStatus.CANCELLED,
@@ -719,6 +726,18 @@ export async function PATCH(
       const booking = await tx.booking.findUnique({
         where: { id },
         include: {
+          eventPackage: {
+            select: {
+              eventDurationHours: true,
+              guestLimit: true,
+              venueId: true,
+              venue: {
+                select: {
+                  maxGuests: true,
+                },
+              },
+            },
+          },
           items: {
             select: {
               productId: true,
@@ -768,19 +787,24 @@ export async function PATCH(
       const rangeStartTime = body.startTime?.trim() || "";
       const rangeEndTime = body.endTime?.trim() || "";
       const rangeContext = await validateAdminRangeBooking(tx, {
-        venueId: body.venueId,
+        venueId: booking.venueId ?? booking.eventPackage?.venueId,
         date: body.date,
         startTime: rangeStartTime,
         endTime: rangeEndTime,
         guestCount,
         settings: {
-          businessOpenTime: "09:00",
-          businessCloseTime: "23:00",
-          minimumDurationMinutes: 60,
-          bufferMinutes: 30,
-          maximumGuests: 9999,
+          businessOpenTime: BOOKING_BUSINESS_OPEN_TIME,
+          businessCloseTime: BOOKING_BUSINESS_CLOSE_TIME,
+          minimumDurationMinutes:
+            (booking.eventPackage?.eventDurationHours ?? 0) * 60 ||
+            DEFAULT_MINIMUM_BOOKING_MINUTES,
+          bufferMinutes: BOOKING_BUFFER_MINUTES,
+          maximumGuests:
+            booking.eventPackage?.venue.maxGuests ??
+            booking.eventPackage?.guestLimit ??
+            9999,
         },
-        timezone: "America/New_York",
+        timezone: BOOKING_TIME_ZONE,
         excludeBookingId: booking.id,
       });
 
@@ -1378,8 +1402,8 @@ export async function PATCH(
           startsAtUtc: rangeContext.range.startsAtUtc,
           endsAtUtc: rangeContext.range.endsAtUtc,
           occupiedUntilUtc: rangeContext.range.occupiedUntilUtc,
-          bufferMinutes: 30,
-          timezone: booking.timezone ?? "America/New_York",
+          bufferMinutes: BOOKING_BUFFER_MINUTES,
+          timezone: booking.timezone ?? BOOKING_TIME_ZONE,
           occasionKey,
           occasionLabel,
           occasionData: occasionJson,

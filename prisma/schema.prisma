@@ -299,6 +299,7 @@ model Booking {
   bufferMinutes      Int? // booking-owned snapshot; required for new range bookings after backfill
   timezone           String?
   lockVersion        Int?
+  holdExpiresAt      DateTime? @db.Timestamptz(3)
   guestCount         Int // shared across legacy theatre and venue event flows
   decorationRequired Boolean @default(false)
 
@@ -359,6 +360,8 @@ model Booking {
   @@index([paymentProvider, paymentOrderId])
   @@index([paymentProvider, paymentTransactionId])
   @@index([venueId, packageId, eventDate])
+  @@index([venueId, bookingStatus, holdExpiresAt])
+  @@index([venueId, startsAtUtc, occupiedUntilUtc])
 }
 
 model BookingReferenceCounter {

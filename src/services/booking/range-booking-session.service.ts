@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { ACTIVE_RANGE_HOLD_STATUSES } from "@/lib/booking-policy";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -53,6 +54,21 @@ export async function requireActiveRangeBookingSession(
     throw new RangeBookingSessionError(
       "SESSION_EXPIRED",
       "This is not a range booking session."
+    );
+  }
+  if (booking.bookingStatus === "CONFIRMED") {
+    return { booking };
+  }
+  if (
+    !ACTIVE_RANGE_HOLD_STATUSES.includes(
+      booking.bookingStatus as (typeof ACTIVE_RANGE_HOLD_STATUSES)[number]
+    ) ||
+    !booking.holdExpiresAt ||
+    booking.holdExpiresAt.getTime() <= now.getTime()
+  ) {
+    throw new RangeBookingSessionError(
+      "SESSION_EXPIRED",
+      "The booking hold has expired."
     );
   }
   if (

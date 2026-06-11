@@ -1,7 +1,13 @@
 import { toDate } from "date-fns-tz";
 
-export const BOOKING_TIME_ZONE = "America/New_York";
-export const BOOKING_INTERVAL_MINUTES = 30;
+export {
+  BOOKING_INTERVAL_MINUTES,
+  BOOKING_TIME_ZONE,
+} from "@/lib/booking-policy";
+import {
+  BOOKING_INTERVAL_MINUTES,
+  BOOKING_TIME_ZONE,
+} from "@/lib/booking-policy";
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;

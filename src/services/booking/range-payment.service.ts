@@ -2,6 +2,7 @@ import { Prisma, type PaymentStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { createSuccessToken } from "@/services/booking/successToken.server";
+import { getBookingHoldExpiry } from "@/lib/booking-policy";
 
 export type RangePaymentProvider = "SQUARE" | "RAZORPAY";
 
@@ -129,6 +130,12 @@ export async function beginRangePaymentAttempt(input: {
       throw new RangePaymentError(
         "BOOKING_INVALID_STATE",
         "Booking is not ready for payment."
+      );
+    }
+    if (!booking.holdExpiresAt || booking.holdExpiresAt <= now) {
+      throw new RangePaymentError(
+        "SESSION_EXPIRED",
+        "The booking hold expired before payment started."
       );
     }
     if (!booking.termsAcceptedAt || booking.totalAmount <= 0) {
@@ -277,6 +284,7 @@ export async function completeRangePaymentAttempt(input: {
         paymentStatus: "AWAITING_PAYMENT",
         advancePaid: attempt.amount,
         remainingPayable: Math.max(booking.totalAmount - attempt.amount, 0),
+        holdExpiresAt: getBookingHoldExpiry(input.now ?? new Date()),
       },
     });
     return payment;
@@ -300,6 +308,7 @@ async function markManualReview(
     where: { id: input.bookingId },
     data: {
       bookingStatus: "ABANDONED",
+      holdExpiresAt: null,
       paymentStatus: "MANUAL_REVIEW",
       cancelledReason: input.reason,
       cancelledAt: input.now,
@@ -521,6 +530,7 @@ export async function finalizeRangePayment(input: {
       where: { id: booking.id },
       data: {
         bookingStatus: "CONFIRMED",
+        holdExpiresAt: null,
         paymentStatus: "PAID",
         paymentProvider: input.provider,
         paymentOrderId: input.providerOrderId,

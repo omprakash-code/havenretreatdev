@@ -76,7 +76,7 @@ describe("GET /api/availability/dates", () => {
 
   // ── Fully blocked dates ───────────────────────────────────────────────────
 
-  it("excludes a date that is fully blocked (09:00–23:00 confirmed booking)", async () => {
+  it("excludes a date that is fully blocked including the cleanup buffer", async () => {
     // Simulate a booking that spans the entire business day
     const blockedDateUtc = new Date();
     blockedDateUtc.setUTCDate(blockedDateUtc.getUTCDate() + 5);
@@ -86,7 +86,7 @@ describe("GET /api/availability/dates", () => {
       {
         eventDate: blockedDateUtc,
         eventStartTime: "09:00",
-        eventEndTime: "23:00",
+        eventEndTime: "22:30",
       },
     ]);
 
@@ -135,13 +135,15 @@ describe("GET /api/availability/dates", () => {
 
   // ── Venue fallback ────────────────────────────────────────────────────────
 
-  it("falls back to all active venues when no packages match locationId", async () => {
+  it("returns no dates when no package maps the location to a venue", async () => {
     prismaMock.eventPackage.findMany.mockResolvedValue([]);
     prismaMock.venue.findMany = vi.fn().mockResolvedValue([{ id: "venue-fallback" }]);
 
     const res = await GET(makeRequest({ locationId: "unknown-loc" }));
     expect(res.status).toBe(200);
-    expect(prismaMock.venue.findMany).toHaveBeenCalled();
+    const json = await res.json();
+    expect(json.data).toEqual([]);
+    expect(prismaMock.venue.findMany).not.toHaveBeenCalled();
   });
 
   // ── Response shape ────────────────────────────────────────────────────────

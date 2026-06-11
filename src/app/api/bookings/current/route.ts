@@ -66,7 +66,7 @@ export async function GET() {
                         occupiedUntilUtc: booking.occupiedUntilUtc,
                         timezone: booking.timezone,
                         lockId: null,
-                        lockExpiresAt: null,
+                        lockExpiresAt: booking.holdExpiresAt,
                         lockVersion: booking.lockVersion,
                         maximumGuests: null,
                     },

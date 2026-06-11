@@ -87,6 +87,8 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: "18:00",
         startsAtUtc: null,
         occupiedUntilUtc: null,
+        bookingStatus: "CONFIRMED",
+        bufferMinutes: 30,
       },
     ]);
     const res = await GET(makeRequest({ locationId: LOCATION_ID, date: DATE }));
@@ -104,6 +106,8 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: "22:45",
         startsAtUtc: null,
         occupiedUntilUtc: null,
+        bookingStatus: "CONFIRMED",
+        bufferMinutes: 30,
       },
     ]);
     const res = await GET(makeRequest({ locationId: LOCATION_ID, date: DATE }));
@@ -121,6 +125,8 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: null,
         startsAtUtc: new Date("2030-07-15T18:00:00.000Z"), // 14:00 EDT
         occupiedUntilUtc: new Date("2030-07-15T22:30:00.000Z"), // 18:30 EDT (with buffer already)
+        bookingStatus: "CONFIRMED",
+        bufferMinutes: 30,
       },
     ]);
     const res = await GET(makeRequest({ locationId: LOCATION_ID, date: DATE }));
@@ -133,7 +139,14 @@ describe("GET /api/availability/time-ranges", () => {
 
   it("skips bookings that have neither local times nor UTC timestamps", async () => {
     prismaMock.booking.findMany.mockResolvedValue([
-      { eventStartTime: null, eventEndTime: null, startsAtUtc: null, occupiedUntilUtc: null },
+      {
+        eventStartTime: null,
+        eventEndTime: null,
+        startsAtUtc: null,
+        occupiedUntilUtc: null,
+        bookingStatus: "CONFIRMED",
+        bufferMinutes: 30,
+      },
     ]);
     const res = await GET(makeRequest({ locationId: LOCATION_ID, date: DATE }));
     const json = await res.json();
@@ -148,7 +161,7 @@ describe("GET /api/availability/time-ranges", () => {
     expect(json.theatres).toHaveLength(1);
     const meta = json.theatres[0];
     expect(meta.businessOpenTime).toBe("09:00");
-    expect(meta.businessCloseTime).toBe("23:00");
+    expect(meta.businessCloseTime).toBe("22:30");
     expect(meta.minimumDurationMinutes).toBe(4 * 60); // 4h package
   });
 
@@ -156,11 +169,43 @@ describe("GET /api/availability/time-ranges", () => {
 
   it("returns a range for each confirmed booking", async () => {
     prismaMock.booking.findMany.mockResolvedValue([
-      { eventStartTime: "10:00", eventEndTime: "14:00", startsAtUtc: null, occupiedUntilUtc: null },
-      { eventStartTime: "17:00", eventEndTime: "21:00", startsAtUtc: null, occupiedUntilUtc: null },
+      {
+        eventStartTime: "10:00",
+        eventEndTime: "14:00",
+        startsAtUtc: null,
+        occupiedUntilUtc: null,
+        bookingStatus: "CONFIRMED",
+        bufferMinutes: 30,
+      },
+      {
+        eventStartTime: "17:00",
+        eventEndTime: "21:00",
+        startsAtUtc: null,
+        occupiedUntilUtc: null,
+        bookingStatus: "CONFIRMED",
+        bufferMinutes: 30,
+      },
     ]);
     const res = await GET(makeRequest({ locationId: LOCATION_ID, date: DATE }));
     const json = await res.json();
     expect(json.data).toHaveLength(2);
+  });
+
+  it("returns active unexpired holds as temporarily locked ranges", async () => {
+    prismaMock.booking.findMany.mockResolvedValue([
+      {
+        eventStartTime: "14:00",
+        eventEndTime: "18:00",
+        startsAtUtc: null,
+        occupiedUntilUtc: null,
+        bookingStatus: "INCOMPLETE",
+        bufferMinutes: 30,
+      },
+    ]);
+
+    const res = await GET(makeRequest({ locationId: LOCATION_ID, date: DATE }));
+    const json = await res.json();
+
+    expect(json.data[0].reason).toBe("LOCKED");
   });
 });

@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { toZonedTime, formatInTimeZone } from "date-fns-tz";
 import { prisma } from "@/lib/db";
-import { localBookingTimeToUtc } from "@/lib/booking-range";
-
-const VENUE_TIMEZONE = "America/New_York";
-const BUSINESS_OPEN_TIME = "09:00";
-const BUSINESS_CLOSE_TIME = "23:00";
-const BUFFER_MINUTES = 30;
+import {
+  localBookingTimeToUtc,
+  timeToMinutes as parseBookingTime,
+} from "@/lib/booking-range";
+import {
+  ACTIVE_RANGE_HOLD_STATUSES,
+  BOOKING_BUFFER_MINUTES,
+  BOOKING_BUSINESS_CLOSE_TIME,
+  BOOKING_BUSINESS_OPEN_TIME,
+  BOOKING_TIME_ZONE,
+  DEFAULT_MINIMUM_BOOKING_MINUTES,
+} from "@/lib/booking-policy";
 
 function timeToMinutes(t: string) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
+  return parseBookingTime(t) ?? 0;
 }
 
 function minutesToTime(minutes: number) {
@@ -43,22 +48,38 @@ export async function GET(req: Request) {
     distinct: ["venueId"],
   });
 
-  const venueIds =
-    packageRows.length > 0
-      ? packageRows.map((p) => p.venueId)
-      : await prisma.venue
-          .findMany({ where: { isActive: true }, select: { id: true } })
-          .then((rows) => rows.map((r) => r.id));
+  const venueIds = packageRows.map((p) => p.venueId);
+  if (venueIds.length === 0) {
+    return NextResponse.json(
+      { success: false, message: "No active venue is available for this location." },
+      { status: 404 }
+    );
+  }
 
   // UTC boundaries for the full business day on this date
-  const dayStartUtc = localBookingTimeToUtc(dateKey, BUSINESS_OPEN_TIME, VENUE_TIMEZONE);
-  const dayEndUtc = localBookingTimeToUtc(dateKey, BUSINESS_CLOSE_TIME, VENUE_TIMEZONE);
+  const dayStartUtc = localBookingTimeToUtc(
+    dateKey,
+    BOOKING_BUSINESS_OPEN_TIME,
+    BOOKING_TIME_ZONE
+  );
+  const dayEndUtc = localBookingTimeToUtc(
+    dateKey,
+    BOOKING_BUSINESS_CLOSE_TIME,
+    BOOKING_TIME_ZONE
+  );
+  const now = new Date();
 
   // Find CONFIRMED bookings that overlap this date
   const bookings = await prisma.booking.findMany({
     where: {
       venueId: { in: venueIds },
-      bookingStatus: "CONFIRMED",
+      OR: [
+        { bookingStatus: "CONFIRMED" },
+        {
+          bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
+          holdExpiresAt: { gt: now },
+        },
+      ],
       startsAtUtc: { lt: dayEndUtc },
       occupiedUntilUtc: { gt: dayStartUtc },
     },
@@ -67,6 +88,8 @@ export async function GET(req: Request) {
       eventEndTime: true,
       startsAtUtc: true,
       occupiedUntilUtc: true,
+      bookingStatus: true,
+      bufferMinutes: true,
     },
   });
 
@@ -78,22 +101,27 @@ export async function GET(req: Request) {
 
     if (b.eventStartTime && b.eventEndTime) {
       startMin = timeToMinutes(b.eventStartTime);
-      endMin = timeToMinutes(b.eventEndTime) + BUFFER_MINUTES;
+      endMin =
+        timeToMinutes(b.eventEndTime) +
+        (b.bufferMinutes ?? BOOKING_BUFFER_MINUTES);
     } else if (b.startsAtUtc && b.occupiedUntilUtc) {
       // Fall back to UTC timestamps for bookings missing local time strings
-      const startLocal = toZonedTime(b.startsAtUtc, VENUE_TIMEZONE);
-      const endLocal = toZonedTime(b.occupiedUntilUtc, VENUE_TIMEZONE);
+      const startLocal = toZonedTime(b.startsAtUtc, BOOKING_TIME_ZONE);
+      const endLocal = toZonedTime(b.occupiedUntilUtc, BOOKING_TIME_ZONE);
       startMin = startLocal.getHours() * 60 + startLocal.getMinutes();
       endMin = endLocal.getHours() * 60 + endLocal.getMinutes();
     } else {
       continue;
     }
 
-    const cappedEnd = Math.min(endMin, timeToMinutes(BUSINESS_CLOSE_TIME));
+    const cappedEnd = Math.min(
+      endMin,
+      timeToMinutes(BOOKING_BUSINESS_CLOSE_TIME)
+    );
     unavailableRanges.push({
       startTime: minutesToTime(startMin),
       endTime: minutesToTime(cappedEnd),
-      reason: "BOOKED",
+      reason: b.bookingStatus === "CONFIRMED" ? "BOOKED" : "LOCKED",
     });
   }
 
@@ -104,24 +132,32 @@ export async function GET(req: Request) {
     orderBy: { eventDurationHours: "asc" },
   });
 
-  const minimumDurationMinutes = (smallestPackage?.eventDurationHours ?? 4) * 60;
+  const minimumDurationMinutes =
+    smallestPackage?.eventDurationHours != null
+      ? smallestPackage.eventDurationHours * 60
+      : DEFAULT_MINIMUM_BOOKING_MINUTES;
 
-  const now = new Date();
-  const nowInVenue = toZonedTime(now, VENUE_TIMEZONE);
+  const nowInVenue = toZonedTime(now, BOOKING_TIME_ZONE);
   const currentHour = nowInVenue.getHours();
   const currentMinute = nowInVenue.getMinutes();
   const currentMinutes = currentHour * 60 + currentMinute;
 
   // If booking is for today, block past times
-  const todayKey = formatInTimeZone(now, VENUE_TIMEZONE, "yyyy-MM-dd");
+  const todayKey = formatInTimeZone(now, BOOKING_TIME_ZONE, "yyyy-MM-dd");
 
-  if (dateKey === todayKey && currentMinutes > timeToMinutes(BUSINESS_OPEN_TIME)) {
+  if (
+    dateKey === todayKey &&
+    currentMinutes > timeToMinutes(BOOKING_BUSINESS_OPEN_TIME)
+  ) {
     // Round up to next 30-min slot
     const blockedUntil = Math.ceil((currentMinutes + 1) / 30) * 30;
-    const cappedEnd = Math.min(blockedUntil, timeToMinutes(BUSINESS_CLOSE_TIME));
-    if (cappedEnd > timeToMinutes(BUSINESS_OPEN_TIME)) {
+    const cappedEnd = Math.min(
+      blockedUntil,
+      timeToMinutes(BOOKING_BUSINESS_CLOSE_TIME)
+    );
+    if (cappedEnd > timeToMinutes(BOOKING_BUSINESS_OPEN_TIME)) {
       unavailableRanges.push({
-        startTime: BUSINESS_OPEN_TIME,
+        startTime: BOOKING_BUSINESS_OPEN_TIME,
         endTime: minutesToTime(cappedEnd),
         reason: "BLOCKED",
       });
@@ -134,10 +170,12 @@ export async function GET(req: Request) {
     data: unavailableRanges,
     theatres: [
       {
-        businessOpenTime: BUSINESS_OPEN_TIME,
-        businessCloseTime: BUSINESS_CLOSE_TIME,
+        businessOpenTime: BOOKING_BUSINESS_OPEN_TIME,
+        businessCloseTime: minutesToTime(
+          timeToMinutes(BOOKING_BUSINESS_CLOSE_TIME) - BOOKING_BUFFER_MINUTES
+        ),
         minimumDurationMinutes,
-        timezone: VENUE_TIMEZONE,
+        timezone: BOOKING_TIME_ZONE,
       },
     ],
   });

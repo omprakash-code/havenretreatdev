@@ -7,6 +7,7 @@ import {
   timeToMinutes,
   toBookingDate,
 } from "@/lib/booking-range";
+import { ACTIVE_RANGE_HOLD_STATUSES } from "@/lib/booking-policy";
 
 export type AdminRangeBookingErrorCode =
   | "ADMIN_RANGE_BOOKING_DISABLED"
@@ -156,7 +157,14 @@ export async function validateAdminRangeBooking(
 
   const bookingConflict = await tx.booking.findFirst({
     where: {
-      bookingStatus: "CONFIRMED",
+      ...(input.venueId ? { venueId: input.venueId } : {}),
+      OR: [
+        { bookingStatus: "CONFIRMED" },
+        {
+          bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
+          holdExpiresAt: { gt: new Date() },
+        },
+      ],
       startsAtUtc: { lt: range.occupiedUntilUtc },
       occupiedUntilUtc: { gt: range.startsAtUtc },
       ...(input.excludeBookingId ? { id: { not: input.excludeBookingId } } : {}),
