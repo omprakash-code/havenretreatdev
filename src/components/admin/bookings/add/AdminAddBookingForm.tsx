@@ -44,7 +44,6 @@ import {
   getSlotConflictMessage,
   getVariantPrice,
   isValidEmail,
-  toTitleStatus,
   type ActiveVariantMap,
   type LedDraftMap,
   type LocationOption,
@@ -54,8 +53,6 @@ import {
   type ProductOption,
   type ProductSelectionMap,
   type SelectedProductSummaryItem,
-  type SlotOption,
-  type SlotStatus,
   type TheatreOption,
 } from "@/components/admin/bookings/add/shared";
 import { getSubmitBlockerMessage } from "@/components/admin/bookings/add/sections/bookingSummary.helpers";
@@ -122,6 +119,7 @@ type EditBookingResponse = {
     totalPrice?: number;
     ledNumber: string | null;
   }>;
+  packageId?: string | null;
   payment: {
     type: "OFFLINE" | "ONLINE";
     amountMode: "ADVANCE" | "FULL";
@@ -719,28 +717,19 @@ export function AdminAddBookingForm({
     async function loadTheatres() {
       try {
         setLoadingTheatres(true);
-        const [theatresRes, packagesRes] = await Promise.all([
-          fetch(
-            `/api/theatres?locationId=${encodeURIComponent(locationId)}&date=${encodeURIComponent(date)}`,
-            { credentials: "include" }
-          ),
-          fetch("/api/packages", {
+        const packagesRes = await fetch(
+          `/api/packages?locationId=${encodeURIComponent(locationId)}`,
+          {
             credentials: "include",
             cache: "no-store",
-          }),
-        ]);
-        const [theatresJson, packagesJson] = await Promise.all([
-          theatresRes.json().catch(() => null),
-          packagesRes.json().catch(() => null),
-        ]);
+          }
+        );
+        const packagesJson = await packagesRes.json().catch(() => null);
         if (cancelled) return;
 
-        const apiTheatres = theatresJson?.data?.theatres;
         const apiPackages = packagesJson?.data;
         if (
-          !theatresRes.ok ||
           !packagesRes.ok ||
-          !Array.isArray(apiTheatres) ||
           !Array.isArray(apiPackages)
         ) {
           setTheatres([]);
@@ -748,47 +737,9 @@ export function AdminAddBookingForm({
           return;
         }
 
-        const normalizedTheatres: TheatreOption[] = apiTheatres.map((theatre: Record<string, unknown>) => {
-          const rawSlots = Array.isArray(theatre.slots) ? theatre.slots : [];
-          const slots: SlotOption[] = rawSlots.map((slot) => {
-            const startTime = String(slot.startTime ?? "");
-            const endTime = String(slot.endTime ?? "");
-            const rawStatus = String(slot.status ?? "DISABLED") as "AVAILABLE" | "LOCKED" | "BOOKED" | "DISABLED";
-            const expired = Boolean(slot.isExpired);
-
-            const status: SlotStatus = expired ? "EXPIRED" : rawStatus;
-            const statusLabel =
-              typeof slot.statusLabel === "string" && slot.statusLabel.length > 0
-                ? String(slot.statusLabel)
-                : toTitleStatus(status);
-
-            return {
-              id: String(slot.id),
-              startTime,
-              endTime,
-              basePrice: Number(slot.basePrice ?? 0),
-              finalPrice: Number(slot.finalPrice ?? slot.basePrice ?? 0),
-              decorationMandatory: Boolean(slot.decorationMandatory),
-              status,
-              statusLabel: expired ? "Expired" : statusLabel,
-            };
-          });
-
-          return {
-            id: String(theatre.id),
-            name: String(theatre.name),
-            capacity: Number(theatre.capacity ?? 0),
-            baseGuests: Number(theatre.baseGuests ?? 0),
-            extraPersonPrice: Number(theatre.extraPersonPrice ?? 0),
-            decorationPrice: Number(theatre.decorationPrice ?? 0),
-            slots,
-          };
-        });
-
-        const reservableTheatre = normalizedTheatres[0];
-        if (!reservableTheatre) {
+        if (apiPackages.length === 0) {
           setTheatres([]);
-          toast.error("No reservable venue is available for the selected date.");
+          toast.error("No active package is available for the selected location.");
           return;
         }
 
@@ -799,29 +750,31 @@ export function AdminAddBookingForm({
               eventPackage.subtotalAmount ?? eventPackage.finalAmount ?? 0
             );
             const guestLimit = Number(eventPackage.guestLimit ?? 0);
+            const venue =
+              eventPackage.venue &&
+              typeof eventPackage.venue === "object" &&
+              !Array.isArray(eventPackage.venue)
+                ? (eventPackage.venue as Record<string, unknown>)
+                : {};
 
             return {
-              ...reservableTheatre,
               id: packageId,
-              theatreId: reservableTheatre.id,
+              venueId: String(eventPackage.venueId ?? venue.id ?? ""),
               packageId,
               name: String(eventPackage.name ?? "Unnamed Package"),
+              capacity: Number(venue.maxGuests ?? guestLimit),
               baseGuests: guestLimit,
+              extraPersonPrice: 25,
               basePrice: packageAmount,
               decorationPrice: Number(eventPackage.decorationAddonPrice ?? 0),
               eventDurationHours: Number(eventPackage.eventDurationHours ?? 4),
               hourlyRate: Number(eventPackage.hourlyRate ?? 0),
-              slots: reservableTheatre.slots.map((slot) => ({
-                ...slot,
-                basePrice: packageAmount,
-                finalPrice: packageAmount,
-                decorationMandatory: false,
-              })),
+              slots: [],
             };
           }
         );
 
-        setTheatres(mode === "create" ? packageOptions : normalizedTheatres);
+        setTheatres(packageOptions);
       } catch {
         if (!cancelled) {
           setTheatres([]);
@@ -898,7 +851,7 @@ export function AdminAddBookingForm({
     [theatreId, theatres]
   );
   const selectedReservableTheatreId =
-    selectedTheatre?.theatreId ?? selectedTheatre?.id ?? "";
+    selectedTheatre?.venueId ?? "";
   const selectedLocation = useMemo(
     () => locations.find((location) => location.id === locationId) ?? null,
     [locations, locationId]
@@ -1688,85 +1641,6 @@ export function AdminAddBookingForm({
     if (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) {
       return;
     }
-    void resolveSlotForSelectedTimeRange(nextStartTime, nextEndTime).catch((error) => {
-      toast.error((error as Error)?.message || "Selected time range is not available.");
-    });
-  }
-
-  async function resolveSlotForSelectedTimeRange(
-    nextStartTime = startTime,
-    nextEndTime = endTime
-  ) {
-    if (!locationId || !date || !theatreId || !nextStartTime || !nextEndTime) {
-      return null;
-    }
-
-    const exactSlot = theatreSlots.find(
-      (slot) => slot.startTime === nextStartTime && slot.endTime === nextEndTime
-    );
-    if (exactSlot) {
-      setSlotId(exactSlot.id);
-      return exactSlot.id;
-    }
-
-    if (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) {
-      return "";
-    }
-
-    const res = await fetch("/api/bookings/resolve-range-slot", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        theatreId: selectedReservableTheatreId,
-        date,
-        startTime: nextStartTime,
-        endTime: nextEndTime,
-      }),
-    });
-    const json = await res.json().catch(() => null);
-
-    if (!res.ok || !json?.success || !json.data?.slot?.id) {
-      throw new Error(
-        json?.message || "Selected time range is not available."
-      );
-    }
-
-    const slot = json.data.slot as {
-      id: string;
-      startTime: string;
-      endTime: string;
-      basePrice: number;
-      finalPrice: number | null;
-      decorationMandatory: boolean;
-      status: SlotStatus;
-    };
-    const resolvedSlot: SlotOption = {
-      id: slot.id,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      basePrice: Number(slot.basePrice ?? 0),
-      finalPrice: Number(slot.finalPrice ?? slot.basePrice ?? 0),
-      decorationMandatory: Boolean(slot.decorationMandatory),
-      status: slot.status ?? "AVAILABLE",
-      statusLabel: toTitleStatus(slot.status ?? "AVAILABLE"),
-    };
-
-    setTheatres((current) =>
-      current.map((theatre) =>
-        theatre.id === theatreId
-          ? {
-              ...theatre,
-              slots: [
-                ...theatre.slots.filter((item) => item.id !== resolvedSlot.id),
-                resolvedSlot,
-              ],
-            }
-          : theatre
-      )
-    );
-    setSlotId(resolvedSlot.id);
-    return resolvedSlot.id;
   }
 
   function incrementGuests() {
@@ -2631,15 +2505,7 @@ export function AdminAddBookingForm({
       return;
     }
 
-    let resolvedSlotId = slotId;
-    try {
-      if (startTime && endTime && !slotId) {
-        resolvedSlotId = (await resolveSlotForSelectedTimeRange()) ?? "";
-      }
-    } catch (error) {
-      toast.error((error as Error)?.message || "Selected time range is not available.");
-      return;
-    }
+    const resolvedSlotId = slotId;
 
     if (!validateForm(resolvedSlotId)) {
       toast.error("Please fix the highlighted fields.");

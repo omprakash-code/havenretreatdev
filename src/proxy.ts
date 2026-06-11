@@ -10,7 +10,7 @@ export function proxy(req: NextRequest) {
     pathname === "/api/admin/login" ||
     pathname === "/api/admin/session" ||
     pathname === "/api/admin/logout" ||
-    (pathname.startsWith("/api/admin/theatres/upload/") &&
+    (pathname.startsWith("/api/admin/products/upload/") &&
       req.method === "GET");
 
   if (pathname.startsWith("/admin/login")) {

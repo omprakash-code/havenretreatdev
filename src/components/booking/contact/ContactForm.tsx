@@ -4,25 +4,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { User, Mail, Minus, Plus, Lock, Balloon, ChevronLeft } from "@/components/icons";
 import { useBooking } from "@/context/BookingContext";
 import { useRouter } from "next/navigation";
-import { formatInTimeZone } from "date-fns-tz";
 import { BOOKING_ROUTES } from "@/constants/routes";
-type Theatre = {
-  id: string;
-  name: string;
-  capacity: number;
-  slots: Array<{
-    decorationMandatory: boolean;
-    status: string;
-    isLockedByMe: boolean;
-    durationMin: number;
-  }>;
-};
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
-  resolvePackageGuestLimit,
+  resolvePackageIncludedGuestCount,
 } from "@/lib/package-guest-pricing";
 
-const IST_TIMEZONE = "Asia/Kolkata";
 const DECORATION_FORCED_HINT = "Selected slots come with a decorated setup.";
 
 function formatCurrency(amount: number) {
@@ -90,14 +77,6 @@ export default function ContactForm({
     email?: string;
   }>({});
 
-  const [largerTheatreOptions, setLargerTheatreOptions] = useState<
-    Array<Pick<Theatre, "id" | "name" | "capacity">>
-  >([]);
-  const [decorationOptionalTheatreOptions, setDecorationOptionalTheatreOptions] =
-    useState<Array<{ id: string; name: string; slotDurationLabel: string }>>(
-      []
-    );
-  const [loadingLargerTheatres, setLoadingLargerTheatres] = useState(false);
   const [showForcedDecorationMobileHint, setShowForcedDecorationMobileHint] =
     useState(false);
 
@@ -166,122 +145,6 @@ export default function ContactForm({
     else if (errors.email) emailRef.current?.focus();
   }, [errors]);
 
-  useEffect(() => {
-    const locationId = booking.location?.id;
-    const bookingDate = booking.date;
-
-    if (booking.bookingMode === "RANGE") {
-      setLargerTheatreOptions([]);
-      setDecorationOptionalTheatreOptions([]);
-      setLoadingLargerTheatres(false);
-      return;
-    }
-
-    if (!theatre?.id || !locationId || !bookingDate) {
-      setLargerTheatreOptions([]);
-      setDecorationOptionalTheatreOptions([]);
-      return;
-    }
-
-    let cancelled = false;
-
-    const fetchLargerTheatres = async () => {
-      setLoadingLargerTheatres(true);
-
-      try {
-        const dateStr = formatInTimeZone(
-          bookingDate,
-          IST_TIMEZONE,
-          "yyyy-MM-dd"
-        );
-
-        const res = await fetch(
-          `/api/theatres?locationId=${encodeURIComponent(
-            locationId
-          )}&date=${encodeURIComponent(dateStr)}`,
-          { credentials: "include" }
-        );
-
-        const json = await res.json();
-        const theatres: Theatre[] = Array.isArray(json?.data?.theatres)
-          ? (json.data.theatres as Theatre[])
-          : [];
-
-        const options = theatres
-          .filter(
-            (item) =>
-              item.id !== theatre.id &&
-              Number(item.capacity) > Number(theatre.capacity)
-          )
-          .sort((a, b) => a.capacity - b.capacity)
-          .map((item) => ({
-            id: item.id,
-            name: item.name,
-            capacity: item.capacity,
-          }));
-
-        const optionalDecorationOptions = theatres
-          .filter((item) => {
-            if (item.id === theatre.id) return false;
-            return item.slots.some(
-              (slot) =>
-                slot.decorationMandatory === false &&
-                (slot.status === "AVAILABLE" ||
-                  (slot.status === "LOCKED" && slot.isLockedByMe))
-            );
-          })
-          .sort((a, b) => a.capacity - b.capacity)
-          .map((item) => {
-            const optionalSlots = item.slots.filter(
-              (slot) =>
-                slot.decorationMandatory === false &&
-                (slot.status === "AVAILABLE" ||
-                  (slot.status === "LOCKED" && slot.isLockedByMe))
-            );
-            const uniqueDurations = Array.from(
-              new Set(
-                optionalSlots
-                  .map((slot) => Number(slot.durationMin))
-                  .filter((duration) => Number.isFinite(duration) && duration > 0)
-              )
-            ).sort((a, b) => a - b);
-
-            return {
-              id: item.id,
-              name: item.name,
-              slotDurationLabel: getSlotDurationLabel(uniqueDurations),
-            };
-          });
-
-        if (!cancelled) {
-          setLargerTheatreOptions(options);
-          setDecorationOptionalTheatreOptions(optionalDecorationOptions);
-        }
-      } catch {
-        if (!cancelled) {
-          setLargerTheatreOptions([]);
-          setDecorationOptionalTheatreOptions([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingLargerTheatres(false);
-        }
-      }
-    };
-
-    void fetchLargerTheatres();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    booking.bookingMode,
-    booking.date,
-    booking.location?.id,
-    theatre?.capacity,
-    theatre?.id,
-  ]);
-
   /* -----------------------------
      Package logic
   ------------------------------ */
@@ -317,13 +180,9 @@ export default function ContactForm({
     return () => window.clearTimeout(timeoutId);
   }, [showForcedDecorationMobileHint]);
 
-  useEffect(() => {
-    setShowForcedDecorationMobileHint(false);
-  }, [booking.slot?.id]);
-
   const venueGuestLimit = useMemo(
-    () => resolvePackageGuestLimit(theatre, largerTheatreOptions),
-    [largerTheatreOptions, theatre]
+    () => resolvePackageIncludedGuestCount(theatre),
+    [theatre]
   );
 
   useEffect(() => {
@@ -500,35 +359,6 @@ export default function ContactForm({
 
           </div>
 
-          {loadingLargerTheatres && (
-            <p className="mt-2 text-xs text-gray-400">
-              Checking larger package options...
-            </p>
-          )}
-
-          {!loadingLargerTheatres && largerTheatreOptions.length > 0 && (
-            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-              <p className="text-xs font-semibold text-slate-900">
-                Need more space?
-              </p>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                {largerTheatreOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => router.push(BOOKING_ROUTES.SCHEDULE)}
-                    className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100"
-                  >
-                    {option.name}
-                    <span className="text-slate-600">
-                      Up to {option.capacity}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Decoration */}
@@ -635,37 +465,6 @@ export default function ContactForm({
             </p>
           )}
 
-          {decorationForced && loadingLargerTheatres && (
-            <p className="mt-2 text-xs text-gray-400">
-              Checking packages with optional decoration slots...
-            </p>
-          )}
-
-          {decorationForced &&
-            !loadingLargerTheatres &&
-            decorationOptionalTheatreOptions.length > 0 && (
-              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-                <p className="text-xs font-semibold text-slate-900">
-                  Prefer optional decoration?
-                </p>
-
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {decorationOptionalTheatreOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => router.push(BOOKING_ROUTES.SCHEDULE)}
-                      className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100"
-                    >
-                      {option.name}
-                      <span className="text-slate-600">
-                        {option.slotDurationLabel}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
           <p className="mt-2 text-[11px] text-gray-400 leading-relaxed">
             No confetti or loose props allowed on the property. See agreement for full decor policy.
@@ -793,24 +592,3 @@ const Field = React.forwardRef<
     </div>
   );
 });
-
-function getSlotDurationLabel(durationsInMinutes: number[]) {
-  if (durationsInMinutes.length === 0) {
-    return "Optional decoration slots";
-  }
-  if (durationsInMinutes.length === 1) {
-    const durationText = formatDurationHours(durationsInMinutes[0]);
-    return `${durationText} slot`;
-  }
-  return durationsInMinutes
-    .map((duration) => formatDurationHours(duration))
-    .join(" / ");
-}
-
-function formatDurationHours(durationInMinutes: number) {
-  const hours = durationInMinutes / 60;
-  if (Number.isInteger(hours)) {
-    return `${hours} hr`;
-  }
-  return `${hours.toFixed(1)} hr`;
-}

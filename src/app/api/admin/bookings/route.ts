@@ -18,7 +18,7 @@ const MAX_PAGE_SIZE = 200;
  * Query:
  * - type=active|live|abandoned
  * - page, pageSize (optional; enables server pagination)
- * - search, theatre, slot (optional server filters)
+ * - search, package, timeRange (optional server filters)
  * - dateFrom, dateTo (optional createdAt range: [dateFrom, dateTo))
  */
 export async function GET(req: Request) {
@@ -34,8 +34,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") ?? "active";
     const search = String(searchParams.get("search") ?? "").trim();
-    const theatre = String(searchParams.get("theatre") ?? "").trim();
-    const slot = String(searchParams.get("slot") ?? "").trim();
+    const packageName = String(searchParams.get("package") ?? "").trim();
+    const timeRange = String(searchParams.get("timeRange") ?? "").trim();
     const dateFromRaw = String(searchParams.get("dateFrom") ?? "").trim();
     const dateToRaw = String(searchParams.get("dateTo") ?? "").trim();
 
@@ -51,8 +51,6 @@ export async function GET(req: Request) {
         )
       : 0;
 
-
-    const now = new Date();
 
     const liveBookingWhere: Prisma.BookingWhereInput = {
       bookingStatus: {
@@ -108,18 +106,21 @@ export async function GET(req: Request) {
           { contactName: { contains: search, mode: "insensitive" } },
           { contactPhone: { contains: search } },
           { venue: { name: { contains: search, mode: "insensitive" } } },
+          { eventPackage: { name: { contains: search, mode: "insensitive" } } },
         ],
       });
     }
 
-    if (theatre) {
+    if (packageName) {
       whereAnd.push({
-        venue: { name: theatre },
+        eventPackage: { name: packageName },
       });
     }
 
-    if (slot) {
-      const [startTime = "", endTime = ""] = slot.split(" - ").map((value) => value.trim());
+    if (timeRange) {
+      const [startTime = "", endTime = ""] = timeRange
+        .split(" - ")
+        .map((value) => value.trim());
       if (startTime && endTime) {
         whereAnd.push({
           eventStartTime: startTime,
@@ -190,7 +191,19 @@ export async function GET(req: Request) {
       },
     } satisfies Prisma.BookingSelect;
 
-    const [total, bookings] = paginationRequested
+    const filterOptionWhere: Prisma.BookingWhereInput = {
+      AND: [
+        baseWhere,
+        {
+          OR: [
+            { cancelledReason: null },
+            { cancelledReason: { not: ADMIN_SOFT_DELETE_REASON } },
+          ],
+        },
+      ],
+    };
+
+    const [total, bookings, packageRows, timeRangeRows] = paginationRequested
       ? await prisma.$transaction([
           prisma.booking.count({ where }),
           prisma.booking.findMany({
@@ -200,6 +213,18 @@ export async function GET(req: Request) {
             take: pageSize,
             select: bookingSelect,
           }),
+          prisma.eventPackage.findMany({
+            where: { isActive: true, venue: { isActive: true } },
+            select: { name: true },
+            orderBy: { sortOrder: "asc" },
+          }),
+          prisma.booking.findMany({
+            where: filterOptionWhere,
+            select: {
+              eventStartTime: true,
+              eventEndTime: true,
+            },
+          }),
         ])
       : await prisma.$transaction([
           prisma.booking.count({ where }),
@@ -208,7 +233,34 @@ export async function GET(req: Request) {
             orderBy: { createdAt: "desc" },
             select: bookingSelect,
           }),
+          prisma.eventPackage.findMany({
+            where: { isActive: true, venue: { isActive: true } },
+            select: { name: true },
+            orderBy: { sortOrder: "asc" },
+          }),
+          prisma.booking.findMany({
+            where: filterOptionWhere,
+            select: {
+              eventStartTime: true,
+              eventEndTime: true,
+            },
+          }),
         ]);
+
+    const packageOptions = Array.from(
+      new Set(packageRows.map((row) => row.name.trim()).filter(Boolean))
+    );
+    const timeRangeOptions = Array.from(
+      new Set(
+        timeRangeRows
+          .map((row) =>
+            row.eventStartTime && row.eventEndTime
+              ? `${row.eventStartTime} - ${row.eventEndTime}`
+              : ""
+          )
+          .filter(Boolean)
+      )
+    );
 
     const data = bookings.map((b, index) => {
       const packageSnapshot =
@@ -317,6 +369,10 @@ export async function GET(req: Request) {
           hasNext: paginationRequested
             ? page < Math.max(Math.ceil(total / pageSize), 1)
             : false,
+        },
+        filterOptions: {
+          packages: packageOptions,
+          timeRanges: timeRangeOptions,
         },
       },
     });

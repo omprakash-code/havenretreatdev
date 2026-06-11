@@ -200,6 +200,7 @@ export async function GET(
           select: {
             id: true,
             name: true,
+            locationId: true,
           },
         },
         items: {
@@ -526,9 +527,10 @@ export async function GET(
           phone: booking.contactPhone ?? booking.user?.phone ?? "",
           email: booking.contactEmail ?? booking.user?.email ?? "",
         },
-        locationId: booking.theatreId ?? "",
+        locationId: booking.eventPackage?.locationId ?? "",
         date: schedule.date,
-        theatreId: booking.theatreId,
+        theatreId: booking.packageId ?? "",
+        packageId: booking.packageId,
         slotId: booking.slotId,
         guestCount: booking.guestCount,
         decorationRequired: booking.decorationRequired,

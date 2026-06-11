@@ -6,6 +6,9 @@ const { prismaMock } = vi.hoisted(() => ({
       count: vi.fn(),
       findMany: vi.fn(),
     },
+    eventPackage: {
+      findMany: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -79,11 +82,14 @@ describe("GET /api/admin/bookings", () => {
       },
     ]);
     (
+      prisma.eventPackage.findMany as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValue([{ name: "Starter Package" }]);
+    (
       prisma.$transaction as unknown as ReturnType<typeof vi.fn>
     ).mockImplementation(async (operations: unknown[]) => Promise.all(operations));
   });
 
-  it("filters live bookings by active lock window", async () => {
+  it("filters live bookings by in-progress booking status", async () => {
     const res = await GET(
       new Request("http://localhost/api/admin/bookings?type=live")
     );
@@ -96,7 +102,7 @@ describe("GET /api/admin/bookings", () => {
       bookingRef: "DS090320260011",
       bookingStatus: "INCOMPLETE",
       slot: {
-        status: "LOCKED",
+        status: "INCOMPLETE",
       },
     });
 
@@ -105,35 +111,9 @@ describe("GET /api/admin/bookings", () => {
         where: expect.objectContaining({
           AND: expect.arrayContaining([
             expect.objectContaining({
-              AND: expect.arrayContaining([
-                {
-                  bookingStatus: {
-                    in: ["INCOMPLETE", "AWAITING_PAYMENT", "PAYMENT_PROCESSING"],
-                  },
-                },
-                {
-                  OR: expect.arrayContaining([
-                    {
-                      slot: {
-                        status: "LOCKED",
-                        lockExpiresAt: {
-                          gt: expect.any(Date),
-                        },
-                      },
-                    },
-                    {
-                      bookingLocks: {
-                        some: {
-                          status: "ACTIVE",
-                          expiresAt: {
-                            gt: expect.any(Date),
-                          },
-                        },
-                      },
-                    },
-                  ]),
-                },
-              ]),
+              bookingStatus: {
+                in: ["INCOMPLETE", "AWAITING_PAYMENT", "PAYMENT_PROCESSING"],
+              },
             }),
           ]),
         }),
@@ -141,7 +121,7 @@ describe("GET /api/admin/bookings", () => {
     );
   });
 
-  it("builds abandoned view as not-live and not-confirmed", async () => {
+  it("builds abandoned view as not-in-progress and not-confirmed", async () => {
     await GET(
       new Request("http://localhost/api/admin/bookings?type=abandoned")
     );
@@ -158,37 +138,15 @@ describe("GET /api/admin/bookings", () => {
                   },
                 },
                 expect.objectContaining({
-                  NOT: expect.objectContaining({
-                    AND: expect.arrayContaining([
-                      {
-                        bookingStatus: {
-                          in: ["INCOMPLETE", "AWAITING_PAYMENT", "PAYMENT_PROCESSING"],
-                        },
-                      },
-                      {
-                        OR: expect.arrayContaining([
-                          {
-                            slot: {
-                              status: "LOCKED",
-                              lockExpiresAt: {
-                                gt: expect.any(Date),
-                              },
-                            },
-                          },
-                          {
-                            bookingLocks: {
-                              some: {
-                                status: "ACTIVE",
-                                expiresAt: {
-                                  gt: expect.any(Date),
-                                },
-                              },
-                            },
-                          },
-                        ]),
-                      },
-                    ]),
-                  }),
+                  NOT: {
+                    bookingStatus: {
+                      in: [
+                        "INCOMPLETE",
+                        "AWAITING_PAYMENT",
+                        "PAYMENT_PROCESSING",
+                      ],
+                    },
+                  },
                 }),
               ]),
             }),

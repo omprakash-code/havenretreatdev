@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { Calendar, ChevronDown } from "@/components/icons";
 import AdminCompactFilters from "@/components/admin/shared/AdminCompactFilters";
 import { formatSlotTime } from "@/lib/formatters";
@@ -13,17 +13,17 @@ interface Props {
   preset: DatePreset | null;
   setPreset: (p: DatePreset | null) => void;
 
-  theatre: string;
-  setTheatre: (v: string) => void;
+  packageName: string;
+  setPackageName: (v: string) => void;
 
-  slot: string;
-  setSlot: (v: string) => void;
+  timeRange: string;
+  setTimeRange: (v: string) => void;
 
   status: string;
   setStatus: (v: string) => void;
 
-  theatres: string[];
-  slots: string[];
+  packages: string[];
+  timeRanges: string[];
   showPreset?: boolean;
   showStatus?: boolean;
   statusOptions?: Array<{
@@ -53,14 +53,14 @@ export default function BookingsFilters({
   setSearch,
   preset,
   setPreset,
-  theatre,
-  setTheatre,
-  slot,
-  setSlot,
+  packageName,
+  setPackageName,
+  timeRange,
+  setTimeRange,
   status,
   setStatus,
-  theatres,
-  slots,
+  packages,
+  timeRanges,
   showPreset = true,
   showStatus = true,
   statusOptions = [
@@ -74,7 +74,6 @@ export default function BookingsFilters({
   onClearFilters,
 }: Props) {
   const customDateInputRef = useRef<HTMLInputElement | null>(null);
-  const [allSlotWindows, setAllSlotWindows] = useState<string[]>([]);
   const openCustomDatePicker = () => {
     const input = customDateInputRef.current;
     if (!input) return;
@@ -89,47 +88,7 @@ export default function BookingsFilters({
     input.focus();
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchAllSlotWindows() {
-      try {
-        const res = await fetch("/api/admin/slots");
-        const json = (await res.json().catch(() => null)) as
-          | {
-              success?: boolean;
-              data?: Array<{
-                startTime?: string;
-                endTime?: string;
-              }>;
-            }
-          | null;
-
-        if (!json?.success || !Array.isArray(json.data) || cancelled) return;
-
-        const windows = json.data
-          .map((entry) => {
-            const start = String(entry.startTime ?? "").trim();
-            const end = String(entry.endTime ?? "").trim();
-            return start && end ? `${start} - ${end}` : "";
-          })
-          .filter((window): window is string => window.length > 0);
-
-        setAllSlotWindows(Array.from(new Set(windows)));
-      } catch {
-        if (!cancelled) {
-          setAllSlotWindows([]);
-        }
-      }
-    }
-
-    void fetchAllSlotWindows();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const sortSlotWindows = (input: string[]) => {
+  const sortTimeRanges = (input: string[]) => {
     const toMinutes = (time: string) => {
       const [h, m] = time.split(":").map(Number);
       if (!Number.isFinite(h) || !Number.isFinite(m)) return Number.MAX_SAFE_INTEGER;
@@ -150,22 +109,12 @@ export default function BookingsFilters({
     });
   };
 
-  const sortedAllSlotWindows = useMemo(
-    () => sortSlotWindows(allSlotWindows),
-    [allSlotWindows]
+  const sortedTimeRanges = useMemo(
+    () => sortTimeRanges(timeRanges),
+    [timeRanges]
   );
 
-  const sortedPageSlotWindows = useMemo(
-    () => sortSlotWindows(slots),
-    [slots]
-  );
-
-  // Prefer global slot windows fetched once from API to avoid re-sorting a large merged list
-  // on every parent refresh (e.g. live bookings polling).
-  const slotOptions =
-    sortedAllSlotWindows.length > 0 ? sortedAllSlotWindows : sortedPageSlotWindows;
-
-  const formatSlotLabel = (window: string) => {
+  const formatTimeRangeLabel = (window: string) => {
     const [start = "", end = ""] = window.split(" - ");
     if (!start || !end) return window;
     return formatSlotTime(start, end);
@@ -184,14 +133,14 @@ export default function BookingsFilters({
 
   const hasActiveFilters =
     search.trim().length > 0 ||
-    theatre.length > 0 ||
-    slot.length > 0 ||
+    packageName.length > 0 ||
+    timeRange.length > 0 ||
     status.length > 0 ||
     customDate.length > 0 ||
     preset !== null;
   const activeFilterCount = [
-    theatre.length > 0,
-    slot.length > 0,
+    packageName.length > 0,
+    timeRange.length > 0,
     status.length > 0,
     customDate.length > 0,
     preset !== null,
@@ -277,30 +226,30 @@ export default function BookingsFilters({
             </div>
           ) : null}
 
-          {/* Theatre */}
+          {/* Package */}
           <select
-            value={theatre}
-            onChange={(e) => setTheatre(e.target.value)}
+            value={packageName}
+            onChange={(e) => setPackageName(e.target.value)}
             className="h-10 w-full rounded-md border border-neutral-200 px-3 text-sm"
           >
             <option value="">All Packages</option>
-            {theatres.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {packages.map((name) => (
+              <option key={name} value={name}>
+                {name}
               </option>
             ))}
           </select>
 
-          {/* Slot */}
+          {/* Time range */}
           <select
-            value={slot}
-            onChange={(e) => setSlot(e.target.value)}
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
             className="h-10 w-full rounded-md border border-neutral-200 px-3 text-sm"
           >
             <option value="">All Times</option>
-            {slotOptions.map((s) => (
-              <option key={s} value={s}>
-                {formatSlotLabel(s)}
+            {sortedTimeRanges.map((range) => (
+              <option key={range} value={range}>
+                {formatTimeRangeLabel(range)}
               </option>
             ))}
           </select>

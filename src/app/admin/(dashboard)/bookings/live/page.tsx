@@ -31,8 +31,8 @@ export default function LiveBookingsPage() {
   const [data, setData] = useState<AdminBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [theatre, setTheatre] = useState("");
-  const [slot, setSlot] = useState("");
+  const [packageName, setPackageName] = useState("");
+  const [timeRange, setTimeRange] = useState("");
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null);
@@ -80,7 +80,7 @@ export default function LiveBookingsPage() {
   }, []);
 
   const hasActiveFilters =
-    search.trim().length > 0 || theatre.length > 0 || slot.length > 0;
+    search.trim().length > 0 || packageName.length > 0 || timeRange.length > 0;
 
   useEffect(() => {
     let disposed = false;
@@ -150,12 +150,15 @@ export default function LiveBookingsPage() {
     );
   }, [data]);
 
-  const theatres = useMemo(
-    () => Array.from(new Set(data.map((booking) => booking.theatre.name))),
+  const packages = useMemo(
+    () =>
+      Array.from(
+        new Set(data.map((booking) => booking.package?.name).filter(Boolean))
+      ) as string[],
     [data]
   );
 
-  const slots = useMemo(
+  const timeRanges = useMemo(
     () =>
       Array.from(
         new Set(
@@ -172,13 +175,13 @@ export default function LiveBookingsPage() {
 
   const filteredBookings = useMemo(() => {
     return enrichedAndSorted.filter((booking) => {
-      if (theatre && booking.theatre.name !== theatre) return false;
+      if (packageName && booking.package?.name !== packageName) return false;
 
       if (
-        slot &&
+        timeRange &&
         `${booking.schedule?.startTime || booking.slot.startTime} - ${
           booking.schedule?.endTime || booking.slot.endTime
-        }` !== slot
+        }` !== timeRange
       ) {
         return false;
       }
@@ -189,14 +192,14 @@ export default function LiveBookingsPage() {
           booking.bookingRef.toLowerCase().includes(query) ||
           booking.customer?.name?.toLowerCase().includes(query) ||
           booking.customer?.phone?.includes(query) ||
-          booking.theatre.name.toLowerCase().includes(query);
+          booking.package?.name.toLowerCase().includes(query);
 
         if (!matches) return false;
       }
 
       return true;
     });
-  }, [enrichedAndSorted, search, slot, theatre]);
+  }, [enrichedAndSorted, packageName, search, timeRange]);
 
   const liveDescription =
     filteredBookings.length === 0
@@ -205,8 +208,8 @@ export default function LiveBookingsPage() {
 
   function clearAllFilters() {
     setSearch("");
-    setTheatre("");
-    setSlot("");
+    setPackageName("");
+    setTimeRange("");
   }
 
   return (
@@ -221,14 +224,14 @@ export default function LiveBookingsPage() {
         setPreset={() => {}}
         search={search}
         setSearch={setSearch}
-        theatre={theatre}
-        setTheatre={setTheatre}
-        slot={slot}
-        setSlot={setSlot}
+        packageName={packageName}
+        setPackageName={setPackageName}
+        timeRange={timeRange}
+        setTimeRange={setTimeRange}
         status=""
         setStatus={() => {}}
-        theatres={theatres}
-        slots={slots}
+        packages={packages}
+        timeRanges={timeRanges}
         showPreset={false}
         showStatus={false}
         onClearFilters={clearAllFilters}

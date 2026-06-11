@@ -79,15 +79,6 @@ export default function AdminDashboardPage() {
                 </Link>
               )}
 
-              {isAdminFeatureEnabled("slots") && (
-                <Link
-                  href="/admin/slots"
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
-                >
-                  Slot Management
-                </Link>
-              )}
-
               {isAdminFeatureEnabled("coupons") && (
                 <Link
                   href="/admin/coupons"

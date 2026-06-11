@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import PageHeader from "@/components/admin/page/PageHeader";
 import BookingsFilters from "@/components/admin/bookings/BookingFilters";
@@ -89,6 +89,10 @@ type BookingsListResponse = {
       total?: number;
       totalPages?: number;
     };
+    filterOptions?: {
+      packages?: string[];
+      timeRanges?: string[];
+    };
   };
 };
 
@@ -105,11 +109,12 @@ export default function BookingsPage() {
 
   const [preset, setPreset] = useState<DatePreset | null>(null);
   const [customDate, setCustomDate] = useState("");
-  const [theatre, setTheatre] = useState("");
-  const [slot, setSlot] = useState("");
+  const [packageName, setPackageName] = useState("");
+  const [timeRange, setTimeRange] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [theatres, setTheatres] = useState<string[]>([]);
+  const [packageOptions, setPackageOptions] = useState<string[]>([]);
+  const [timeRangeOptions, setTimeRangeOptions] = useState<string[]>([]);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -205,11 +210,11 @@ export default function BookingsPage() {
       if (debouncedSearch.trim()) {
         params.set("search", debouncedSearch.trim());
       }
-      if (theatre.trim()) {
-        params.set("theatre", theatre.trim());
+      if (packageName.trim()) {
+        params.set("package", packageName.trim());
       }
-      if (slot.trim()) {
-        params.set("slot", slot.trim());
+      if (timeRange.trim()) {
+        params.set("timeRange", timeRange.trim());
       }
 
       if (customDate) {
@@ -232,6 +237,8 @@ export default function BookingsPage() {
       const json = (await res.json().catch(() => null)) as BookingsListResponse | null;
       const nextBookings = json?.success && Array.isArray(json.data) ? json.data : [];
       setBookings(nextBookings);
+      setPackageOptions(json?.meta?.filterOptions?.packages ?? []);
+      setTimeRangeOptions(json?.meta?.filterOptions?.timeRanges ?? []);
 
       const meta = json?.meta?.pagination;
       const nextPage = Math.max(Number(meta?.page ?? targetPage), 1);
@@ -244,29 +251,7 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [customDate, debouncedSearch, page, preset, slot, theatre]);
-
-  const fetchTheatres = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/theatres", { cache: "no-store" });
-      const json = (await res.json().catch(() => null)) as
-        | { success?: boolean; data?: Array<{ name?: string }> }
-        | null;
-      if (!json?.success || !Array.isArray(json.data)) return;
-
-      const names = Array.from(
-        new Set(
-          json.data
-            .map((row) => String(row?.name ?? "").trim())
-            .filter((name) => name.length > 0)
-        )
-      ).sort((a, b) => a.localeCompare(b));
-
-      setTheatres(names);
-    } catch {
-      setTheatres([]);
-    }
-  }, []);
+  }, [customDate, debouncedSearch, packageName, page, preset, timeRange]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -277,30 +262,8 @@ export default function BookingsPage() {
   }, [search]);
 
   useEffect(() => {
-    void fetchTheatres();
-  }, [fetchTheatres]);
-
-  useEffect(() => {
     void fetchBookings();
   }, [fetchBookings]);
-
-  /* -----------------------------
-     Derived filter options
-  ------------------------------ */
-  const slots = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          bookings.map(
-            (b) =>
-              `${b.schedule?.startTime || b.slot.startTime} - ${
-                b.schedule?.endTime || b.slot.endTime
-              }`
-          )
-        )
-      ),
-    [bookings]
-  );
 
   // Handle view booking
   const handleViewBooking = (booking: AdminBooking) => {
@@ -385,23 +348,23 @@ export default function BookingsPage() {
     setPage(1);
     setPreset(null);
     setCustomDate("");
-    setTheatre("");
-    setSlot("");
+    setPackageName("");
+    setTimeRange("");
     setSearch("");
   }
 
   const hasActiveFilters =
     Boolean(preset) ||
     Boolean(customDate) ||
-    theatre.trim().length > 0 ||
-    slot.trim().length > 0 ||
+    packageName.trim().length > 0 ||
+    timeRange.trim().length > 0 ||
     search.trim().length > 0;
 
   return (
     <>
       <PageHeader
         title="Bookings"
-        description="Manage all bookings, filter by theatre, slot, date, and status."
+        description="Manage all bookings, filter by package, time range, date, and status."
         inlineActions
         actions={
           <button
@@ -437,20 +400,20 @@ export default function BookingsPage() {
           setPage(1);
         }}
         showCustomDate
-        theatre={theatre}
-        setTheatre={(value) => {
-          setTheatre(value);
+        packageName={packageName}
+        setPackageName={(value) => {
+          setPackageName(value);
           setPage(1);
         }}
-        slot={slot}
-        setSlot={(value) => {
-          setSlot(value);
+        timeRange={timeRange}
+        setTimeRange={(value) => {
+          setTimeRange(value);
           setPage(1);
         }}
         status=""
         setStatus={() => {}}
-        theatres={theatres}
-        slots={slots}
+        packages={packageOptions}
+        timeRanges={timeRangeOptions}
         showStatus={false}
         onClearFilters={clearAllFilters}
       />

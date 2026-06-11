@@ -50,8 +50,8 @@ export default function CartAbandonmentPage() {
   const [preset, setPreset] = useState<DatePreset | null>(null);
   const [customDate, setCustomDate] = useState("");
   const [search, setSearch] = useState("");
-  const [theatre, setTheatre] = useState("");
-  const [slot, setSlot] = useState("");
+  const [packageName, setPackageName] = useState("");
+  const [timeRange, setTimeRange] = useState("");
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null);
@@ -156,12 +156,13 @@ export default function CartAbandonmentPage() {
   /* -----------------------------
      Derived filter options
   ------------------------------ */
-  const theatres = useMemo(
-    () => Array.from(new Set(data.map((b) => b.theatre.name))),
+  const packages = useMemo(
+    () =>
+      Array.from(new Set(data.map((b) => b.package?.name).filter(Boolean))) as string[],
     [data]
   );
 
-  const slots = useMemo(
+  const timeRanges = useMemo(
     () =>
       Array.from(
         new Set(
@@ -193,13 +194,13 @@ export default function CartAbandonmentPage() {
         if (!applyDatePreset(created, preset)) return false;
       }
 
-      if (theatre && b.theatre.name !== theatre) return false;
+      if (packageName && b.package?.name !== packageName) return false;
 
       if (
-        slot &&
+        timeRange &&
         `${b.schedule?.startTime || b.slot.startTime} - ${
           b.schedule?.endTime || b.slot.endTime
-        }` !== slot
+        }` !== timeRange
       )
         return false;
 
@@ -209,28 +210,28 @@ export default function CartAbandonmentPage() {
           b.bookingRef.toLowerCase().includes(q) ||
           b.customer?.name?.toLowerCase().includes(q) ||
           b.customer?.phone?.includes(q) ||
-          b.theatre.name.toLowerCase().includes(q);
+          b.package?.name.toLowerCase().includes(q);
 
         if (!match) return false;
       }
 
       return true;
     });
-  }, [data, customDate, preset, search, theatre, slot]);
+  }, [data, customDate, packageName, preset, search, timeRange]);
 
   function clearAllFilters() {
     setPreset(null);
     setCustomDate("");
-    setTheatre("");
-    setSlot("");
+    setPackageName("");
+    setTimeRange("");
     setSearch("");
   }
 
   const hasActiveFilters =
     Boolean(preset) ||
     Boolean(customDate) ||
-    theatre.trim().length > 0 ||
-    slot.trim().length > 0 ||
+    packageName.trim().length > 0 ||
+    timeRange.trim().length > 0 ||
     search.trim().length > 0;
 
   return (
@@ -250,12 +251,12 @@ export default function CartAbandonmentPage() {
         setStatus={() => { }}
         search={search}
         setSearch={setSearch}
-        theatre={theatre}
-        setTheatre={setTheatre}
-        slot={slot}
-        setSlot={setSlot}
-        theatres={theatres}
-        slots={slots}
+        packageName={packageName}
+        setPackageName={setPackageName}
+        timeRange={timeRange}
+        setTimeRange={setTimeRange}
+        packages={packages}
+        timeRanges={timeRanges}
         showStatus={false}
         onClearFilters={clearAllFilters}
       />

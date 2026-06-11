@@ -30,7 +30,7 @@ export default function ProductImageUploader({
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/admin/theatres/upload", {
+      const res = await fetch("/api/admin/products/upload", {
         method: "POST",
         body: formData,
       });

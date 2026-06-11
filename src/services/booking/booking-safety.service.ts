@@ -22,11 +22,6 @@ type OverlapValidationInput = TimeRangeInput & {
   context: string;
 };
 
-type SlotLockInput = {
-  slotId: string;
-  context: string;
-};
-
 export class BookingOverlapError extends Error {
   constructor(message = "This time range is currently reserved.") {
     super(message);
@@ -34,33 +29,9 @@ export class BookingOverlapError extends Error {
   }
 }
 
-export class BookingSlotLockError extends Error {
-  constructor(message = "Unable to lock booking slot.") {
-    super(message);
-    this.name = "BookingSlotLockError";
-  }
-}
-
 export function assertValidTimeRange({ startTime, endTime }: TimeRangeInput) {
   if (endTime <= startTime) {
     throw new BookingOverlapError("End time must be after start time.");
-  }
-}
-
-export async function lockSlotRowForUpdate(
-  tx: BookingSafetyTx,
-  { slotId, context }: SlotLockInput
-) {
-  const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
-    SELECT id
-    FROM "Slot"
-    WHERE id = ${slotId}
-    FOR UPDATE
-  `);
-
-  if (rows.length === 0) {
-    console.warn("BOOKING_SLOT_LOCK_MISSING", { slotId, context });
-    throw new BookingSlotLockError("Slot does not exist.");
   }
 }
 
