@@ -6,6 +6,11 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
+import { timeToMinutes } from "@/lib/time";
+import {
+  getPackageIncludedProductTotalPrice,
+  resolvePackageIncludedProducts,
+} from "@/lib/package-included-products";
 import { createBookingSessionToken } from "@/services/booking/bookingSession.server";
 import { allocateBookingRef } from "@/services/booking/bookingId.service";
 import { createSuccessToken } from "@/services/booking/successToken.server";
@@ -539,6 +544,54 @@ export async function POST(req: Request) {
         });
       });
 
+      const includedProductSource = selectedPackage
+        ? {
+            name: selectedPackage.name,
+            baseGuests: selectedPackage.guestLimit,
+          }
+        : null;
+      const packageIncludedProducts = resolvePackageIncludedProducts(
+        includedProductSource
+      );
+      const packageIncludedProductSlugs = Object.keys(packageIncludedProducts);
+
+      if (packageIncludedProductSlugs.length > 0) {
+        const includedProducts = await tx.product.findMany({
+          where: {
+            slug: { in: packageIncludedProductSlugs },
+            isActive: true,
+            OR: [
+              { locationId: body.locationId },
+              { locationId: null },
+            ],
+          },
+          include: {
+            variants: {
+              where: { isActive: true },
+              orderBy: { sortOrder: "asc" },
+            },
+          },
+        });
+
+        includedProducts.forEach((product) => {
+          const includedQuantity =
+            packageIncludedProducts[product.slug] ?? 0;
+          const variant =
+            product.variants.find((item) => item.isDefault) ??
+            product.variants[0];
+          if (includedQuantity <= 0 || !variant) return;
+
+          const key = `${product.id}:${variant.id}`;
+          const existing = normalizedItemsMap.get(key);
+          normalizedItemsMap.set(key, {
+            productId: product.id,
+            variantId: variant.id,
+            quantity: Math.max(existing?.quantity ?? 0, includedQuantity),
+            ledNumber: existing?.ledNumber,
+          });
+        });
+      }
+
       const normalizedItems = Array.from(normalizedItemsMap.values());
       const variantIds = [...new Set(normalizedItems.map((item) => item.variantId))];
 
@@ -595,7 +648,15 @@ export async function POST(req: Request) {
         }
 
         const unitPrice = variant.salePrice ?? variant.regularPrice;
-        const totalPrice = unitPrice * item.quantity;
+        const totalPrice = getPackageIncludedProductTotalPrice({
+          source: variant.isDefault ? includedProductSource : null,
+          product: {
+            slug: variant.product.slug,
+            name: variant.product.name,
+          },
+          quantity: item.quantity,
+          unitPrice,
+        });
         productsAmount += totalPrice;
 
         if (
@@ -740,6 +801,12 @@ export async function POST(req: Request) {
 
       const minAdvanceAmount = await getRequiredAdminAdvanceAmount(tx);
 
+      const includedDurationHours = selectedPackage?.eventDurationHours ?? 0;
+      const extraHourlyRate = selectedPackage?.hourlyRate ?? 0;
+      const bookingDurationHours = rangeStartTime && rangeEndTime
+        ? Math.max((timeToMinutes(rangeEndTime) - timeToMinutes(rangeStartTime)) / 60, 0)
+        : 0;
+
       const effectiveDecorationRequired = decorationRequired;
 
       const pricingBase = calculateBookingPricing({
@@ -754,6 +821,9 @@ export async function POST(req: Request) {
         productsAmount,
         discountAmount: 0,
         advancePaid: 0,
+        durationHours: bookingDurationHours,
+        includedDurationHours,
+        extraHourlyRate,
       });
 
       const couponResult = await evaluateAdminCoupons(tx, {
@@ -841,6 +911,9 @@ export async function POST(req: Request) {
         productsAmount,
         discountAmount: couponDiscount,
         advancePaid: desiredAdvance,
+        durationHours: bookingDurationHours,
+        includedDurationHours,
+        extraHourlyRate,
       });
 
       const booking = await createBookingWithUniqueRef(tx, now, {
@@ -895,7 +968,13 @@ export async function POST(req: Request) {
           ? {
               packageAmount: selectedPackage.subtotalAmount,
               packageGuestLimit: selectedPackage.guestLimit,
+              includedDurationHours,
+              bookedDurationHours: bookingDurationHours,
+              extraDurationHours: pricing.extraDurationHours,
+              extraHourlyRate: pricing.extraHourlyRate,
+              extraDurationAmount: pricing.extraHoursAmount,
               productsAmount: pricing.productsAmount,
+              decorationAmount: pricing.decorationAmount,
               discountAmount: pricing.discountAmount,
               totalAmount: pricing.totalAmount,
               advancePaid: pricing.advancePaid,

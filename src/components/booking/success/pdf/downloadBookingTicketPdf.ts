@@ -180,7 +180,7 @@ export async function downloadBookingTicketPdf(
   }
 }
 
-function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
+export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
   const discountAmount = data.discountAmount ?? 0;
   const showDiscountBreakdown = discountAmount > 0;
   const subtotalBeforeDiscount = data.totalAmount + discountAmount;
@@ -224,6 +224,14 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     rows.push({
       label: `Extra Guests (${extraGuestCount} × ${formatCurrency(extraPersonPrice)})`,
       value: formatCurrency(extraGuestAmount),
+    });
+  }
+
+  const decorationAmount = data.decorationAmount ?? 0;
+  if (decorationAmount > 0) {
+    rows.push({
+      label: "Decoration",
+      value: formatCurrency(decorationAmount),
     });
   }
 
@@ -307,7 +315,7 @@ function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     rows.push({
       label: "Note",
       value:
-        "Please arrive 15 minutes before your booking time. Remaining balance can be paid at the venue via UPI, Card, or Cash.",
+        "Please arrive 15 minutes before your booking time. Remaining balance can be paid at the venue via Card or Cash.",
       tone: "muted",
     });
   }

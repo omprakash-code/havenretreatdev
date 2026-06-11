@@ -16,6 +16,7 @@ type ProductsExtrasSectionProps = {
   productsByCategory: Record<"CAKE" | "DECORATION" | "GIFT", ProductOption[]>;
   getActiveVariantId: (product: ProductOption) => string;
   getVariantSelection: (productId: string, variantId: string) => ProductLineSelection;
+  getIncludedQuantity: (product: ProductOption, variantId: string) => number;
   getLedDraftValue: (productId: string, variantId: string, savedValue?: string) => string;
   onVariantChange: (product: ProductOption, variantId: string) => void;
   onIncrementQuantity: (product: ProductOption) => void;
@@ -26,9 +27,9 @@ type ProductsExtrasSectionProps = {
 };
 
 const DEFAULT_EXPANDED_STATE: Record<ProductCategory, boolean> = {
-  CAKE: false,
-  DECORATION: false,
-  GIFT: false,
+  CAKE: true,
+  DECORATION: true,
+  GIFT: true,
 };
 
 function ProductsExtrasSectionComponent({
@@ -37,6 +38,7 @@ function ProductsExtrasSectionComponent({
   productsByCategory,
   getActiveVariantId,
   getVariantSelection,
+  getIncludedQuantity,
   getLedDraftValue,
   onVariantChange,
   onIncrementQuantity,
@@ -112,6 +114,7 @@ function ProductsExtrasSectionComponent({
                           product={product}
                           activeVariantId={activeVariantId}
                           selection={selection}
+                          includedQuantity={getIncludedQuantity(product, activeVariantId)}
                           ledDraft={getLedDraftValue(product.id, activeVariantId, selection.ledNumber)}
                           onVariantChange={(variantId) => onVariantChange(product, variantId)}
                           onIncrement={() => onIncrementQuantity(product)}

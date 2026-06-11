@@ -342,7 +342,7 @@ ${shareUrl}`;
                 <p className="text-[11px] leading-relaxed text-slate-500 sm:text-xs">
                   Balance due on arrival. Please arrive 15 minutes before your
                   booking time and keep your booking reference handy. Accepted at venue:
-                  UPI, Card, or Cash.
+                  Card or Cash.
                 </p>
               </div>
             )}

@@ -1,9 +1,10 @@
 import { nanoid } from "nanoid";
 import type { BookingItemSnapshot } from "@/context/BookingContext";
 
-type PackageSource = {
+export type PackageIncludedProductSource = {
   name?: string | null;
   capacity?: number | null;
+  baseGuests?: number | null;
 };
 
 type ProductSource = {
@@ -48,9 +49,9 @@ function normalizeSlug(value: string | null | undefined) {
 }
 
 export function resolvePackageIncludedProducts(
-  source: PackageSource | null | undefined
+  source: PackageIncludedProductSource | null | undefined
 ) {
-  const capacity = Number((source as { baseGuests?: number } | null | undefined)?.baseGuests ?? source?.capacity ?? 0);
+  const capacity = Number(source?.baseGuests ?? source?.capacity ?? 0);
   if (Number.isFinite(capacity)) {
     const byCapacity =
       PACKAGE_PRODUCT_QUANTITIES_BY_CAPACITY[Math.trunc(capacity)];
@@ -66,7 +67,7 @@ export function resolvePackageIncludedProducts(
 }
 
 export function getPackageIncludedProductQuantity(
-  source: PackageSource | null | undefined,
+  source: PackageIncludedProductSource | null | undefined,
   product: { slug?: string | null; productSlug?: string | null; name?: string | null }
 ) {
   const included = resolvePackageIncludedProducts(source);
@@ -75,7 +76,7 @@ export function getPackageIncludedProductQuantity(
 }
 
 export function getPackageIncludedProductExtraQuantity(
-  source: PackageSource | null | undefined,
+  source: PackageIncludedProductSource | null | undefined,
   product: { slug?: string | null; productSlug?: string | null; name?: string | null },
   quantity: number
 ) {
@@ -88,7 +89,7 @@ export function getPackageIncludedProductTotalPrice({
   quantity,
   unitPrice,
 }: {
-  source: PackageSource | null | undefined;
+  source: PackageIncludedProductSource | null | undefined;
   product: { slug?: string | null; productSlug?: string | null; name?: string | null };
   quantity: number;
   unitPrice: number;
@@ -103,7 +104,7 @@ export function ensurePackageIncludedProducts({
 }: {
   currentItems: BookingItemSnapshot[];
   products: ProductSource[];
-  selectedPackage: PackageSource | null | undefined;
+  selectedPackage: PackageIncludedProductSource | null | undefined;
 }) {
   const includedProducts = resolvePackageIncludedProducts(selectedPackage);
   if (Object.keys(includedProducts).length === 0) return currentItems;
@@ -162,4 +163,67 @@ export function ensurePackageIncludedProducts({
   });
 
   return changed ? nextItems : currentItems;
+}
+
+type ProductSelection = {
+  quantity: number;
+  ledNumber?: string;
+};
+
+export function reconcilePackageIncludedProductSelections({
+  currentSelections,
+  products,
+  previousPackage,
+  selectedPackage,
+}: {
+  currentSelections: Record<string, ProductSelection>;
+  products: ProductSource[];
+  previousPackage: PackageIncludedProductSource | null | undefined;
+  selectedPackage: PackageIncludedProductSource | null | undefined;
+}) {
+  const nextSelections = { ...currentSelections };
+  let changed = false;
+
+  products.forEach((product) => {
+    const variant =
+      product.variants.find((item) => item.isDefault) ?? product.variants[0];
+    if (!variant) return;
+
+    const key = `${product.id}:${variant.id}`;
+    const current = nextSelections[key];
+    const previousIncludedQuantity = getPackageIncludedProductQuantity(
+      previousPackage,
+      product
+    );
+    const nextIncludedQuantity = getPackageIncludedProductQuantity(
+      selectedPackage,
+      product
+    );
+
+    if (!current && nextIncludedQuantity <= 0) return;
+
+    const manualQuantity = Math.max(
+      (current?.quantity ?? 0) - previousIncludedQuantity,
+      0
+    );
+    const nextQuantity = nextIncludedQuantity + manualQuantity;
+
+    if (nextQuantity <= 0) {
+      if (current) {
+        delete nextSelections[key];
+        changed = true;
+      }
+      return;
+    }
+
+    if (!current || current.quantity !== nextQuantity) {
+      nextSelections[key] = {
+        ...current,
+        quantity: nextQuantity,
+      };
+      changed = true;
+    }
+  });
+
+  return changed ? nextSelections : currentSelections;
 }

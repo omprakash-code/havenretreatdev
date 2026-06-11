@@ -6,6 +6,7 @@ import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
+import { calculateDurationHours } from "@/lib/booking-time-range";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import {
   AdminBookingApiError as AdminBookingEditError,
@@ -346,8 +347,42 @@ export async function GET(
     const rangePackageAmount = pricingSnap ? Math.max(0, Number(pricingSnap.packageAmount ?? 0)) : 0;
     const rangeExtraDurationAmount = pricingSnap ? Math.max(0, Number(pricingSnap.extraDurationAmount ?? 0)) : 0;
     const rangeExtraDurationHours = pricingSnap ? Math.max(0, Number(pricingSnap.extraDurationHours ?? 0)) : 0;
-    const effectivePackageAmount = rangePackageAmount > 0 ? rangePackageAmount : null;
-    const effectiveExtraDurationAmount = rangeExtraDurationAmount > 0 ? rangeExtraDurationAmount : null;
+    const snapshotPackageAmount = Math.max(
+      0,
+      Number(packageSnapshot?.subtotalAmount ?? packageSnapshot?.finalAmount ?? 0)
+    );
+    const snapshotIncludedDurationHours = Math.max(
+      0,
+      Number(packageSnapshot?.eventDurationHours ?? 0)
+    );
+    const scheduleDurationHours =
+      calculateDurationHours(schedule.startTime, schedule.endTime) ?? 0;
+    const derivedExtraDurationHours = Math.max(
+      scheduleDurationHours - snapshotIncludedDurationHours,
+      0
+    );
+    const effectivePackageAmount =
+      rangePackageAmount > 0
+        ? rangePackageAmount
+        : snapshotPackageAmount > 0
+          ? snapshotPackageAmount
+          : null;
+    const derivedExtraDurationAmount =
+      effectivePackageAmount != null
+        ? Math.max(booking.baseAmount - effectivePackageAmount, 0)
+        : 0;
+    const effectiveExtraDurationAmount =
+      rangeExtraDurationAmount > 0
+        ? rangeExtraDurationAmount
+        : derivedExtraDurationAmount > 0
+          ? derivedExtraDurationAmount
+          : null;
+    const effectiveExtraDurationHours =
+      rangeExtraDurationHours > 0
+        ? rangeExtraDurationHours
+        : derivedExtraDurationHours > 0
+          ? derivedExtraDurationHours
+          : null;
 
     if (view === "drawer") {
       return NextResponse.json({
@@ -402,7 +437,7 @@ export async function GET(
             remainingPayable: booking.remainingPayable,
             packageAmount: effectivePackageAmount,
             extraDurationAmount: effectiveExtraDurationAmount,
-            extraDurationHours: rangeExtraDurationHours > 0 ? rangeExtraDurationHours : null,
+            extraDurationHours: effectiveExtraDurationHours,
           },
           items: booking.items.map((item) => {
             const isLedItem = isNumberDecorationProduct({

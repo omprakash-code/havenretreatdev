@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { calculateBookingPricing } from "@/lib/booking-pricing";
+import { timeToMinutes } from "@/lib/time";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
   DEFAULT_EXTRA_HOURLY_RATE,
@@ -17,6 +18,12 @@ import {
 } from "@/lib/app-settings";
 import { resolveCouponIdentityGate } from "@/lib/coupon-identity-gate";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import {
+  getPackageIncludedProductQuantity,
+  getPackageIncludedProductTotalPrice,
+  reconcilePackageIncludedProductSelections,
+  type PackageIncludedProductSource,
+} from "@/lib/package-included-products";
 import { ensureRazorpayCheckoutLoaded, openRazorpayModal } from "@/lib/razorpay/checkout-client";
 import {
   discardPendingOnlineCreateBooking,
@@ -236,6 +243,7 @@ export function AdminAddBookingForm({
   const [activeVariants, setActiveVariants] = useState<ActiveVariantMap>({});
   const [productSelections, setProductSelections] = useState<ProductSelectionMap>({});
   const [ledDrafts, setLedDrafts] = useState<LedDraftMap>({});
+  const includedProductPackageRef = useRef<PackageIncludedProductSource | null>(null);
 
   const isEditMode = mode === "edit";
 
@@ -479,6 +487,7 @@ export function AdminAddBookingForm({
       setProducts([]);
       setActiveVariants({});
       setProductSelections({});
+      includedProductPackageRef.current = null;
       setLedDrafts({});
       setCouponCode("");
       setAppliedCoupons([]);
@@ -800,6 +809,8 @@ export function AdminAddBookingForm({
               baseGuests: guestLimit,
               basePrice: packageAmount,
               decorationPrice: Number(eventPackage.decorationAddonPrice ?? 0),
+              eventDurationHours: Number(eventPackage.eventDurationHours ?? 4),
+              hourlyRate: Number(eventPackage.hourlyRate ?? 0),
               slots: reservableTheatre.slots.map((slot) => ({
                 ...slot,
                 basePrice: packageAmount,
@@ -1045,6 +1056,21 @@ export function AdminAddBookingForm({
     return new Map(products.map((product) => [product.id, product]));
   }, [products]);
 
+  useEffect(() => {
+    if (mode !== "create" || !selectedTheatre || products.length === 0) return;
+
+    const previousPackage = includedProductPackageRef.current;
+    setProductSelections((currentSelections) =>
+      reconcilePackageIncludedProductSelections({
+        currentSelections,
+        products,
+        previousPackage,
+        selectedPackage: selectedTheatre,
+      })
+    );
+    includedProductPackageRef.current = selectedTheatre;
+  }, [mode, products, selectedTheatre]);
+
   const prefillItemByKey = useMemo(() => {
     const map = new Map<
       string,
@@ -1122,6 +1148,8 @@ export function AdminAddBookingForm({
           productName: fallback.productName ?? "Saved Product",
           variantLabel: fallback.variantLabel ?? "Saved Variant",
           quantity: selection.quantity,
+          includedQuantity: 0,
+          extraQuantity: selection.quantity,
           unitPrice: fallbackUnitPrice,
           totalPrice: fallbackUnitPrice * selection.quantity,
           ledNumber: selection.ledNumber ?? fallback.ledNumber ?? undefined,
@@ -1143,6 +1171,8 @@ export function AdminAddBookingForm({
           productName: fallback.productName ?? product.name,
           variantLabel: fallback.variantLabel ?? "Saved Variant",
           quantity: selection.quantity,
+          includedQuantity: 0,
+          extraQuantity: selection.quantity,
           unitPrice: fallbackUnitPrice,
           totalPrice: fallbackUnitPrice * selection.quantity,
           ledNumber: selection.ledNumber ?? fallback.ledNumber ?? undefined,
@@ -1151,6 +1181,17 @@ export function AdminAddBookingForm({
       }
 
       const unitPrice = getVariantPrice(variant);
+      const isIncludedVariant =
+        variant.isDefault ||
+        (!product.variants.some((entry) => entry.isDefault) &&
+          product.variants[0]?.id === variant.id);
+      const includedQuantity = isIncludedVariant
+        ? Math.min(
+            selection.quantity,
+            getPackageIncludedProductQuantity(selectedTheatre, product)
+          )
+        : 0;
+      const extraQuantity = Math.max(selection.quantity - includedQuantity, 0);
       items.push({
         key,
         productId,
@@ -1159,14 +1200,21 @@ export function AdminAddBookingForm({
         productName: product.name,
         variantLabel: variant.label,
         quantity: selection.quantity,
+        includedQuantity,
+        extraQuantity,
         unitPrice,
-        totalPrice: unitPrice * selection.quantity,
+        totalPrice: getPackageIncludedProductTotalPrice({
+          source: isIncludedVariant ? selectedTheatre : null,
+          product,
+          quantity: selection.quantity,
+          unitPrice,
+        }),
         ledNumber: selection.ledNumber,
       });
     });
 
     return items;
-  }, [productSelections, productById, prefillItemByKey]);
+  }, [productSelections, productById, prefillItemByKey, selectedTheatre]);
 
   const productsAmount = useMemo(() => {
     return selectedProductItems.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -1174,11 +1222,14 @@ export function AdminAddBookingForm({
 
   const pricingBase = useMemo<PricingSummary | null>(() => {
     if (!selectedTheatre) return null;
-    const hasRange = ADMIN_RANGE_BOOKING_ENABLED && Boolean(startTime) && Boolean(endTime);
+    const hasRange = (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) && Boolean(startTime) && Boolean(endTime);
     if (!selectedSlot && !hasRange) return null;
 
     const slotBasePrice = selectedSlot?.basePrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.basePrice ?? 0;
     const slotFinalPrice = selectedSlot?.finalPrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.finalPrice ?? slotBasePrice;
+    const bookingDurationHours = startTime && endTime
+      ? Math.max((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60, 0)
+      : 0;
 
     return calculateBookingPricing({
       slotBasePrice,
@@ -1192,16 +1243,23 @@ export function AdminAddBookingForm({
       productsAmount,
       discountAmount: 0,
       advancePaid: 0,
+      durationHours: bookingDurationHours,
+      includedDurationHours:
+        selectedTheatre.eventDurationHours ?? minimumBookingDurationHours,
+      extraHourlyRate: selectedTheatre.hourlyRate ?? extraHourlyRate,
     });
   }, [
     selectedTheatre,
     selectedSlot,
+    theatreSlots.length,
     startTime,
     endTime,
     isDecorationMandatory,
     guestCount,
     decorationRequired,
     productsAmount,
+    minimumBookingDurationHours,
+    extraHourlyRate,
   ]);
 
   const totalAfterDiscount = useMemo(() => {
@@ -1220,7 +1278,7 @@ export function AdminAddBookingForm({
   }, [isEditMode, totalAfterDiscount, editAdvancePaidAlready]);
 
   const pricing = useMemo<PricingSummary | null>(() => {
-    const hasRange = ADMIN_RANGE_BOOKING_ENABLED && Boolean(startTime) && Boolean(endTime);
+    const hasRange = (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) && Boolean(startTime) && Boolean(endTime);
     if (!selectedTheatre || (!selectedSlot && !hasRange) || !pricingBase) return null;
 
     const slotBasePrice = selectedSlot?.basePrice ?? selectedTheatre.basePrice ?? selectedTheatre.slots[0]?.basePrice ?? 0;
@@ -1245,6 +1303,10 @@ export function AdminAddBookingForm({
           : normalizedAdvanceInput;
     }
 
+    const bookingDurationHours = startTime && endTime
+      ? Math.max((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60, 0)
+      : 0;
+
     return calculateBookingPricing({
       slotBasePrice,
       slotFinalPrice,
@@ -1257,11 +1319,16 @@ export function AdminAddBookingForm({
       productsAmount,
       discountAmount: couponDiscount,
       advancePaid: desiredAdvance,
+      durationHours: bookingDurationHours,
+      includedDurationHours:
+        selectedTheatre.eventDurationHours ?? minimumBookingDurationHours,
+      extraHourlyRate: selectedTheatre.hourlyRate ?? extraHourlyRate,
     });
   }, [
     pricingBase,
     selectedTheatre,
     selectedSlot,
+    theatreSlots.length,
     startTime,
     endTime,
     isDecorationMandatory,
@@ -1275,6 +1342,8 @@ export function AdminAddBookingForm({
     paymentAmountMode,
     customAdvanceAmount,
     couponDiscount,
+    minimumBookingDurationHours,
+    extraHourlyRate,
   ]);
 
   const amountPayNow = useMemo(() => {
@@ -1616,7 +1685,7 @@ export function AdminAddBookingForm({
     }
 
     setSlotId("");
-    if (ADMIN_RANGE_BOOKING_ENABLED) {
+    if (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) {
       return;
     }
     void resolveSlotForSelectedTimeRange(nextStartTime, nextEndTime).catch((error) => {
@@ -1640,7 +1709,7 @@ export function AdminAddBookingForm({
       return exactSlot.id;
     }
 
-    if (ADMIN_RANGE_BOOKING_ENABLED) {
+    if (ADMIN_RANGE_BOOKING_ENABLED || theatreSlots.length === 0) {
       return "";
     }
 
@@ -1835,7 +1904,7 @@ export function AdminAddBookingForm({
     const stockCap = Math.max(Number(variant.stock ?? 0), 0);
     if (stockCap <= 0) return 0;
 
-    if (product.category === "DECORATION") {
+    if (isNumberDecorationProduct({ slug: product.slug, name: product.name })) {
       return Math.min(stockCap, 1);
     }
     return stockCap;
@@ -1850,10 +1919,10 @@ export function AdminAddBookingForm({
       return;
     }
 
-    if (product.category === "DECORATION") {
+    if (isNumberDecorationProduct({ slug: product.slug, name: product.name })) {
       const current = getVariantSelection(product.id, variantId);
       if (current.quantity >= maxAllowed) {
-        toast.error("Only one unit can be added for this decoration.");
+        toast.error("Only one unit can be added for this numbered decoration.");
         return;
       }
       upsertProductSelection(product.id, variantId, {
@@ -1876,13 +1945,22 @@ export function AdminAddBookingForm({
   const decrementQuantity = useCallback((product: ProductOption) => {
     const variantId = getActiveVariantId(product);
     if (!variantId) return;
-    if (product.category === "DECORATION") return;
+    if (isNumberDecorationProduct({ slug: product.slug, name: product.name })) return;
     const current = getVariantSelection(product.id, variantId);
+    const includedQuantity = getPackageIncludedProductQuantity(
+      selectedTheatre,
+      product
+    );
     upsertProductSelection(product.id, variantId, {
       ...current,
-      quantity: Math.max(current.quantity - 1, 0),
+      quantity: Math.max(current.quantity - 1, includedQuantity),
     });
-  }, [getActiveVariantId, getVariantSelection, upsertProductSelection]);
+  }, [
+    getActiveVariantId,
+    getVariantSelection,
+    selectedTheatre,
+    upsertProductSelection,
+  ]);
 
   const toggleDecoration = useCallback((product: ProductOption) => {
     const variantId = getActiveVariantId(product);
@@ -1914,11 +1992,30 @@ export function AdminAddBookingForm({
   }, [getActiveVariantId, getVariantSelection, setLedDraftValue, upsertProductSelection]);
 
   function removeSelectedProduct(selectionKey: string) {
+    const selectedItem = selectedProductItems.find(
+      (item) => item.key === selectionKey
+    );
+    const includedQuantity = selectedItem?.includedQuantity ?? 0;
+
     setProductSelections((prev) => {
+      if (includedQuantity > 0) {
+        const current = prev[selectionKey];
+        if (!current) return prev;
+        return {
+          ...prev,
+          [selectionKey]: {
+            ...current,
+            quantity: includedQuantity,
+          },
+        };
+      }
+
       const next = { ...prev };
       delete next[selectionKey];
       return next;
     });
+    if (includedQuantity > 0) return;
+
     setLedDrafts((prev) => {
       const next = { ...prev };
       delete next[selectionKey];
@@ -1975,7 +2072,7 @@ export function AdminAddBookingForm({
     if (!date) nextErrors.date = "Date is required.";
     if (!theatreId) nextErrors.theatreId = "Package is required.";
     if (!startTime || !endTime) nextErrors.slotId = "Event time is required.";
-    if (startTime && endTime && !resolvedSlotId && !ADMIN_RANGE_BOOKING_ENABLED) {
+    if (startTime && endTime && !resolvedSlotId && !ADMIN_RANGE_BOOKING_ENABLED && theatreSlots.length > 0) {
       nextErrors.slotId = "Event time must be resolved before saving.";
     }
     if (slotConflictMessage) nextErrors.slotStatus = slotConflictMessage;
@@ -2622,6 +2719,9 @@ export function AdminAddBookingForm({
 
       const createPayload = {
         ...commonPayload,
+        // The create route reads body.venueId (not body.theatreId) for the advisory lock
+        // and for storing the venue reference on the booking record.
+        venueId: selectedReservableTheatreId || undefined,
         payment: {
           type: paymentType,
           amountMode: paymentAmountModeForApi,
@@ -2759,6 +2859,14 @@ export function AdminAddBookingForm({
           productsByCategory={productsByCategory}
           getActiveVariantId={getActiveVariantId}
           getVariantSelection={getVariantSelection}
+          getIncludedQuantity={(product, variantId) => {
+            const includedVariant =
+              product.variants.find((variant) => variant.isDefault) ??
+              product.variants[0];
+            return includedVariant?.id === variantId
+              ? getPackageIncludedProductQuantity(selectedTheatre, product)
+              : 0;
+          }}
           getLedDraftValue={getLedDraftValue}
           onVariantChange={onVariantChange}
           onIncrementQuantity={incrementQuantity}
@@ -2840,8 +2948,10 @@ export function AdminAddBookingForm({
           selectedSlot={selectedSlot}
           startTime={startTime}
           endTime={endTime}
-          includedDurationHours={minimumBookingDurationHours}
-          extraHourlyRate={extraHourlyRate}
+          includedDurationHours={
+            selectedTheatre?.eventDurationHours ?? minimumBookingDurationHours
+          }
+          extraHourlyRate={selectedTheatre?.hourlyRate ?? extraHourlyRate}
           pricing={pricing}
           selectedProductItems={selectedProductItems}
           paymentAmountMode={paymentAmountMode}

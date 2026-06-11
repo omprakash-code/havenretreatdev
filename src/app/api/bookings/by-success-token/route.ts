@@ -144,10 +144,30 @@ export async function GET(req: Request) {
       booking.advancePaid !== null ? booking.advancePaid : DEFAULT_ADVANCE;
     const latestPayment = booking.payment[0] ?? null;
     const durationConfig = await resolveBookingDurationPricingConfig(prisma);
+    const packageSnapshot =
+      booking.packageSnapshot &&
+      typeof booking.packageSnapshot === "object" &&
+      !Array.isArray(booking.packageSnapshot)
+        ? (booking.packageSnapshot as Record<string, unknown>)
+        : null;
+    const pricingSnapshot =
+      booking.pricingSnapshot &&
+      typeof booking.pricingSnapshot === "object" &&
+      !Array.isArray(booking.pricingSnapshot)
+        ? (booking.pricingSnapshot as Record<string, unknown>)
+        : null;
     const durationHours = schedule.durationHours;
+    const includedDurationHours = Math.max(
+      0,
+      Number(
+        pricingSnapshot?.includedDurationHours ??
+          packageSnapshot?.eventDurationHours ??
+          durationConfig.includedDurationHours
+      )
+    );
     const extraDurationHours =
       durationHours !== null
-        ? Math.max(durationHours - durationConfig.includedDurationHours, 0)
+        ? Math.max(durationHours - includedDurationHours, 0)
         : null;
     const isRangeBooking = booking.slotId === null;
     const packageGuestLimit = resolveRangePackageGuestLimit(booking.packageSnapshot);
@@ -155,10 +175,20 @@ export async function GET(req: Request) {
     const includedGuestCount = packageGuestLimit;
     const extraGuestCount = Math.max(booking.guestCount - includedGuestCount, 0);
     const packageAmount = isRangeBooking
-      ? Number((booking.pricingSnapshot as { packageAmount?: number } | null)?.packageAmount ?? 0)
+      ? Number(
+          pricingSnapshot?.packageAmount ??
+            packageSnapshot?.subtotalAmount ??
+            packageSnapshot?.finalAmount ??
+            0
+        )
       : Number(booking.baseAmount ?? 0);
+    const snapshotExtraDurationAmount = Number(
+      pricingSnapshot?.extraDurationAmount ?? 0
+    );
     const extraDurationAmount = isRangeBooking
-      ? Number((booking.pricingSnapshot as { extraDurationAmount?: number } | null)?.extraDurationAmount ?? 0)
+      ? snapshotExtraDurationAmount > 0
+        ? snapshotExtraDurationAmount
+        : Math.max(Number(booking.baseAmount ?? 0) - packageAmount, 0)
       : 0;
 
     const items = assignNumberDecorationDetails(
@@ -207,7 +237,7 @@ export async function GET(req: Request) {
       date: formattedDate,
       timeSlot: schedule.timeSlot,
       durationHours,
-      includedDurationHours: durationConfig.includedDurationHours,
+      includedDurationHours,
       extraDurationHours,
       locationName: 'Miami',
       dateTime: schedule.dateTime,
@@ -223,6 +253,7 @@ export async function GET(req: Request) {
       packageAmount,
       extraDurationAmount: extraDurationAmount > 0 ? extraDurationAmount : undefined,
       extrasAmount: booking.extrasAmount,
+      decorationAmount: booking.decorationAmount,
       totalAmount: booking.totalAmount,
       discountAmount: booking.discountAmount,
       advancePaid: advance,

@@ -56,6 +56,7 @@ export type BookingSuccessData = {
   packageAmount?: number | null;
   extraDurationAmount?: number | null;
   extrasAmount?: number | null;
+  decorationAmount?: number | null;
   totalAmount: number;
   advancePaid: number;
   remainingPayable: number;

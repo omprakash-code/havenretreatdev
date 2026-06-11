@@ -15,6 +15,7 @@ type ProductCardProps = {
   product: ProductOption;
   activeVariantId: string;
   selection: ProductLineSelection;
+  includedQuantity?: number;
   ledDraft: string;
   onVariantChange: (variantId: string) => void;
   onIncrement: () => void;
@@ -28,6 +29,7 @@ function ProductCardComponent({
   product,
   activeVariantId,
   selection,
+  includedQuantity = 0,
   ledDraft,
   onVariantChange,
   onIncrement,
@@ -60,7 +62,7 @@ function ProductCardComponent({
 
   if (!activeVariant) return null;
   const stockAvailable = Math.max(Number(activeVariant.stock ?? 0), 0);
-  const maxAllowed = isDecoration
+  const maxAllowed = isLed
     ? Math.min(stockAvailable, 1)
     : stockAvailable;
   const outOfStock = maxAllowed <= 0;
@@ -124,10 +126,15 @@ function ProductCardComponent({
             <div className="flex items-end justify-between gap-2">
               <p className="text-[12px] font-bold text-slate-900 sm:text-[13px]">
                 ${getVariantPrice(activeVariant)}
+                {includedQuantity > 0 ? (
+                  <span className="ml-1 text-[10px] font-medium text-emerald-700">
+                    {includedQuantity} included
+                  </span>
+                ) : null}
               </p>
 
               <div className="w-[70px] min-w-[70px] max-w-[70px] shrink-0">
-                {isDecoration ? (
+                {isLed ? (
                   <button
                     type="button"
                     onClick={onToggleDecoration}
@@ -155,7 +162,8 @@ function ProductCardComponent({
                     <button
                       type="button"
                       onClick={onDecrement}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 text-slate-700 hover:bg-slate-100"
+                      disabled={quantity <= includedQuantity}
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Minus size={13} />
                     </button>
@@ -220,6 +228,7 @@ function areProductCardPropsEqual(prev: ProductCardProps, next: ProductCardProps
     prev.product === next.product &&
     prev.activeVariantId === next.activeVariantId &&
     prev.selection === next.selection &&
+    prev.includedQuantity === next.includedQuantity &&
     prev.ledDraft === next.ledDraft
   );
 }

@@ -118,7 +118,15 @@ export function BookingSummarySection({
     ? formatSlotTime(startTime!, endTime!)
     : "";
 
-  const slotAmount = pricing?.baseAmount ?? selectedSlot?.finalPrice ?? 0;
+  const packageAmount =
+    pricing?.packageBaseAmount ??
+    selectedSlot?.finalPrice ??
+    selectedTheatre?.basePrice ??
+    0;
+  const billedExtraHoursAmount =
+    pricing?.extraHoursAmount ?? extraHoursCharge;
+  const slotAmount =
+    pricing?.baseAmount ?? packageAmount + billedExtraHoursAmount;
   const decorationAmount = pricing?.decorationAmount ?? 0;
   const productsAmount = pricing?.productsAmount ?? 0;
   const extrasAmount = pricing?.extrasAmount ?? 0;
@@ -225,7 +233,18 @@ export function BookingSummarySection({
             <>
               <div className="my-3 border-t border-slate-200" />
 
-              <SummaryRow label={hasSlot ? "Slot price" : "Package price"} value={formatCurrency(slotAmount)} />
+              <SummaryRow
+                label={hasSlot ? "Slot price" : "Package price"}
+                value={formatCurrency(packageAmount)}
+              />
+
+              {billedExtraHoursAmount > 0 ? (
+                <SummaryRow
+                  label="Extra hours"
+                  value={formatCurrency(billedExtraHoursAmount)}
+                  valueClassName="font-semibold text-amber-700"
+                />
+              ) : null}
 
               {decorationAmount > 0 ? (
                 <SummaryRow
@@ -248,6 +267,14 @@ export function BookingSummarySection({
                           <p className="truncate text-xs font-medium text-slate-900">
                             {item.productName} ({item.variantLabel}) x{item.quantity}
                           </p>
+                          {item.includedQuantity > 0 ? (
+                            <p className="text-[11px] text-slate-500">
+                              {item.includedQuantity} included
+                              {item.extraQuantity > 0
+                                ? ` + ${item.extraQuantity} extra × ${formatCurrency(item.unitPrice)}`
+                                : ""}
+                            </p>
+                          ) : null}
                           {item.ledNumber ? (
                             <p className="text-[11px] text-slate-500">
                               {getNumberDecorationLabel({
@@ -260,29 +287,47 @@ export function BookingSummarySection({
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-slate-800">
-                            {formatCurrency(item.totalPrice)}
+                            {item.totalPrice > 0 ? (
+                              formatCurrency(item.totalPrice)
+                            ) : (
+                              <span className="font-semibold text-emerald-700">
+                                Included
+                              </span>
+                            )}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => onRemoveSelectedProduct(item.key)}
-                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 text-[11px] font-semibold text-slate-600 hover:bg-slate-100"
-                            aria-label="Remove product"
-                            title="Remove product"
-                          >
-                            x
-                          </button>
+                          {item.includedQuantity === 0 || item.extraQuantity > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveSelectedProduct(item.key)}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 text-[11px] font-semibold text-slate-600 hover:bg-slate-100"
+                              aria-label={
+                                item.includedQuantity > 0
+                                  ? "Remove extra quantity"
+                                  : "Remove product"
+                              }
+                              title={
+                                item.includedQuantity > 0
+                                  ? "Remove extras"
+                                  : "Remove product"
+                              }
+                            >
+                              x
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-2 border-t border-slate-200 pt-2">
-                    <SummaryRow
-                      label="Products total"
-                      value={formatCurrency(productsAmount)}
-                      valueClassName="text-xs font-semibold text-slate-900"
-                    />
-                  </div>
+                  {productsAmount > 0 ? (
+                    <div className="mt-2 border-t border-slate-200 pt-2">
+                      <SummaryRow
+                        label="Products total"
+                        value={formatCurrency(productsAmount)}
+                        valueClassName="text-xs font-semibold text-slate-900"
+                      />
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 

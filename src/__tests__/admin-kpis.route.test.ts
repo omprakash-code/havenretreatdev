@@ -120,6 +120,17 @@ describe("GET /api/admin/kpis", () => {
         mismatchCount: 2,
       })
     );
+
+    const [queryParts] = prismaMock.$queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    const sql = Array.from(queryParts).join(" ");
+    expect(sql).toContain(
+      `b."bookingStatus" IN ('INCOMPLETE', 'AWAITING_PAYMENT', 'PAYMENT_PROCESSING')`
+    );
+    expect(sql).not.toContain('"Slot"');
+    expect(sql).not.toContain('"BookingLock"');
   });
 
   it("returns 401 when admin is not authenticated", async () => {

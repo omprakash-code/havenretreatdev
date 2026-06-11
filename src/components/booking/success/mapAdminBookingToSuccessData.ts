@@ -60,8 +60,16 @@ export function mapAdminBookingToSuccessData(
     occasionDetails: buildOccasionDetails(booking.occasionData),
     guestCount: booking.guestCount,
     decorationRequired: booking.decorationRequired,
-    packageAmount: booking.pricing.base,
+    durationHours: schedule?.durationHours ?? null,
+    includedDurationHours:
+      schedule?.durationHours != null && booking.pricing.extraDurationHours != null
+        ? Math.max(schedule.durationHours - booking.pricing.extraDurationHours, 0)
+        : null,
+    extraDurationHours: booking.pricing.extraDurationHours ?? null,
+    packageAmount: booking.pricing.packageAmount ?? booking.pricing.base,
+    extraDurationAmount: booking.pricing.extraDurationAmount ?? null,
     extrasAmount: booking.pricing.extras,
+    decorationAmount: booking.pricing.decoration,
     totalAmount: booking.pricing.total,
     advancePaid: booking.pricing.advancePaid,
     remainingPayable: booking.pricing.remainingPayable,

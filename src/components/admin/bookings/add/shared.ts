@@ -29,6 +29,8 @@ export type TheatreOption = {
   extraPersonPrice: number;
   decorationPrice: number;
   basePrice?: number;
+  eventDurationHours?: number;
+  hourlyRate?: number;
   slots: SlotOption[];
 };
 
@@ -83,6 +85,8 @@ export type SelectedProductSummaryItem = {
   productName: string;
   variantLabel: string;
   quantity: number;
+  includedQuantity: number;
+  extraQuantity: number;
   unitPrice: number;
   totalPrice: number;
   ledNumber?: string;
@@ -90,6 +94,10 @@ export type SelectedProductSummaryItem = {
 
 export type PricingSummary = {
   baseAmount: number;
+  packageBaseAmount?: number;
+  extraDurationHours?: number;
+  extraHourlyRate?: number;
+  extraHoursAmount?: number;
   extrasAmount: number;
   productsAmount: number;
   decorationAmount: number;

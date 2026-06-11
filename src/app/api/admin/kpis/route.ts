@@ -102,19 +102,6 @@ export async function GET() {
           COUNT(*) FILTER (WHERE b."bookingStatus" = 'ABANDONED') AS abandoned_lifetime,
           COUNT(*) FILTER (
             WHERE b."bookingStatus" IN ('INCOMPLETE', 'AWAITING_PAYMENT', 'PAYMENT_PROCESSING')
-              AND (
-                (
-                  s."status" = 'LOCKED'
-                  AND s."lockExpiresAt" > NOW()
-                )
-                OR EXISTS (
-                  SELECT 1
-                  FROM "BookingLock" bl
-                  WHERE bl."bookingId" = b."id"
-                    AND bl."status" = 'ACTIVE'
-                    AND bl."expiresAt" > NOW()
-                )
-              )
           ) AS live_bookings,
           COALESCE(SUM(b."totalAmount") FILTER (
             WHERE b."paymentStatus" = 'PAID'
@@ -147,7 +134,6 @@ export async function GET() {
               AND b."createdAt" < ${currentStart}
           ) AS abandoned_previous
         FROM "Booking" b
-        LEFT JOIN "Slot" s ON s."id" = b."slotId"
         WHERE b."cancelledReason" IS DISTINCT FROM 'ADMIN_SOFT_DELETED'
       `,
       getCouponAuditReport({ mismatchLimit: 0 }),
