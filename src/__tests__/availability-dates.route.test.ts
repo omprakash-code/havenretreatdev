@@ -13,6 +13,9 @@ const { prismaMock } = vi.hoisted(() => ({
     booking: {
       findMany: vi.fn(),
     },
+    location: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -137,7 +140,7 @@ describe("GET /api/availability/dates", () => {
 
   it("returns no dates when no package maps the location to a venue", async () => {
     prismaMock.eventPackage.findMany.mockResolvedValue([]);
-    prismaMock.venue.findMany = vi.fn().mockResolvedValue([{ id: "venue-fallback" }]);
+    prismaMock.location.findFirst.mockResolvedValue(null);
 
     const res = await GET(makeRequest({ locationId: "unknown-loc" }));
     expect(res.status).toBe(200);

@@ -141,7 +141,17 @@ export async function buildBookingTicketPdf(
   }
 
   drawSectionCard(layout, "Important", [
-    { label: "Status", value: "Your booking is confirmed.", tone: "strong" },
+    { label: "Status", value: "Your booking request has been received and is PENDING REVIEW — your date is held but NOT confirmed until Haven Retreat approves.", tone: "strong" },
+    {
+      label: "Deposit",
+      value: "$150 deposit is non-refundable.",
+      tone: "normal",
+    },
+    {
+      label: "Balance Due",
+      value: "Remaining balance is due one week prior to your event.",
+      tone: "normal",
+    },
     {
       label: "Entry",
       value: "Please show this receipt at the venue on arrival.",

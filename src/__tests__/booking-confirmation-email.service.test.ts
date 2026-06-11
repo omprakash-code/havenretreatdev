@@ -66,7 +66,7 @@ describe("sendBookingConfirmationEmail", () => {
     expect(sendEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "demo@example.com",
-        subject: "Your Haven Retreat booking is confirmed - HR-BOOK-100",
+        subject: "Your Haven Retreat booking request received - HR-BOOK-100",
         react: null,
         attachments: expect.arrayContaining([
           {
@@ -97,7 +97,7 @@ describe("sendBookingConfirmationEmail", () => {
     expect(sendEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "demo@example.com",
-        subject: "Your Haven Retreat booking is confirmed - HR-BOOK-100",
+        subject: "Your Haven Retreat booking request received - HR-BOOK-100",
         react: null,
         attachments: expect.arrayContaining([
           expect.objectContaining({

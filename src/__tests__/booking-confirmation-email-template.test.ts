@@ -40,6 +40,6 @@ describe("BookingConfirmationEmail template", () => {
         "dark"
       )
     );
-    expect(html).toContain("Balance at Theatre");
+    expect(html).toContain("Balance at Venue");
   });
 });

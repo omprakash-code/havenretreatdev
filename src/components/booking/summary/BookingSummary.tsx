@@ -1055,9 +1055,14 @@ export default function BookingSummary({
         <div className="mt-4 border-t border-black/10 px-1 pt-3">
           <div className="flex items-start gap-2 border border-amber-200 bg-amber-50 px-3 py-2.5">
             <Info size={13} className="mt-0.5 shrink-0 text-amber-600" />
-            <p className="text-xs leading-relaxed text-amber-800">
-              Your booking is <strong>not confirmed</strong> until reviewed and approved by Haven Retreat.
-            </p>
+            <div>
+              <p className="text-xs leading-relaxed text-amber-800">
+                Your booking is <strong>not confirmed</strong> until reviewed and approved by Haven Retreat.
+              </p>
+              <p className="mt-1 text-[10px] leading-relaxed text-amber-700">
+                $150 deposit is non-refundable &nbsp;·&nbsp; Remaining balance due one week before your event
+              </p>
+            </div>
           </div>
           <p className="mt-2.5 flex items-center justify-center gap-2 text-xs text-gray-500">
             <WhatsAppIcon size={14} className="text-green-500" />

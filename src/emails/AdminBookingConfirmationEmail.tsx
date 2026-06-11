@@ -88,7 +88,7 @@ export default function AdminBookingConfirmationEmail({
         <tbody>
           <BookingEmailHeader
             eyebrow="New Booking"
-            title="Booking Confirmed"
+            title="Booking Received"
             backgroundColor={bookingEmailColors.brandAccent}
             textColor={accentTextColor}
             logoBorder={logoBorder}

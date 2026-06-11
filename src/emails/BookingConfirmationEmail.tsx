@@ -209,7 +209,7 @@ export default function BookingConfirmationEmail({
   advancePaid,
   remainingPayable,
 }: BookingConfirmationEmailProps) {
-  const showBalanceAtTheatre = remainingPayable > 0;
+  const showBalanceAtVenue = remainingPayable > 0;
   const sanitizedDetails = occasionDetails
     .filter(
       (detail) =>
@@ -402,7 +402,39 @@ export default function BookingConfirmationEmail({
           </tr>
 
           <tr>
-            <td style={{ padding: "14px 8px 0" }}>
+            <td style={{ padding: "10px 8px 0" }}>
+              <table
+                role="presentation"
+                cellPadding={0}
+                cellSpacing={0}
+                style={{
+                  width: "100%",
+                  backgroundColor: "#fffbeb",
+                  border: "1px solid #fcd34d",
+                  borderRadius: 4,
+                }}
+              >
+                <tbody>
+                  <tr>
+                    <td style={{ padding: "10px 12px" }}>
+                      <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "#92400e", fontFamily: "'Courier New', Courier, monospace" }}>
+                        ⚠ Booking NOT Confirmed
+                      </p>
+                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "#b45309", lineHeight: 1.5, fontFamily: "'Courier New', Courier, monospace" }}>
+                        Haven Retreat will review your request and contact you to approve your date. Please do not make arrangements until you receive confirmation.
+                      </p>
+                      <p style={{ margin: "6px 0 0", fontSize: 10, color: "#b45309", fontFamily: "'Courier New', Courier, monospace" }}>
+                        $150 deposit is non-refundable &nbsp;·&nbsp; Remaining balance due one week before your event
+                      </p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style={{ padding: "10px 8px 0" }}>
               <table
                 role="presentation"
                 cellPadding={0}
@@ -754,7 +786,7 @@ export default function BookingConfirmationEmail({
                               {formatMoney(advancePaid)}
                             </td>
                           </tr>
-                          {showBalanceAtTheatre ? (
+                          {showBalanceAtVenue ? (
                             <tr>
                               <td
                                 align="left"
@@ -767,7 +799,7 @@ export default function BookingConfirmationEmail({
                                   textTransform: "uppercase" as const,
                                 }}
                               >
-                                Balance at Theatre
+                                Balance at Venue
                               </td>
                               <td
                                 align="right"
@@ -807,7 +839,7 @@ export default function BookingConfirmationEmail({
                 textAlign: "center",
               }}
             >
-              Automated confirmation from Haven Retreat &nbsp;·&nbsp; Contact our booking team for support
+              Booking request received &nbsp;·&nbsp; Contact our booking team for support
             </td>
           </tr>
         </tbody>

@@ -335,12 +335,26 @@ export async function buildBookingConfirmationPdfAttachment(
   }
   writeSectionCard(doc, state, pageHeight, "Payment Summary", paymentRows);
 
+  ensureSpace(doc, state, pageHeight, 14);
+  doc.setFillColor(255, 251, 235);
+  doc.setDrawColor(252, 211, 77);
+  doc.roundedRect(12, state.y, 186, 13, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.6);
+  doc.setTextColor(146, 64, 14);
+  doc.text("Booking Pending Approval", 16, state.y + 5.2);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.2);
+  doc.setTextColor(180, 83, 9);
+  doc.text("$150 deposit is non-refundable. Remaining balance is due one week prior to your event.", 16, state.y + 10.4);
+  state.y += 16;
+
   state.y += 2;
   ensureSpace(doc, state, pageHeight, 8);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(100, 116, 139);
-  doc.text("This is a system-generated confirmation PDF.", 12, state.y);
+  doc.text("This is a system-generated booking receipt. Your booking is pending review.", 12, state.y);
 
   const filenameBase = sanitizeFilename(effectiveBookingRef) || "booking-confirmation";
   const arrayBuffer = doc.output("arraybuffer");

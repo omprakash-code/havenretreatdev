@@ -340,9 +340,7 @@ ${shareUrl}`;
                   bold
                 />
                 <p className="text-[11px] leading-relaxed text-slate-500 sm:text-xs">
-                  Balance due on arrival. Please arrive 15 minutes before your
-                  booking time and keep your booking reference handy. Accepted at venue:
-                  Card or Cash.
+                  $150 deposit is non-refundable. Remaining balance is due one week prior to your event. Balance can be paid at the venue via Card or Cash.
                 </p>
               </div>
             )}
@@ -365,6 +363,13 @@ ${shareUrl}`;
                 )}
               </div>
             )}
+          </div>
+
+          <div className="border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed sm:p-3">
+            <p className="font-bold text-amber-800">Booking pending approval</p>
+            <p className="mt-0.5 text-amber-700">
+              Your date is held but <strong>NOT confirmed</strong> until Haven Retreat reviews and approves your booking. You will be contacted once approved — please do not make arrangements in the meantime.
+            </p>
           </div>
 
           <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-relaxed text-slate-600 sm:p-3 sm:text-xs">

@@ -40,7 +40,7 @@ export async function sendBookingConfirmationEmail({
 
   await sendEmail({
     to,
-    subject: `Your Haven Retreat booking is confirmed - ${bookingRef}`,
+    subject: `Your Haven Retreat booking request received - ${bookingRef}`,
     react: renderBookingConfirmationEmail(emailData, theme),
     attachments: attachments.length > 0 ? attachments : undefined,
   });
