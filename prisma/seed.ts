@@ -108,6 +108,7 @@ type PackageSeed = {
   savingsAmount: number;
   finalAmount: number;
   decorationAddonPrice: number;
+  decorationDefault: boolean;
   isPopular: boolean;
   sortOrder: number;
   included: string[];
@@ -131,6 +132,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     savingsAmount: 0,
     finalAmount: 568,
     decorationAddonPrice: 375,
+    decorationDefault: true,
     isPopular: false,
     sortOrder: 1,
     included: [
@@ -165,6 +167,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     savingsAmount: 0,
     finalAmount: 692,
     decorationAddonPrice: 375,
+    decorationDefault: true,
     isPopular: true,
     sortOrder: 2,
     included: [
@@ -199,6 +202,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     savingsAmount: 0,
     finalAmount: 841,
     decorationAddonPrice: 375,
+    decorationDefault: true,
     isPopular: false,
     sortOrder: 3,
     included: [
@@ -233,6 +237,7 @@ const PACKAGE_SEEDS: PackageSeed[] = [
     savingsAmount: 0,
     finalAmount: 990,
     decorationAddonPrice: 375,
+    decorationDefault: true,
     isPopular: false,
     sortOrder: 4,
     included: [
@@ -731,6 +736,7 @@ async function seedVenuePackages(locationId: string) {
         rentalAmount: seed.rentalAmount,
         decorationAmount: seed.decorationAmount,
         decorationAddonPrice: seed.decorationAddonPrice,
+        decorationDefault: seed.decorationDefault,
         cleaningAmount: seed.cleaningAmount,
         subtotalAmount: seed.subtotalAmount,
         savingsAmount: seed.savingsAmount,
@@ -752,6 +758,7 @@ async function seedVenuePackages(locationId: string) {
         rentalAmount: seed.rentalAmount,
         decorationAmount: seed.decorationAmount,
         decorationAddonPrice: seed.decorationAddonPrice,
+        decorationDefault: seed.decorationDefault,
         cleaningAmount: seed.cleaningAmount,
         subtotalAmount: seed.subtotalAmount,
         savingsAmount: seed.savingsAmount,

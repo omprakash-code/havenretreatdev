@@ -93,6 +93,7 @@ model EventPackage {
   savingsAmount           Int    @default(0)
   finalAmount             Int
   decorationAddonPrice    Int     @default(375)
+  decorationDefault       Boolean @default(true)
   locationId              String?
   isPopular               Boolean @default(false)
   sortOrder               Int     @default(0)

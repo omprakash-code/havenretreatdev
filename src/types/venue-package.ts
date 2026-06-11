@@ -61,6 +61,7 @@ export type EventPackageSummary = {
   savingsAmount: number;
   finalAmount: number;
   decorationAddonPrice: number;
+  decorationDefault: boolean;
   locationId?: string | null;
   isPopular: boolean;
   sortOrder: number;

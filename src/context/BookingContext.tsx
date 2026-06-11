@@ -295,6 +295,7 @@ export function BookingProvider({
   ------------------------------ */
 const loadBooking = async () => {
   setLoading(true);
+  setItemsHydrated(false);
 
   const loadPrebookingSnapshot = async () => {
     const pre = await fetch("/api/prebooking/current", {
@@ -510,6 +511,7 @@ const loadBooking = async () => {
             }
           : undefined,
       });
+      setItemsHydrated(true);
 
       return;
     }
@@ -540,10 +542,6 @@ const loadBooking = async () => {
   useEffect(() => {
     loadBooking();
   }, []);
-
-  useEffect(() => {
-    setItemsHydrated(false);
-  }, [booking.bookingId]);
 
   /* -----------------------------
    Pricing

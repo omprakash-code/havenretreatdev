@@ -44,6 +44,7 @@ const PACKAGE = {
   rentalAmount: 1000,
   decorationAmount: 200,
   decorationAddonPrice: 300,
+  decorationDefault: true,
   cleaningAmount: 100,
   subtotalAmount: 1500,
   hourlyRate: 150,
@@ -263,6 +264,18 @@ describe("createOrReplaceVenueBookingSession", () => {
     const createCall = tx.booking.create.mock.calls[0][0];
     expect(createCall.data.venueId).toBe("venue-1");
     expect(createCall.data.packageId).toBe("pkg-1");
+  });
+
+  it("starts a booking with the package decoration default and price", async () => {
+    const tx = makeTxClient();
+    withTx(tx);
+    await createOrReplaceVenueBookingSession(VALID_INPUT, "guest-1", null);
+
+    const createCall = tx.booking.create.mock.calls[0][0];
+    expect(createCall.data.decorationRequired).toBe(true);
+    expect(createCall.data.decorationAmount).toBe(300);
+    expect(createCall.data.totalAmount).toBe(1800);
+    expect(createCall.data.remainingPayable).toBe(1650);
   });
 
   // ── Successful replacement ─────────────────────────────────────────────────

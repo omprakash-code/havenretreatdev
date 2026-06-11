@@ -28,6 +28,7 @@ export function buildPackageSnapshot(eventPackage: PackageRecord) {
     savingsAmount: 0,
     finalAmount: eventPackage.subtotalAmount,
     decorationAddonPrice: eventPackage.decorationAddonPrice,
+    decorationDefault: eventPackage.decorationDefault,
     features: eventPackage.features.map((feature) => ({
       group: feature.group,
       label: feature.label,

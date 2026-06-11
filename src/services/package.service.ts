@@ -87,6 +87,7 @@ async function mapPackageSummary(
     savingsAmount: record.savingsAmount,
     finalAmount: record.finalAmount,
     decorationAddonPrice: record.decorationAddonPrice,
+    decorationDefault: record.decorationDefault,
     locationId: record.locationId,
     isPopular: record.isPopular,
     sortOrder: record.sortOrder,

@@ -284,6 +284,12 @@ export async function createOrReplaceVenueBookingSession(
     );
     const baseAmount =
       pricingSnapshot.packageAmount + pricingSnapshot.extraDurationAmount;
+    const decorationRequired = eventPackage.decorationDefault;
+    const decorationAmount = decorationRequired
+      ? Math.max(0, eventPackage.decorationAddonPrice)
+      : 0;
+    const totalAmount = pricingSnapshot.totalAmount + decorationAmount;
+    const remainingPayable = pricingSnapshot.remainingPayable + decorationAmount;
 
     let bookingId: string;
     let newVersion: number;
@@ -313,11 +319,12 @@ export async function createOrReplaceVenueBookingSession(
           baseAmount,
           extrasAmount: 0,
           productsAmount: 0,
-          decorationAmount: 0,
+          decorationRequired,
+          decorationAmount,
           discountAmount: 0,
-          totalAmount: pricingSnapshot.totalAmount,
+          totalAmount,
           advancePaid: 0,
-          remainingPayable: pricingSnapshot.remainingPayable,
+          remainingPayable,
           lockVersion: newVersion,
           holdExpiresAt: getBookingHoldExpiry(now),
           bookingStatus: "INCOMPLETE",
@@ -346,10 +353,13 @@ export async function createOrReplaceVenueBookingSession(
           pricingSnapshot,
           baseAmount,
           extrasAmount: 0,
+          productsAmount: 0,
+          decorationRequired,
+          decorationAmount,
           discountAmount: 0,
-          totalAmount: pricingSnapshot.totalAmount,
+          totalAmount,
           advancePaid: 0,
-          remainingPayable: pricingSnapshot.remainingPayable,
+          remainingPayable,
           bookingStatus: "INCOMPLETE",
           lockVersion: newVersion,
           holdExpiresAt: getBookingHoldExpiry(now),

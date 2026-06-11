@@ -2,6 +2,29 @@
 
 Haven Retreat is a full-stack booking platform for a private outdoor event venue in Miami, Florida. Guests pick a date and time window, choose a package, provide contact details, and pay a deposit — all in one guided flow.
 
+## Package booking journey
+
+Each `EventPackage` controls the customer's initial decoration choice through
+`decorationDefault`.
+
+- `true` (default): decoration starts as **Yes**. After contact details, the
+  customer continues through occasion and add-on selection.
+- `false`: decoration starts as **No**. After contact details, the customer
+  continues directly to the agreement.
+
+Change an existing package with SQL:
+
+```sql
+UPDATE "EventPackage"
+SET "decorationDefault" = false
+WHERE "slug" = 'starter-package';
+```
+
+For seeded environments, change `decorationDefault` on the matching entry in
+`prisma/seed.ts` and run the seed again. The value is copied into each new
+booking, so changing a package affects new booking journeys without rewriting
+bookings already in progress.
+
 ---
 
 ## Business Overview
