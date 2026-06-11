@@ -31,6 +31,7 @@ export type BookingSummaryProps = {
   submitLabel?: React.ReactNode;
   hideSubmitOnMobile?: boolean;
   onMobileInlineSubmitVisibilityChange?: (visible: boolean) => void;
+  showCouponControls?: boolean;
   occasionPreview?: {
     label: string;
     data: Record<string, string>;

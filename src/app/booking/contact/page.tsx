@@ -22,9 +22,6 @@ export default function ContactPage() {
 
 
   const [contact, setLocalContact] = useState(() => booking.contact ?? null);
-  const [couponIdentityPhone, setCouponIdentityPhone] = useState(
-    () => booking.contact?.phone ?? ""
-  );
   const decorationRequiredRef = useRef(
     booking.schedule?.decorationMandatory
       ? true
@@ -44,12 +41,6 @@ export default function ContactPage() {
       ? true
       : booking.decorationRequired;
   }, [booking.schedule?.decorationMandatory, booking.decorationRequired]);
-
-  useEffect(() => {
-    if (!couponIdentityPhone && booking.contact?.phone) {
-      setCouponIdentityPhone(booking.contact.phone);
-    }
-  }, [booking.contact?.phone, couponIdentityPhone]);
 
   const locationId = booking.location?.id ?? "";
   const selectedPackageKey = booking.package
@@ -157,17 +148,16 @@ export default function ContactPage() {
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-[#f6f8f7]">
       <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-0 sm:pt-5 pb-5">
-        <div className="grid grid-cols-1 gap-5 pt-4 lg:grid-cols-3 lg:items-start lg:gap-5">
+        <div className="grid grid-cols-1 gap-5 pt-4 lg:grid-cols-3 lg:items-stretch lg:gap-5">
           {/* LEFT */}
-          <div className="lg:col-span-2 min-w-0">
+          <div className="min-w-0 lg:col-span-2 lg:flex lg:flex-col">
             <StepIndicator currentStep={2} className="lg:hidden !px-2 !py-2" />
-            <div className="min-w-0">
+            <div className="min-w-0 lg:flex lg:flex-1">
               <ContactForm
                 formId={formId}
                 onSubmit={handleFormSubmit}
                 onContactChange={setLocalContact}
                 onDecorationChange={handleDecorationChange}
-                onCouponIdentityPhoneChange={setCouponIdentityPhone}
               />
             </div>
           </div>
@@ -183,7 +173,7 @@ export default function ContactPage() {
               enableInvalidSubmitFeedback={
                 hasMissingContactDetails && !isSubmitting
               }
-              couponIdentityOverride={{ phone: couponIdentityPhone }}
+              showCouponControls={false}
               submitLabel={
                 isSubmitting
                   ? "Saving..."

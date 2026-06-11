@@ -7,9 +7,18 @@ import {
   BOOKING_REVIEW_TITLE,
 } from "@/constants/booking-status-copy";
 
-type PdfImage = {
+export type PdfImage = {
   dataUrl: string;
   format: "PNG" | "JPEG";
+};
+
+type PdfImageLoader = (
+  sourceUrl: string | null,
+  options: ImageProcessOptions
+) => Promise<PdfImage | null>;
+
+export type BookingTicketPdfOptions = {
+  loadImage?: PdfImageLoader;
 };
 
 type PdfLayout = {
@@ -42,7 +51,7 @@ const COLORS = {
   textSuccess: [52, 127, 124] as const,
 };
 
-const SUCCESS_VENUE_IMAGE = "/media/booking/success/pool-view.avif";
+const SUCCESS_VENUE_IMAGE = "/media/booking/location/booking-bg-1.jpg";
 
 function bookingTimeRangeLabel(input: string) {
   const raw = String(input || "").trim();
@@ -76,7 +85,8 @@ function formatDurationLabel(data: BookingSuccessData) {
 }
 
 export async function buildBookingTicketPdf(
-  data: BookingSuccessData
+  data: BookingSuccessData,
+  options: BookingTicketPdfOptions = {}
 ): Promise<{ filename: string; arrayBuffer: ArrayBuffer }> {
   const { jsPDF } = await import("jspdf");
 
@@ -101,20 +111,21 @@ export async function buildBookingTicketPdf(
     (item) => item.quantity > 0
   );
 
-  const logoPromise = loadProcessedImage("/assets/logo.png", {
+  const loadImage = options.loadImage ?? loadProcessedImage;
+  const logoPromise = loadImage("/assets/logo.png", {
     width: 286,
     height: 286,
     radius: 0,
     mode: "contain",
   });
-  const venueImagePromise = loadProcessedImage(SUCCESS_VENUE_IMAGE, {
+  const venueImagePromise = loadImage(SUCCESS_VENUE_IMAGE, {
     width: 640,
     height: 420,
     radius: 0,
     mode: "cover",
   });
   const productImagePromises = items.map(async (item) => {
-    const image = await loadProcessedImage(item.image ?? null, {
+    const image = await loadImage(item.image ?? null, {
       width: 140,
       height: 140,
       radius: 0,
@@ -210,6 +221,7 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     Math.max(data.guestCount - (data.includedGuestCount ?? data.guestCount), 0);
   const extraPersonPrice = data.extraPersonPrice ?? 0;
   const extraGuestAmount = extraGuestCount * extraPersonPrice;
+  const fallbackExtrasAmount = Math.max(data.extrasAmount ?? 0, 0);
 
   const rows: SectionRow[] = [];
 
@@ -238,6 +250,11 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     rows.push({
       label: `Extra Guests (${extraGuestCount} × ${formatCurrency(extraPersonPrice)})`,
       value: formatCurrency(extraGuestAmount),
+    });
+  } else if (fallbackExtrasAmount > 0) {
+    rows.push({
+      label: "Extra Guests",
+      value: formatCurrency(fallbackExtrasAmount),
     });
   }
 

@@ -84,6 +84,7 @@ export default function BookingSummary({
   submitLabel,
   hideSubmitOnMobile = false,
   onMobileInlineSubmitVisibilityChange,
+  showCouponControls = true,
   occasionPreview,
   extrasProgress,
   couponIdentityOverride,
@@ -826,7 +827,7 @@ export default function BookingSummary({
               </section>
             )}
 
-            {(canApplyCoupon || appliedCoupons.length > 0) && (
+            {showCouponControls && (canApplyCoupon || appliedCoupons.length > 0) && (
               <section className="border border-[#d7e4e1] bg-white p-3.5">
                 {canApplyCoupon && (
                   <div className="space-y-0">

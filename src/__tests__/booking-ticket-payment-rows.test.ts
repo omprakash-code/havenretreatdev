@@ -51,4 +51,21 @@ describe("booking ticket payment rows", () => {
       ])
     );
   });
+
+  it("shows email-sourced extra guest charges without guest breakdown fields", () => {
+    const rows = buildPaymentRows(
+      makeBookingData({
+        extrasAmount: 40,
+        includedGuestCount: undefined,
+        extraGuestCount: undefined,
+        extraPersonPrice: undefined,
+      })
+    );
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Extra Guests", value: "$40" }),
+      ])
+    );
+  });
 });

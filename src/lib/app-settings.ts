@@ -37,6 +37,10 @@ export const EXTRA_HOURLY_RATE_KEY = "EXTRA_HOURLY_RATE";
 export const EXTRA_HOURLY_RATE_MIN = 0;
 export const EXTRA_HOURLY_RATE_MAX = 50000;
 export const DEFAULT_EXTRA_HOURLY_RATE = 120;
+export const SLOT_EXPIRY_GRACE_MINUTES_KEY = "SLOT_EXPIRY_GRACE_MINUTES";
+export const SLOT_EXPIRY_MODE_KEY = "SLOT_EXPIRY_MODE";
+export const SLOT_EXPIRY_GRACE_MINUTES_MIN = 0;
+export const SLOT_EXPIRY_GRACE_MINUTES_MAX = 1440;
 
 export const PRIORITY_SETTING_KEYS = [
   "SPECIAL_SLOT_TEXT",
@@ -44,6 +48,8 @@ export const PRIORITY_SETTING_KEYS = [
   BOOKING_LOCK_MINUTES_KEY,
   MINIMUM_BOOKING_DURATION_HOURS_KEY,
   EXTRA_HOURLY_RATE_KEY,
+  SLOT_EXPIRY_GRACE_MINUTES_KEY,
+  SLOT_EXPIRY_MODE_KEY,
 ] as const;
 
 export const APP_SETTING_META: Record<string, SettingMeta> = {
@@ -98,6 +104,30 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
     max: EXTRA_HOURLY_RATE_MAX,
     step: 1,
   },
+  [SLOT_EXPIRY_GRACE_MINUTES_KEY]: {
+    label: "Late Arrival Grace Period (minutes)",
+    description:
+      "Additional time allowed after the scheduled start before the booking is treated as expired.",
+    type: "number",
+    placeholder: "30",
+    defaultValue: "30",
+    min: SLOT_EXPIRY_GRACE_MINUTES_MIN,
+    max: SLOT_EXPIRY_GRACE_MINUTES_MAX,
+    step: 1,
+  },
+  [SLOT_EXPIRY_MODE_KEY]: {
+    label: "Booking Expiry Reference",
+    description:
+      "Choose the point used to determine when a scheduled booking begins its expiry window.",
+    type: "select",
+    defaultValue: "START_TIME",
+    options: [
+      {
+        label: "Scheduled start time",
+        value: "START_TIME",
+      },
+    ],
+  },
 };
 
 export function normalizeAppSettingValue(key: string, value: string) {
@@ -125,6 +155,16 @@ export function normalizeAppSettingValue(key: string, value: string) {
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed)) return trimmed;
     return String(Math.trunc(parsed));
+  }
+
+  if (key === SLOT_EXPIRY_GRACE_MINUTES_KEY) {
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) return trimmed;
+    return String(Math.trunc(parsed));
+  }
+
+  if (key === SLOT_EXPIRY_MODE_KEY) {
+    return trimmed.toUpperCase();
   }
 
   return trimmed;
@@ -207,6 +247,27 @@ export function validateAppSetting(key: string, value: string) {
     }
     if (amount > EXTRA_HOURLY_RATE_MAX) {
       return `Amount must be at most ${EXTRA_HOURLY_RATE_MAX}.`;
+    }
+    return null;
+  }
+
+  if (key === SLOT_EXPIRY_GRACE_MINUTES_KEY) {
+    const minutes = Number(normalized);
+    if (!Number.isFinite(minutes) || !Number.isInteger(minutes)) {
+      return "Grace period must be a whole number.";
+    }
+    if (minutes < SLOT_EXPIRY_GRACE_MINUTES_MIN) {
+      return "Grace period cannot be negative.";
+    }
+    if (minutes > SLOT_EXPIRY_GRACE_MINUTES_MAX) {
+      return `Grace period must be at most ${SLOT_EXPIRY_GRACE_MINUTES_MAX} minutes.`;
+    }
+    return null;
+  }
+
+  if (key === SLOT_EXPIRY_MODE_KEY) {
+    if (normalized !== "START_TIME") {
+      return "Select a valid expiry reference.";
     }
     return null;
   }

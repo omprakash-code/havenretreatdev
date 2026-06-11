@@ -23,7 +23,6 @@ function formatCurrency(amount: number) {
 export default function ContactForm({
   onContactChange,
   onDecorationChange,
-  onCouponIdentityPhoneChange,
   formId = "booking-contact-form",
   onSubmit,
 }: {
@@ -35,7 +34,6 @@ export default function ContactForm({
     } | null
   ) => void;
   onDecorationChange?: (value: boolean) => void;
-  onCouponIdentityPhoneChange?: (phone: string) => void;
   formId?: string;
   onSubmit?: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
@@ -67,7 +65,6 @@ export default function ContactForm({
     name: booking.contact?.name ?? "",
     mobile: booking.contact?.phone ?? "",
     email: booking.contact?.email ?? "",
-    notes: "",
   }));
 
 
@@ -131,10 +128,6 @@ export default function ContactForm({
       onContactChange(null);
     }
   }, [isFormValid, form, onContactChange]);
-
-  useEffect(() => {
-    onCouponIdentityPhoneChange?.(form.mobile);
-  }, [form.mobile, onCouponIdentityPhoneChange]);
 
   /* -----------------------------
      Autofocus first error
@@ -218,7 +211,7 @@ export default function ContactForm({
       id={formId}
       autoComplete="on"
       onSubmit={onSubmit}
-      className="w-full min-w-0 border border-[#2f7e7a]/30 bg-white p-4 shadow-sm sm:p-6 md:p-8"
+      className="w-full min-w-0 border border-[#2f7e7a]/30 bg-white p-4 shadow-sm sm:p-6 md:p-8 lg:h-full"
     >
       <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="flex min-w-0 items-center gap-2 text-1xl font-bold text-[#1f2937]">
@@ -475,21 +468,6 @@ export default function ContactForm({
 
         </div>
       </div>
-      <div className="mt-6 border-t border-black/10 pt-5 md:pt-6">
-        <label className="mb-1 block text-sm font-medium text-[#1f2937]">
-          Special Requests
-          <span className="ml-1.5 text-xs font-normal text-gray-400">(Optional)</span>
-        </label>
-        <textarea
-          name="special_requests"
-          rows={3}
-          placeholder="Any special setup, accessibility needs, or notes for Haven Retreat…"
-          value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          className="w-full border border-[#d7e4e1] bg-[#f8fbfa] px-3 py-2.5 text-sm text-[#1f2937] placeholder-gray-400 transition focus:border-[#347f7c] focus:outline-none focus:ring-1 focus:ring-[#347f7c] resize-none"
-        />
-      </div>
-
       <button type="submit" className="hidden" aria-hidden="true" />
     </form>
   );
