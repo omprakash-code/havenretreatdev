@@ -12,6 +12,7 @@ type PackageCardProps = {
   defaultExpanded?: boolean;
   onBook?: (eventPackage: EventPackageSummary) => void;
   bookLabel?: string;
+  bookDisabled?: boolean;
 };
 
 function formatCurrency(value: number) {
@@ -33,6 +34,7 @@ export default function PackageCard({
   defaultExpanded = false,
   onBook,
   bookLabel = "Book This Package",
+  bookDisabled = false,
 }: PackageCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -137,7 +139,8 @@ export default function PackageCard({
       <button
         type="button"
         onClick={handleBookPlaceholder}
-        className="mx-6 mb-6 mt-0 inline-flex items-center justify-center bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#245e5b]"
+        disabled={bookDisabled}
+        className="mx-6 mb-6 mt-0 inline-flex items-center justify-center bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#245e5b] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:bg-[#347f7c]"
       >
         {bookLabel}
       </button>

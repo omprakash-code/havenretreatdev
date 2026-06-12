@@ -15,7 +15,7 @@ export default function RangePackageList() {
   const { hydrated } = useBooking();
   const [packages, setPackages] = useState<EventPackageSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [navigating, setNavigating] = useState(false);
+  const [navigatingId, setNavigatingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -40,8 +40,8 @@ export default function RangePackageList() {
   }, [hydrated]);
 
   function selectPackage(eventPackage: EventPackageSummary) {
-    if (navigating) return;
-    setNavigating(true);
+    if (navigatingId) return;
+    setNavigatingId(eventPackage.id);
     sessionStorage.setItem("hr_pending_package_id", eventPackage.id);
     sessionStorage.setItem("hr_pending_package_name", eventPackage.name);
     sessionStorage.setItem("hr_pending_package_rate", String(eventPackage.hourlyRate ?? 0));
@@ -118,8 +118,11 @@ export default function RangePackageList() {
               eventPackage={eventPackage}
               onBook={selectPackage}
               bookLabel={
-                navigating ? "Just a moment..." : "Continue with This Package"
+                navigatingId === eventPackage.id
+                  ? "Just a moment..."
+                  : "Continue with This Package"
               }
+              bookDisabled={navigatingId !== null}
             />
           ))}
 
