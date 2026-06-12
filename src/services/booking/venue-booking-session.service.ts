@@ -305,11 +305,10 @@ export async function createOrReplaceVenueBookingSession(
     const baseAmount =
       pricingSnapshot.packageAmount + pricingSnapshot.extraDurationAmount;
     const decorationRequired = eventPackage.decorationDefault;
-    const decorationAmount = decorationRequired
-      ? Math.max(0, eventPackage.decorationAddonPrice)
-      : 0;
-    const totalAmount = pricingSnapshot.totalAmount + decorationAmount;
-    const remainingPayable = pricingSnapshot.remainingPayable + decorationAmount;
+    // Decoration choice is free; decoration packages are sold as product add-ons.
+    const decorationAmount = 0;
+    const totalAmount = pricingSnapshot.totalAmount;
+    const remainingPayable = pricingSnapshot.remainingPayable;
 
     let bookingId: string;
     let newVersion: number;

@@ -1135,9 +1135,6 @@ export async function PATCH(
         theatreBaseGuests: packageSnap?.guestLimit ?? 2,
         theatreExtraPersonPrice:
           packageSnap?.extraPersonPrice ?? PACKAGE_EXTRA_PERSON_PRICE,
-        theatreDecorationPrice: packageSnap?.decorationAddonPrice ?? 0,
-        slotDecorationMandatory: false,
-        decorationRequired: effectiveDecorationRequired,
         productsAmount,
         discountAmount: 0,
         advancePaid: 0,
@@ -1222,9 +1219,6 @@ export async function PATCH(
         theatreBaseGuests: packageSnap?.guestLimit ?? 2,
         theatreExtraPersonPrice:
           packageSnap?.extraPersonPrice ?? PACKAGE_EXTRA_PERSON_PRICE,
-        theatreDecorationPrice: packageSnap?.decorationAddonPrice ?? 0,
-        slotDecorationMandatory: false,
-        decorationRequired: effectiveDecorationRequired,
         productsAmount,
         discountAmount: couponDiscount,
         advancePaid: desiredAdvance,

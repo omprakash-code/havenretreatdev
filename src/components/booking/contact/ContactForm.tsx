@@ -369,18 +369,14 @@ export default function ContactForm({
                 <Balloon size={10} />
                 Included
               </span>
-            ) : (
-              <span className="text-xs font-medium text-gray-500">
-                {`(Starting at ${formatCurrency(Math.max(selectedPackage?.decorationPrice ?? 0, 0))})`}
-              </span>
-            )}
+            ) : null}
           </div>
 
           <p className="mb-2 text-xs text-gray-500">
             {decorationForced
               ? "Decor setup included for this package schedule."
-              : decorationSelected && selectedPackage.decorationPrice > 0
-              ? "Make your experience more special."
+              : decorationSelected
+              ? "Pick a decoration package from the add-ons if you'd like one."
               : " "}
           </p>
 

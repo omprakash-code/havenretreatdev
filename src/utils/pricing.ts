@@ -52,11 +52,11 @@ export function calculatePricing(params: {
 
   /* -----------------------------
     Decoration
+    Decoration packages are sold as product add-ons;
+    the yes/no choice itself is free.
   ------------------------------ */
-  const decoration =
-    decorationSelected
-      ? Number(theatre.decorationPrice) || 0
-      : 0;
+  void decorationSelected;
+  const decoration = 0;
 
   /* -----------------------------
     Discount (future)

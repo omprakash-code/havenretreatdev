@@ -4,9 +4,6 @@ type CalculateBookingPricingInput = {
   guestCount: number;
   theatreBaseGuests: number;
   theatreExtraPersonPrice: number;
-  theatreDecorationPrice: number;
-  slotDecorationMandatory: boolean;
-  decorationRequired: boolean;
   durationHours?: number | null;
   includedDurationHours?: number | null;
   extraHourlyRate?: number | null;
@@ -57,10 +54,8 @@ export function calculateBookingPricing(
   const extraGuestCount = Math.max(guestCount - baseGuests, 0);
   const extrasAmount = extraGuestCount * toMoney(input.theatreExtraPersonPrice);
 
-  const decorationAmount =
-    input.decorationRequired || input.slotDecorationMandatory
-      ? toMoney(input.theatreDecorationPrice)
-      : 0;
+  // Decoration is offered as product add-ons now; choosing "yes" no longer adds a cost.
+  const decorationAmount = 0;
 
   const productsAmount = toMoney(input.productsAmount ?? 0);
   const grossAmount =

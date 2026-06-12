@@ -576,9 +576,8 @@ const loadBooking = async () => {
         (sum, item) => sum + item.totalPrice,
         0
       );
-      const decoration = booking.decorationRequired
-        ? Math.max(Number(booking.package.decorationPrice) || 0, 0)
-        : 0;
+      // Decoration choice is free; decoration packages are sold as product add-ons.
+      const decoration = 0;
       const discount = Math.max(0, Number(booking.couponDiscount) || 0);
       const total = Math.max(
         packageBase + extraHours + extras + decoration + products - discount,

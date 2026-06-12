@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@react-email/render";
 import { renderBookingConfirmationEmail } from "@/emails/renderBookingConfirmationEmail";
+import {
+  BOOKING_REVIEW_TITLE,
+  BOOKING_PAYMENT_APPLIED_MESSAGE,
+} from "@/constants/booking-status-copy";
 
 const baseProps = {
   bookingRef: "DS-BOOK-200",
@@ -46,8 +50,8 @@ describe("BookingConfirmationEmail template", () => {
   it("uses reassuring post-payment status language", async () => {
     const html = await render(renderBookingConfirmationEmail(baseProps, "dark"));
 
-    expect(html).toContain("Request received. Your date is reserved.");
-    expect(html).toContain("Your payment has been applied");
+    expect(html).toContain(BOOKING_REVIEW_TITLE);
+    expect(html).toContain(BOOKING_PAYMENT_APPLIED_MESSAGE);
     expect(html).not.toContain("Booking NOT Confirmed");
     expect(html).not.toContain("deposit is non-refundable");
   });
