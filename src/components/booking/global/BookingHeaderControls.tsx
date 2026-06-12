@@ -9,7 +9,6 @@ import { useBooking } from "@/context/BookingContext";
 import { useMounted } from "@/hooks/useMounted";
 import { toDateKey } from "@/lib/date";
 import { useLockCountdown } from "@/hooks/booking/useLockCountdown";
-import { BOOKING_ROUTES } from "@/constants/routes";
 
 type BookingHeaderControlsProps = {
   readOnly?: boolean;
@@ -88,7 +87,7 @@ export default function BookingHeaderControls({
     setLocation,
   } = useBooking();
 
-  const canEditDateAndLocation = pathname === BOOKING_ROUTES.ROOT;
+  const canEditDateAndLocation = false;
   const isSelectorLocked = readOnly || !canEditDateAndLocation;
 
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
