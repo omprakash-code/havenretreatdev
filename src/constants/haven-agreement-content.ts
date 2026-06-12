@@ -246,6 +246,50 @@ export const HAVEN_AGREEMENT_SECTIONS = [
   },
 ] as const;
 
+export const HAVEN_AGREEMENT_REQUIRED_ACKNOWLEDGMENTS = [
+  {
+    number: 30,
+    key: "safety",
+    title: "SAFETY AND LIABILITY ACKNOWLEDGMENT",
+    body: [
+      "I understand and accept the pool, lake, playground, slide, and general injury liability terms.",
+    ],
+  },
+  {
+    number: 31,
+    key: "damage",
+    title: "CLEANING AND PROPERTY DAMAGE ACKNOWLEDGMENT",
+    body: [
+      "I understand the cleaning policy, floor damage fees, the no-confetti and no-loose-props rules, and my responsibility for property damage.",
+    ],
+  },
+  {
+    number: 32,
+    key: "payment",
+    title: "PAYMENT, CANCELLATION AND WEATHER ACKNOWLEDGMENT",
+    body: [
+      "I understand the $150 non-refundable deposit policy, payment deadlines, rescheduling rules, and rain-or-shine policy.",
+    ],
+  },
+  {
+    number: 33,
+    key: "conduct",
+    title: "ALCOHOL, GUESTS AND NEIGHBORHOOD ACKNOWLEDGMENT",
+    body: [
+      "I understand and accept responsibility for guest conduct, alcohol-related incidents, parking, and neighborhood restrictions.",
+    ],
+  },
+] as const;
+
+export const HAVEN_AGREEMENT_TOTAL_CLAUSES =
+  HAVEN_AGREEMENT_SECTIONS.length +
+  HAVEN_AGREEMENT_REQUIRED_ACKNOWLEDGMENTS.length;
+
+export const HAVEN_AGREEMENT_CLAUSE_NUMBERS = Array.from(
+  { length: HAVEN_AGREEMENT_TOTAL_CLAUSES },
+  (_, index) => index + 1
+);
+
 export const HAVEN_AGREEMENT_ACKNOWLEDGMENT =
   "By signing this agreement, the renter confirms that they have read, understood, and agree to all terms and conditions outlined in this contract.";
 
@@ -255,6 +299,11 @@ export function buildHavenAgreementTemplateContent() {
     "",
     ...HAVEN_AGREEMENT_SECTIONS.flatMap((section) => [
       section.title,
+      ...section.body.map((line) => `- ${line}`),
+      "",
+    ]),
+    ...HAVEN_AGREEMENT_REQUIRED_ACKNOWLEDGMENTS.flatMap((section) => [
+      `${section.number}. ${section.title}`,
       ...section.body.map((line) => `- ${line}`),
       "",
     ]),

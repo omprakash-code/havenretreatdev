@@ -84,6 +84,21 @@ export async function GET(req: Request) {
           },
           orderBy: { confirmedAt: "asc" },
         },
+        signedAgreements: {
+          orderBy: { signedAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            signerName: true,
+            signerEmail: true,
+            signedAt: true,
+            signatureImage: true,
+            agreementVersion: true,
+            agreementHtmlSnapshot: true,
+            acknowledgedClauses: true,
+            confirmationAccepted: true,
+          },
+        },
         venue: true,
       },
     });
@@ -141,6 +156,7 @@ export async function GET(req: Request) {
     const advance =
       booking.advancePaid !== null ? booking.advancePaid : DEFAULT_ADVANCE;
     const latestPayment = booking.payment[0] ?? null;
+    const signedAgreement = booking.signedAgreements[0] ?? null;
     const durationConfig = await resolveBookingDurationPricingConfig(prisma);
     const packageSnapshot =
       booking.packageSnapshot &&
@@ -268,6 +284,26 @@ export async function GET(req: Request) {
         code: getCouponDisplayCode(usage.coupon.code),
         discountAmount: usage.discountAmount ?? 0,
       })),
+      signedAgreement: signedAgreement
+        ? {
+            id: signedAgreement.id,
+            signerName: signedAgreement.signerName,
+            signerEmail: signedAgreement.signerEmail,
+            signedAt: signedAgreement.signedAt.toISOString(),
+            signatureImage: signedAgreement.signatureImage,
+            agreementVersion: signedAgreement.agreementVersion,
+            agreementHtmlSnapshot: signedAgreement.agreementHtmlSnapshot,
+            acknowledgedClauses: Array.isArray(
+              signedAgreement.acknowledgedClauses
+            )
+              ? signedAgreement.acknowledgedClauses.filter(
+                  (entry): entry is number =>
+                    typeof entry === "number" && Number.isInteger(entry)
+                )
+              : [],
+            confirmationAccepted: signedAgreement.confirmationAccepted,
+          }
+        : null,
       items,
     });
   } catch (error) {

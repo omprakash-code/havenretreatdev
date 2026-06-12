@@ -100,6 +100,8 @@ export type AdminBooking = {
     ipAddress: string | null;
     userAgent: string | null;
     agreementVersion: string | null;
+    agreementHtmlSnapshot?: string | null;
+    acknowledgedClauses?: number[];
     confirmationAccepted: boolean;
     paymentReference: string | null;
     pdfGeneratedAt: string | null;

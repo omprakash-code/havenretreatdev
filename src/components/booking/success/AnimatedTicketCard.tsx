@@ -17,15 +17,18 @@ import {
   Phone,
   Mail,
   ShieldCheck,
+  FileText,
 } from "@/components/icons";
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { downloadBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
+import { downloadSignedAgreementPdf } from "@/components/booking/success/pdf/downloadSignedAgreementPdf";
 import { useBooking } from "@/context/BookingContext";
 import {
   BOOKING_PAYMENT_APPLIED_MESSAGE,
   BOOKING_REVIEW_MESSAGE,
   BOOKING_REVIEW_TITLE,
 } from "@/constants/booking-status-copy";
+import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 
 type AnimatedTicketCardProps = {
   data: BookingSuccessData;
@@ -67,6 +70,7 @@ export default function AnimatedTicketCard({
   const router = useRouter();
   const { resetBooking } = useBooking();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingAgreement, setIsDownloadingAgreement] = useState(false);
   const [isBookingRefCopied, setIsBookingRefCopied] = useState(false);
   const [isStartingAnotherBooking, setIsStartingAnotherBooking] = useState(false);
   const discountAmount = data.discountAmount ?? 0;
@@ -142,6 +146,20 @@ ${shareUrl}`;
       toast.error("Unable to download ticket right now.");
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleAgreementDownload = async () => {
+    if (isDownloadingAgreement || !data.signedAgreement) return;
+
+    setIsDownloadingAgreement(true);
+    try {
+      await downloadSignedAgreementPdf(data);
+      toast.success("Signed agreement downloaded successfully.");
+    } catch {
+      toast.error("Unable to download the signed agreement right now.");
+    } finally {
+      setIsDownloadingAgreement(false);
     }
   };
 
@@ -268,6 +286,19 @@ ${shareUrl}`;
                   onClick={handleDownload}
                   variant="primary"
                   disabled={isDownloadingPdf}
+                />
+              )}
+              {data.signedAgreement && (
+                <MiniActionButton
+                  label={
+                    isDownloadingAgreement
+                      ? "Downloading..."
+                      : "Download Signed Agreement"
+                  }
+                  icon={<FileText size={14} />}
+                  onClick={handleAgreementDownload}
+                  variant="secondary"
+                  disabled={isDownloadingAgreement}
                 />
               )}
               <MiniActionButton
@@ -409,6 +440,29 @@ ${shareUrl}`;
             </p>
           </div>
 
+          {data.signedAgreement && (
+            <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-relaxed text-slate-600 sm:p-3 sm:text-xs">
+              <div className="flex items-start gap-2">
+                <FileText
+                  size={15}
+                  className="mt-0.5 shrink-0 text-[#347f7c]"
+                />
+                <div>
+                  <p className="font-semibold text-[#245e5b]">
+                    Signed agreement recorded
+                  </p>
+                  <p className="mt-0.5">
+                    {data.signedAgreement.acknowledgedClauses.length} of{" "}
+                    {HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses acknowledged by{" "}
+                    {data.signedAgreement.signerName}. The receipt includes
+                    this record, and the full signed agreement is available
+                    separately.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-relaxed text-slate-600 sm:p-3 sm:text-xs">
             <div className="flex items-start gap-2">
               <ShieldCheck size={15} className="mt-0.5 shrink-0 text-[#347f7c]" />
@@ -427,6 +481,19 @@ ${shareUrl}`;
                 onClick={handleDownload}
                 variant="primary"
                 disabled={isDownloadingPdf}
+              />
+            )}
+            {data.signedAgreement && (
+              <MiniActionButton
+                label={
+                  isDownloadingAgreement
+                    ? "Downloading..."
+                    : "Download Signed Agreement"
+                }
+                icon={<FileText size={14} />}
+                onClick={handleAgreementDownload}
+                variant="secondary"
+                disabled={isDownloadingAgreement}
               />
             )}
             <MiniActionButton

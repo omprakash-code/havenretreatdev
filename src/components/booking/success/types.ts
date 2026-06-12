@@ -19,6 +19,18 @@ export type BookingSuccessDetail = {
   value: string;
 };
 
+export type BookingSuccessSignedAgreement = {
+  id: string;
+  signerName: string;
+  signerEmail: string;
+  signedAt: string;
+  signatureImage: string;
+  agreementVersion?: string | null;
+  agreementHtmlSnapshot?: string | null;
+  acknowledgedClauses: number[];
+  confirmationAccepted: boolean;
+};
+
 export type BookingSuccessData = {
   bookingRef: string;
   bookingStatus?: string | null;
@@ -66,5 +78,6 @@ export type BookingSuccessData = {
     code: string;
     discountAmount: number;
   }[];
+  signedAgreement?: BookingSuccessSignedAgreement | null;
   items: BookingSuccessItem[];
 };

@@ -257,6 +257,8 @@ export async function GET(
             ipAddress: true,
             userAgent: true,
             agreementVersion: true,
+            agreementHtmlSnapshot: true,
+            acknowledgedClauses: true,
             confirmationAccepted: true,
             paymentReference: true,
             pdfGeneratedAt: true,
@@ -490,6 +492,16 @@ export async function GET(
                 ipAddress: latestSignedAgreement.ipAddress,
                 userAgent: latestSignedAgreement.userAgent,
                 agreementVersion: latestSignedAgreement.agreementVersion,
+                agreementHtmlSnapshot:
+                  latestSignedAgreement.agreementHtmlSnapshot,
+                acknowledgedClauses: Array.isArray(
+                  latestSignedAgreement.acknowledgedClauses
+                )
+                  ? latestSignedAgreement.acknowledgedClauses.filter(
+                      (entry): entry is number =>
+                        typeof entry === "number" && Number.isInteger(entry)
+                    )
+                  : [],
                 confirmationAccepted: latestSignedAgreement.confirmationAccepted,
                 paymentReference: latestSignedAgreement.paymentReference,
                 pdfGeneratedAt: latestSignedAgreement.pdfGeneratedAt?.toISOString() ?? null,

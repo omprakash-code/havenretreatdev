@@ -72,6 +72,22 @@ export function mapAdminBookingToSuccessData(
     advancePaid: booking.pricing.advancePaid,
     remainingPayable: booking.pricing.remainingPayable,
     discountAmount: booking.pricing.discount,
+    signedAgreement: booking.signedAgreement
+      ? {
+          id: booking.signedAgreement.id,
+          signerName: booking.signedAgreement.signerName,
+          signerEmail: booking.signedAgreement.signerEmail,
+          signedAt: booking.signedAgreement.signedAt,
+          signatureImage: booking.signedAgreement.signatureImage,
+          agreementVersion: booking.signedAgreement.agreementVersion,
+          agreementHtmlSnapshot:
+            booking.signedAgreement.agreementHtmlSnapshot ?? null,
+          acknowledgedClauses:
+            booking.signedAgreement.acknowledgedClauses ?? [],
+          confirmationAccepted:
+            booking.signedAgreement.confirmationAccepted,
+        }
+      : null,
     items: booking.items.map((item) => ({
       id: item.id,
       productName: item.productName,

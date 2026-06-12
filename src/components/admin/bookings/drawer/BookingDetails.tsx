@@ -22,6 +22,7 @@ import {
   isPaymentCapturedBookingFailure,
 } from "@/lib/payment-capture-failure";
 import { getAdminBookingStatusDisplay } from "@/lib/admin-booking-status";
+import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 
 function formatOccasionFieldLabel(key: string) {
   const normalized = key
@@ -624,7 +625,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
 
                 {booking.signedAgreement ? (
                   <div className="space-y-3 border-t border-slate-200 pt-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                         <p className="mb-1 text-xs text-slate-500">Signer Name</p>
                         <p className="text-sm font-semibold text-slate-900">
@@ -635,6 +636,16 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                         <p className="mb-1 text-xs text-slate-500">Signed At</p>
                         <p className="text-sm font-semibold text-slate-900">
                           {formatET(booking.signedAgreement.signedAt)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <p className="mb-1 text-xs text-slate-500">
+                          Clauses Acknowledged
+                        </p>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {booking.signedAgreement.acknowledgedClauses?.length ??
+                            0}{" "}
+                          of {HAVEN_AGREEMENT_TOTAL_CLAUSES}
                         </p>
                       </div>
                     </div>

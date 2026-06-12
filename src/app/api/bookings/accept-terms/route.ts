@@ -8,6 +8,8 @@ import {
   RangeBookingSessionError,
   requireActiveRangeBookingSession,
 } from "@/services/booking/range-booking-session.service";
+import { normalizeAcknowledgedClauses } from "@/lib/agreement-acknowledgments";
+import { buildHavenAgreementHtmlSnapshot } from "@/lib/agreement-snapshot";
 
 function extractRequestIp(req: Request) {
   const forwardedFor = req.headers.get("x-forwarded-for");
@@ -35,21 +37,25 @@ export async function POST(req: Request) {
       signerName?: string;
       signatureImage?: string;
       confirmationAccepted?: boolean;
+      acknowledgedClauses?: unknown;
       agreementVersion?: string;
-      agreementHtmlSnapshot?: string;
     } | null;
     const bookingId = body?.bookingId;
+    const acknowledgedClauses = normalizeAcknowledgedClauses(
+      body?.acknowledgedClauses
+    );
 
     if (
       !bookingId ||
       !body?.signerName ||
       !body?.signatureImage ||
-      !body?.confirmationAccepted
+      !body?.confirmationAccepted ||
+      !acknowledgedClauses
     ) {
       return bookingErrorResponse(
         400,
         "INVALID_REQUEST",
-        "bookingId, signerName, signatureImage, and confirmationAccepted are required."
+        "All 33 agreement clauses, signerName, signatureImage, and signature confirmation are required."
       );
     }
 
@@ -99,8 +105,12 @@ export async function POST(req: Request) {
             ipAddress: extractRequestIp(req),
             userAgent: req.headers.get("user-agent"),
             agreementVersion: body.agreementVersion ?? template.version,
-            agreementHtmlSnapshot:
-              body.agreementHtmlSnapshot ?? template.content,
+            agreementHtmlSnapshot: buildHavenAgreementHtmlSnapshot({
+              title: template.title,
+              version: body.agreementVersion ?? template.version,
+              acknowledgedClauses,
+            }),
+            acknowledgedClauses,
             confirmationAccepted: true,
           },
         });
@@ -176,7 +186,12 @@ export async function POST(req: Request) {
           ipAddress: extractRequestIp(req),
           userAgent: req.headers.get("user-agent"),
           agreementVersion: body.agreementVersion ?? template.version,
-          agreementHtmlSnapshot: body.agreementHtmlSnapshot ?? template.content,
+          agreementHtmlSnapshot: buildHavenAgreementHtmlSnapshot({
+            title: template.title,
+            version: body.agreementVersion ?? template.version,
+            acknowledgedClauses,
+          }),
+          acknowledgedClauses,
           confirmationAccepted: true,
         },
       });

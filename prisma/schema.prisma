@@ -446,6 +446,7 @@ model SignedAgreement {
   userAgent           String?
   agreementVersion    String?
   agreementHtmlSnapshot String?
+  acknowledgedClauses Json?
   confirmationAccepted Boolean @default(false)
   paymentReference    String?
   pdfGeneratedAt      DateTime?

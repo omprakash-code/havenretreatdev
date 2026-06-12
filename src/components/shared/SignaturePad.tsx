@@ -10,11 +10,13 @@ export default function SignaturePad({
   onChange,
   disabled = false,
   flat = false,
+  disabledMessage = "Complete the required acknowledgments to unlock signing.",
 }: {
   value: string | null;
   onChange: (value: string | null) => void;
   disabled?: boolean;
   flat?: boolean;
+  disabledMessage?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
@@ -253,7 +255,7 @@ export default function SignaturePad({
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-[#667085]">
           {disabled
-            ? "Scroll through the agreement to unlock signing."
+            ? disabledMessage
             : "Sign with your mouse, trackpad, or touch input."}
         </p>
         <div className="flex items-center gap-3">

@@ -7,6 +7,7 @@ import {
   BOOKING_REVIEW_TITLE,
 } from "@/constants/booking-status-copy";
 import { SUCCESS_VENUE_IMAGE } from "@/components/booking/success/assets";
+import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 
 export type PdfImage = {
   dataUrl: string;
@@ -153,6 +154,33 @@ export async function buildBookingTicketPdf(
 
   if (items.length > 0) {
     drawProductsGrid(layout, items, productImageMap);
+  }
+
+  if (data.signedAgreement) {
+    drawSectionCard(layout, "Signed Agreement", [
+      {
+        label: "Status",
+        value: `${data.signedAgreement.acknowledgedClauses.length} of ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses acknowledged`,
+        tone: "success",
+      },
+      {
+        label: "Signer",
+        value: data.signedAgreement.signerName,
+      },
+      {
+        label: "Signed At",
+        value: formatISTDateTime(data.signedAgreement.signedAt),
+      },
+      {
+        label: "Agreement Version",
+        value: data.signedAgreement.agreementVersion ?? "Not specified",
+      },
+      {
+        label: "Agreement ID",
+        value: data.signedAgreement.id,
+        tone: "muted",
+      },
+    ]);
   }
 
   drawSectionCard(layout, "Important", [

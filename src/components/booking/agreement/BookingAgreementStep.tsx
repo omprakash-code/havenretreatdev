@@ -10,10 +10,12 @@ import SignaturePad from "@/components/shared/SignaturePad";
 import { Check, ChevronLeft } from "@/components/icons";
 import {
   HAVEN_AGREEMENT_ACKNOWLEDGMENT,
-  HAVEN_AGREEMENT_DEFAULT_TITLE,
+  HAVEN_AGREEMENT_CLAUSE_NUMBERS,
   HAVEN_AGREEMENT_DEFAULT_VERSION,
   HAVEN_AGREEMENT_INTRO,
+  HAVEN_AGREEMENT_REQUIRED_ACKNOWLEDGMENTS,
   HAVEN_AGREEMENT_SECTIONS,
+  HAVEN_AGREEMENT_TOTAL_CLAUSES,
 } from "@/constants/haven-agreement-content";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { useBooking } from "@/context/BookingContext";
@@ -34,65 +36,6 @@ type HighlightTarget =
   | "confirmation"
   | null;
 
-const ACKNOWLEDGMENT_ITEMS = [
-  {
-    key: "safety",
-    title: "Safety & Liability",
-    body: "I understand and accept the pool, lake, playground, slide, and general injury liability terms.",
-  },
-  {
-    key: "damage",
-    title: "Cleaning & Property Damage",
-    body: "I understand the cleaning policy, floor damage fees, the no-confetti / no-loose-props rule, and my responsibility for any property damage.",
-  },
-  {
-    key: "payment",
-    title: "Payment, Cancellation & Weather",
-    body: "I understand the $150 non-refundable deposit policy, payment deadlines, rescheduling rules, and rain-or-shine policy.",
-  },
-  {
-    key: "conduct",
-    title: "Alcohol, Guests & Neighborhood",
-    body: "I understand and accept responsibility for guest conduct, alcohol-related incidents, parking, and neighborhood restrictions.",
-  },
-] as const;
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function buildAgreementHtmlSnapshot(template: AgreementTemplateSummary) {
-  const sectionMarkup = HAVEN_AGREEMENT_SECTIONS.map(
-    (section) =>
-      `<section><p>${escapeHtml(section.eyebrow)}</p><h2>${escapeHtml(
-        section.title
-      )}</h2><p>${escapeHtml(section.body.join("\n")).replaceAll(
-        "\n",
-        "<br />"
-      )}</p></section>`
-  ).join("");
-
-  return `
-    <article>
-      <header>
-        <h1>${escapeHtml(template?.title || HAVEN_AGREEMENT_DEFAULT_TITLE)}</h1>
-        <p>Version ${escapeHtml(template?.version || HAVEN_AGREEMENT_DEFAULT_VERSION)}</p>
-      </header>
-      <section>${HAVEN_AGREEMENT_INTRO.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}</section>
-      ${sectionMarkup}
-      <section>
-        <h2>Final Acknowledgment</h2>
-        <p>${escapeHtml(HAVEN_AGREEMENT_ACKNOWLEDGMENT)}</p>
-      </section>
-    </article>
-  `.trim();
-}
-
 export default function BookingAgreementStep({
   template,
 }: {
@@ -103,17 +46,23 @@ export default function BookingAgreementStep({
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
   const [signerName, setSignerName] = useState(() => booking.contact?.name ?? "");
   const [finalConfirmationChecked, setFinalConfirmationChecked] = useState(false);
-  const [acknowledgments, setAcknowledgments] = useState<Record<string, boolean>>(
-    Object.fromEntries(ACKNOWLEDGMENT_ITEMS.map((item) => [item.key, false]))
+  const [acknowledgedClauses, setAcknowledgedClauses] = useState<
+    Record<number, boolean>
+  >(
+    Object.fromEntries(
+      HAVEN_AGREEMENT_CLAUSE_NUMBERS.map((clauseNumber) => [
+        clauseNumber,
+        false,
+      ])
+    )
   );
-  const [hasReviewedAgreement, setHasReviewedAgreement] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [highlightTarget, setHighlightTarget] = useState<HighlightTarget>(null);
   const [showInlineSummarySubmit, setShowInlineSummarySubmit] = useState(false);
   const scrollRootRef = useRef<HTMLDivElement | null>(null);
   const agreementPanelRef = useRef<HTMLDivElement | null>(null);
-  const acknowledgmentsRef = useRef<HTMLDivElement | null>(null);
+  const clauseRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const signatureSectionRef = useRef<HTMLDivElement | null>(null);
   const signerNameInputRef = useRef<HTMLInputElement | null>(null);
   const finalConfirmationRef = useRef<HTMLButtonElement | null>(null);
@@ -126,26 +75,6 @@ export default function BookingAgreementStep({
       router.replace(BOOKING_ROUTES.ROOT);
     }
   }, [booking.bookingId, booking.contact, booking.schedule, booking.package, hydrated, router]);
-
-  useEffect(() => {
-    const root = scrollRootRef.current;
-    if (!root) return;
-
-    const handleScroll = () => {
-      const isAtEnd =
-        root.scrollTop + root.clientHeight >= root.scrollHeight - 12;
-      if (isAtEnd) {
-        setHasReviewedAgreement(true);
-      }
-    };
-
-    handleScroll();
-    root.addEventListener("scroll", handleScroll, { passive: true });
-
-    return () => {
-      root.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
 
   useEffect(() => {
     if (signerName.trim()) return;
@@ -163,21 +92,27 @@ export default function BookingAgreementStep({
     return () => window.clearTimeout(timeoutId);
   }, [highlightTarget]);
 
-  const hasAllAcknowledgments = ACKNOWLEDGMENT_ITEMS.every(
-    (item) => acknowledgments[item.key]
+  const acknowledgedClauseCount = HAVEN_AGREEMENT_CLAUSE_NUMBERS.filter(
+    (clauseNumber) => acknowledgedClauses[clauseNumber]
+  ).length;
+  const hasAllAcknowledgments = HAVEN_AGREEMENT_CLAUSE_NUMBERS.every(
+    (clauseNumber) => acknowledgedClauses[clauseNumber]
+  );
+  const firstUncheckedClause = HAVEN_AGREEMENT_CLAUSE_NUMBERS.find(
+    (clauseNumber) => !acknowledgedClauses[clauseNumber]
   );
   const hasSignerName = Boolean(signerName.trim());
   const hasSignature = Boolean(signatureImage);
   const hasMissingAgreementRequirements =
-    !hasReviewedAgreement ||
     !hasAllAcknowledgments ||
     !finalConfirmationChecked ||
     !hasSignerName ||
     !hasSignature;
   const missingAgreementMessage = useMemo(() => {
     const missing = [];
-    if (!hasReviewedAgreement) missing.push("review the full agreement");
-    if (!hasAllAcknowledgments) missing.push("complete the acknowledgments");
+    if (!hasAllAcknowledgments) {
+      missing.push(`acknowledge all ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses`);
+    }
     if (!hasSignerName) missing.push("enter your legal name");
     if (!hasSignature) missing.push("add your signature");
     if (!finalConfirmationChecked) missing.push("confirm electronic signature consent");
@@ -186,23 +121,17 @@ export default function BookingAgreementStep({
   }, [
     finalConfirmationChecked,
     hasAllAcknowledgments,
-    hasReviewedAgreement,
     hasSignature,
     hasSignerName,
   ]);
 
   const canContinue =
-    hasReviewedAgreement &&
     hasAllAcknowledgments &&
     finalConfirmationChecked &&
     hasSignerName &&
     hasSignature &&
     !isSubmitting;
 
-  const agreementHtmlSnapshot = useMemo(
-    () => buildAgreementHtmlSnapshot(template),
-    [template]
-  );
   const getHighlightClass = (target: Exclude<HighlightTarget, null>) =>
     highlightTarget === target
       ? "agreement-attention transition"
@@ -215,22 +144,14 @@ export default function BookingAgreementStep({
   const handleInvalidAgreementSubmit = () => {
     setErrorMessage(null);
 
-    if (!hasReviewedAgreement) {
-      setHighlightTarget("agreement");
-      agreementPanelRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-      scrollRootRef.current?.focus({ preventScroll: true });
-      return;
-    }
-
     if (!hasAllAcknowledgments) {
       setHighlightTarget("acknowledgments");
-      acknowledgmentsRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+      if (firstUncheckedClause) {
+        clauseRefs.current[firstUncheckedClause]?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
       return;
     }
 
@@ -280,8 +201,10 @@ export default function BookingAgreementStep({
           signerName: signerName.trim(),
           signatureImage,
           confirmationAccepted: finalConfirmationChecked,
+          acknowledgedClauses: HAVEN_AGREEMENT_CLAUSE_NUMBERS.filter(
+            (clauseNumber) => acknowledgedClauses[clauseNumber]
+          ),
           agreementVersion: template?.version || HAVEN_AGREEMENT_DEFAULT_VERSION,
-          agreementHtmlSnapshot,
         }),
       });
 
@@ -308,9 +231,9 @@ export default function BookingAgreementStep({
           <div className="lg:col-span-2 min-w-0">
             <StepIndicator currentStep={5} className="lg:hidden !px-2 !py-2" />
             <div className="border border-[#2f7e7a]/20 bg-white p-4 md:p-5">
-              <div className="mb-1 flex items-center justify-between gap-3">
-                <h2 className="min-w-0 truncate text-2xl font-semibold text-[#1f2937]">
-                  {template?.title || HAVEN_AGREEMENT_DEFAULT_TITLE}
+              <div className="mb-1 flex items-start justify-between gap-3">
+                <h2 className="min-w-0 flex-1 pt-1 text-sm font-semibold uppercase leading-tight tracking-[0.18em] text-[#6b7280] sm:text-base">
+                  Rental Agreement
                 </h2>
 
                 <button
@@ -342,17 +265,38 @@ export default function BookingAgreementStep({
                   )}`}
                 >
                   <div className="border border-[#d7e4e1] bg-white">
-                    <div className="border-b border-[#edf1ef] bg-[#fbfcfb] px-4 py-2">
-                      <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-[#6b7280]">
-                        License Agreement
-                      </p>
-                    </div>
                     <div
                       ref={scrollRootRef}
                       tabIndex={-1}
-                      className="h-[24rem] overflow-y-auto px-4 py-3 md:h-[29rem] xl:h-[33rem]"
+                      className="h-[24rem] overflow-y-auto px-4 pb-4 md:h-[29rem] xl:h-[33rem]"
                     >
                       <div className="mx-auto max-w-3xl space-y-3">
+                        <div className="sticky top-0 z-10 bg-white pt-4 pr-2 pb-5">
+                          <div className="border border-[#d7e4e1] bg-white px-3 py-2 shadow-sm">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-[11px] font-semibold text-[#344054]">
+                                Mandatory clause acknowledgments
+                              </p>
+                              <p className="shrink-0 text-[11px] font-bold text-[#347f7c]">
+                                {acknowledgedClauseCount} of{" "}
+                                {HAVEN_AGREEMENT_TOTAL_CLAUSES}
+                              </p>
+                            </div>
+                            <div className="mt-2 h-1.5 overflow-hidden bg-[#edf1ef]">
+                              <div
+                                className="h-full bg-[#347f7c] transition-[width] duration-200"
+                                style={{
+                                  width: `${
+                                    (acknowledgedClauseCount /
+                                      HAVEN_AGREEMENT_TOTAL_CLAUSES) *
+                                    100
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="border-b border-[#edf1ef] pb-4">
                           <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[#7b7f85]">
                             Agreement Overview and Required Acknowledgments
@@ -364,61 +308,69 @@ export default function BookingAgreementStep({
                           </div>
                         </div>
 
-                        {HAVEN_AGREEMENT_SECTIONS.map((section) => (
-                          <AgreementSection
-                            key={section.title}
-                            eyebrow={section.eyebrow}
-                            title={section.title}
-                            body={section.body.join("\n")}
-                          />
-                        ))}
-
-                        <div
-                          ref={acknowledgmentsRef}
-                          className={`bg-[#f8fbfa] px-4 py-3 ${getHighlightClass(
-                            "acknowledgments"
-                          )}`}
-                        >
-                          <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[#347f7c]">
-                            Required Acknowledgments
-                          </p>
-                          <div className="mt-3 space-y-2.5">
-                            {ACKNOWLEDGMENT_ITEMS.map((item) => (
-                              <button
-                                key={item.key}
-                                type="button"
-                                aria-pressed={acknowledgments[item.key]}
-                                onClick={() =>
-                                  setAcknowledgments((current) => ({
+                        {HAVEN_AGREEMENT_SECTIONS.map((section, index) => {
+                          const clauseNumber = index + 1;
+                          return (
+                            <div
+                              key={section.title}
+                              ref={(node) => {
+                                clauseRefs.current[clauseNumber] = node;
+                              }}
+                            >
+                              <AgreementSection
+                                clauseNumber={clauseNumber}
+                                eyebrow={section.eyebrow}
+                                title={section.title}
+                                body={section.body.join("\n")}
+                                acknowledged={
+                                  acknowledgedClauses[clauseNumber] ?? false
+                                }
+                                highlighted={
+                                  highlightTarget === "acknowledgments" &&
+                                  firstUncheckedClause === clauseNumber
+                                }
+                                onToggle={() =>
+                                  setAcknowledgedClauses((current) => ({
                                     ...current,
-                                    [item.key]: !current[item.key],
+                                    [clauseNumber]: !current[clauseNumber],
                                   }))
                                 }
-                                className="flex w-full cursor-pointer items-start gap-3 border-b border-[#edf1ef] bg-white px-4 py-3 text-left transition hover:bg-[#f8fbfa] last:border-b-0"
-                              >
-                                <span
-                                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border transition ${
-                                    acknowledgments[item.key]
-                                      ? "border-[#347f7c] bg-[#347f7c] text-white"
-                                      : "border-gray-400 bg-white"
-                                  }`}
-                                >
-                                  {acknowledgments[item.key] ? (
-                                    <Check size={14} />
-                                  ) : null}
-                                </span>
-                                <span>
-                                  <span className="block text-[11px] font-semibold text-[#101828]">
-                                    {item.title}
-                                  </span>
-                                  <span className="mt-1 block text-[11px] leading-5 text-[#475467]">
-                                    {item.body}
-                                  </span>
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                              />
+                            </div>
+                          );
+                        })}
+
+                        {HAVEN_AGREEMENT_REQUIRED_ACKNOWLEDGMENTS.map(
+                          (section) => (
+                            <div
+                              key={section.key}
+                              ref={(node) => {
+                                clauseRefs.current[section.number] = node;
+                              }}
+                            >
+                              <AgreementSection
+                                clauseNumber={section.number}
+                                eyebrow={`Section ${section.number}`}
+                                title={`${section.number}. ${section.title}`}
+                                body={section.body.join("\n")}
+                                acknowledged={
+                                  acknowledgedClauses[section.number] ?? false
+                                }
+                                highlighted={
+                                  highlightTarget === "acknowledgments" &&
+                                  firstUncheckedClause === section.number
+                                }
+                                onToggle={() =>
+                                  setAcknowledgedClauses((current) => ({
+                                    ...current,
+                                    [section.number]:
+                                      !current[section.number],
+                                  }))
+                                }
+                              />
+                            </div>
+                          )
+                        )}
 
                         <div className="border-t border-[#edf1ef] pt-4">
                           <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[#347f7c]">
@@ -482,7 +434,8 @@ export default function BookingAgreementStep({
                     <SignaturePad
                       value={signatureImage}
                       onChange={setSignatureImage}
-                      disabled={!hasReviewedAgreement}
+                      disabled={!hasAllAcknowledgments}
+                      disabledMessage={`Acknowledge all ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses to unlock signing.`}
                       flat
                     />
                   </div>
