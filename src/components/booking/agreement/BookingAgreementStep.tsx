@@ -355,7 +355,7 @@ export default function BookingAgreementStep({
                       <div className="mx-auto max-w-3xl space-y-3">
                         <div className="border-b border-[#edf1ef] pb-4">
                           <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[#7b7f85]">
-                            Agreement Overview
+                            Agreement Overview and Required Acknowledgments
                           </p>
                           <div className="mt-2 space-y-2 text-[11px] leading-5 text-[#475467]">
                             {HAVEN_AGREEMENT_INTRO.map((paragraph) => (

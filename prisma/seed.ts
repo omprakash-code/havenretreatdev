@@ -575,7 +575,7 @@ const PRODUCTS = [
   {
     name: "Hot Tub",
     slug: "hot-tub",
-    image: "/media/booking/products/add-ons/hot-tub.avif",
+    image: "/media/booking/products/add-ons/hot-tub.jpeg",
     description: "Enable the hot tub for a cozy and upgraded backyard experience.",
     stock: 1000,
     sortOrder: 10,
@@ -584,7 +584,7 @@ const PRODUCTS = [
   {
     name: "Balloon Décor Package",
     slug: "balloon-decor-package",
-    image: "/media/booking/products/add-ons/balloon-arch.avif",
+    image: "/media/booking/products/add-ons/balloon-décor-package.avif",
     description:
       "Balloon décor package starting at $375. Includes up to 3 balloon colors of your choice, balloon arch design, cake cylinders/pedestals, and basic setup & styling.",
     stock: 1000,
