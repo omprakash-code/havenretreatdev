@@ -90,12 +90,7 @@ export default function AnimatedTicketCard({
     data.remainingPayable > 0;
   const showRemainingRow =
     !isFullPayment && (isCustomerAdvanceFlow || isAdminAdvanceFlow);
-  const remainingLabel =
-    data.createdByRole === "ADMIN" && data.bookingStatus === "CONFIRMED"
-      ? "Remaining to Pay"
-      : data.paymentStatus === "PAID"
-        ? "Pay at Venue"
-        : "Remaining to Pay";
+  const remainingLabel = "Remaining Balance";
   const showAdminPaymentMeta = data.createdByRole === "ADMIN";
   const paymentModeLabel =
     data.payment?.provider === "OFFLINE"
@@ -252,8 +247,8 @@ ${shareUrl}`;
         }
       >
         <div className="space-y-3.5 px-0 pb-3 sm:space-y-4 sm:px-4 sm:pb-4 md:px-5">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 text-center sm:text-left lg:flex lg:max-w-[74%] lg:flex-col lg:justify-start lg:gap-[5px]">
+          <div className="flex flex-col gap-3">
+            <div className="min-w-0 text-center sm:text-left lg:flex lg:flex-col lg:justify-start lg:gap-[5px]">
               <div className="inline-flex max-w-full flex-nowrap items-center justify-center gap-2 sm:justify-start">
                 <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
                   Booking Reference
@@ -278,7 +273,7 @@ ${shareUrl}`;
               </div>
             </div>
 
-            <div className="hidden lg:flex lg:shrink-0 lg:items-center lg:justify-end lg:gap-3 lg:pt-5">
+            <div className="hidden lg:grid lg:grid-cols-2 lg:gap-3 xl:grid-cols-[1fr_1.4fr_1.05fr_1.05fr]">
               {SHOW_DOWNLOAD_TICKET_ACTION && (
                 <MiniActionButton
                   label={isDownloadingPdf ? "Downloading..." : "Download Receipt"}
@@ -407,7 +402,7 @@ ${shareUrl}`;
                   value={formatCurrency(data.remainingPayable)}
                   bold
                 />
-                <p className="text-[11px] leading-relaxed text-slate-500 sm:text-xs">
+                <p className="text-[11px] leading-5 text-slate-500 sm:text-xs">
                   {BOOKING_PAYMENT_APPLIED_MESSAGE}
                 </p>
               </div>
@@ -433,7 +428,7 @@ ${shareUrl}`;
             )}
           </div>
 
-          <div className="border border-[#b9d8d3] bg-[#f2f8f6] p-2.5 text-[11px] leading-relaxed sm:p-3">
+          <div className="border border-[#b9d8d3] bg-[#f2f8f6] p-2.5 text-[11px] leading-5 sm:p-3 sm:text-xs">
             <p className="font-bold text-[#245e5b]">{BOOKING_REVIEW_TITLE}</p>
             <p className="mt-0.5 text-[#347f7c]">
               {BOOKING_REVIEW_MESSAGE}
@@ -441,7 +436,7 @@ ${shareUrl}`;
           </div>
 
           {data.signedAgreement && (
-            <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-relaxed text-slate-600 sm:p-3 sm:text-xs">
+            <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-5 text-slate-600 sm:p-3 sm:text-xs">
               <div className="flex items-start gap-2">
                 <FileText
                   size={15}
@@ -452,23 +447,20 @@ ${shareUrl}`;
                     Signed agreement recorded
                   </p>
                   <p className="mt-0.5">
-                    {data.signedAgreement.acknowledgedClauses.length} of{" "}
-                    {HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses acknowledged by{" "}
-                    {data.signedAgreement.signerName}. The receipt includes
-                    this record, and the full signed agreement is available
-                    separately.
+                    All {HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses acknowledged by{" "}
+                    {data.signedAgreement.signerName}. Download the signed
+                    agreement for details.
                   </p>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-relaxed text-slate-600 sm:p-3 sm:text-xs">
+          <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-5 text-slate-600 sm:p-3 sm:text-xs">
             <div className="flex items-start gap-2">
               <ShieldCheck size={15} className="mt-0.5 shrink-0 text-[#347f7c]" />
               <p>
-                Need help with your booking? Message us on WhatsApp with your
-                booking reference and we will help you quickly.
+                Need help? Message us on WhatsApp with your booking reference.
               </p>
             </div>
           </div>
@@ -599,13 +591,15 @@ function MiniActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-10 w-full shrink-0 items-center justify-center gap-1.5 px-3 text-[11px] font-semibold whitespace-nowrap transition-colors sm:w-auto sm:px-4 sm:text-xs ${disabled
+      className={`inline-flex h-10 w-full min-w-0 items-center justify-center gap-1.5 px-2.5 text-[11px] font-semibold whitespace-nowrap transition-colors sm:w-auto sm:px-3 sm:text-xs lg:w-full ${disabled
           ? "cursor-not-allowed border border-zinc-300 bg-zinc-200 text-zinc-500"
           : `cursor-pointer ${variantClass}`
         }`}
     >
-      {icon}
-      {label}
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+        {icon}
+      </span>
+      <span>{label}</span>
     </button>
   );
 }

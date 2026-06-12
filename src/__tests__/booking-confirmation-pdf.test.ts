@@ -18,6 +18,17 @@ describe("buildBookingConfirmationPdfAttachment", () => {
       guestCount: 2,
       occasionLabel: "Birthday",
       occasionDetails: [{ label: "Celebrant", value: "Aarav" }],
+      signedAgreement: {
+        id: "agreement-123",
+        signerName: "Test User",
+        signerEmail: "test@example.com",
+        signedAt: "2026-03-01T10:30:00.000Z",
+        signatureImage: "data:image/png;base64,test",
+        agreementVersion: "2026-01",
+        agreementHtmlSnapshot: "<p>Agreement</p>",
+        acknowledgedClauses: Array.from({ length: 33 }, (_, index) => index + 1),
+        confirmationAccepted: true,
+      },
       addonItems: [
         {
           name: "Rose Bouquet",

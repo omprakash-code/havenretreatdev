@@ -50,6 +50,7 @@ function mapEmailDataToBookingSuccessData(
     advancePaid: data.advancePaid,
     remainingPayable: data.remainingPayable,
     discountAmount: data.discountAmount ?? 0,
+    signedAgreement: data.signedAgreement ?? null,
     items: (data.addonItems ?? []).map((item, index) => {
       const quantity = Math.max(1, Math.trunc(item.quantity || 1));
       const totalPrice = Math.max(0, Math.trunc(item.totalPrice || 0));

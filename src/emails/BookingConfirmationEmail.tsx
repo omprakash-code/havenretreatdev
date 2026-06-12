@@ -18,6 +18,18 @@ export type BookingConfirmationDetail = {
   value: string;
 };
 
+export type BookingConfirmationSignedAgreement = {
+  id: string;
+  signerName: string;
+  signerEmail: string;
+  signedAt: string;
+  signatureImage: string;
+  agreementVersion?: string | null;
+  agreementHtmlSnapshot?: string | null;
+  acknowledgedClauses: number[];
+  confirmationAccepted: boolean;
+};
+
 export type BookingConfirmationEmailProps = {
   bookingRef: string;
   customerName?: string;
@@ -35,6 +47,7 @@ export type BookingConfirmationEmailProps = {
   occasionLabel?: string;
   occasionDetails?: BookingConfirmationDetail[];
   addonItems?: BookingConfirmationAddonItem[];
+  signedAgreement?: BookingConfirmationSignedAgreement | null;
   paymentType?: string;
   paymentMethod?: string;
   paymentStatus?: string;

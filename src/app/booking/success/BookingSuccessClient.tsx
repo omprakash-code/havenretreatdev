@@ -222,6 +222,11 @@ export default function BookingSuccessClient() {
                       embedded
                     />
                     <CelebrationBlock occasionLabel={data.occasionLabel} embedded />
+                    {hasCelebrationDetails && (
+                      <div className="hidden border-t border-[#d7e4e1] pt-4 xl:block">
+                        <CelebrationDetailsCard data={data} compact />
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -231,7 +236,7 @@ export default function BookingSuccessClient() {
               </div>
 
               {hasCelebrationDetails && (
-                <div className="border-t border-[#d7e4e1] px-3 py-3 sm:px-6 sm:py-5">
+                <div className="border-t border-[#d7e4e1] px-3 py-3 sm:px-6 sm:py-5 xl:hidden">
                   <CelebrationDetailsCard data={data} />
                 </div>
               )}

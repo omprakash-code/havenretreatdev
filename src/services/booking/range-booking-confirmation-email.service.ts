@@ -132,6 +132,21 @@ export async function sendRangeBookingConfirmationEmails({
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      signedAgreements: {
+        orderBy: { signedAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          signerName: true,
+          signerEmail: true,
+          signedAt: true,
+          signatureImage: true,
+          agreementVersion: true,
+          agreementHtmlSnapshot: true,
+          acknowledgedClauses: true,
+          confirmationAccepted: true,
+        },
+      },
     },
   });
 
@@ -151,6 +166,7 @@ export async function sendRangeBookingConfirmationEmails({
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");
   const successUrl = `${baseUrl}/booking/success?t=${encodeURIComponent(successToken)}`;
   const latestPayment = booking.payment[0];
+  const signedAgreement = booking.signedAgreements[0] ?? null;
   const packageSnapshot =
     booking.packageSnapshot &&
     typeof booking.packageSnapshot === "object" &&
@@ -205,6 +221,23 @@ export async function sendRangeBookingConfirmationEmails({
     occasionLabel: booking.occasionLabel ?? undefined,
     occasionDetails: buildOccasionDetails(booking.occasionData as Prisma.JsonValue | null),
     addonItems,
+    signedAgreement: signedAgreement
+      ? {
+          id: signedAgreement.id,
+          signerName: signedAgreement.signerName,
+          signerEmail: signedAgreement.signerEmail,
+          signedAt: signedAgreement.signedAt.toISOString(),
+          signatureImage: signedAgreement.signatureImage,
+          agreementVersion: signedAgreement.agreementVersion,
+          agreementHtmlSnapshot: signedAgreement.agreementHtmlSnapshot,
+          acknowledgedClauses: Array.isArray(signedAgreement.acknowledgedClauses)
+            ? signedAgreement.acknowledgedClauses.filter(
+                (clause): clause is number => typeof clause === "number"
+              )
+            : [],
+          confirmationAccepted: signedAgreement.confirmationAccepted,
+        }
+      : null,
     paymentType: booking.paymentProvider ?? latestPayment?.provider ?? undefined,
     paymentMethod: latestPayment?.method ?? "ONLINE",
     paymentStatus: booking.paymentStatus ?? latestPayment?.status ?? undefined,

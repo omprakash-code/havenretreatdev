@@ -1,11 +1,6 @@
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { buildCelebrationRows } from "@/components/booking/success/success-details";
 import { formatISTDateTime, formatSlotTime } from "@/lib/formatters";
-import {
-  BOOKING_PAYMENT_APPLIED_MESSAGE,
-  BOOKING_REVIEW_MESSAGE,
-  BOOKING_REVIEW_TITLE,
-} from "@/constants/booking-status-copy";
 import { SUCCESS_VENUE_IMAGE } from "@/components/booking/success/assets";
 import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 
@@ -186,12 +181,12 @@ export async function buildBookingTicketPdf(
   drawSectionCard(layout, "Important", [
     {
       label: "Status",
-      value: `${BOOKING_REVIEW_TITLE} ${BOOKING_REVIEW_MESSAGE}`,
+      value: "Date reserved, final review pending.",
       tone: "strong",
     },
     {
       label: "Payment",
-      value: BOOKING_PAYMENT_APPLIED_MESSAGE,
+      value: "Payment applied, balance due one week before the event.",
       tone: "normal",
     },
     {
@@ -357,12 +352,7 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
   const showRemainingRow =
     !isFullPayment && (isCustomerAdvanceFlow || isAdminAdvanceFlow);
 
-  const remainingLabel =
-    data.createdByRole === "ADMIN" && data.bookingStatus === "CONFIRMED"
-      ? "Remaining to Pay"
-      : data.paymentStatus === "PAID"
-      ? "Pay at Venue"
-      : "Remaining to Pay";
+  const remainingLabel = "Remaining Balance";
 
   if (showRemainingRow) {
     rows.push({
@@ -751,7 +741,7 @@ function drawProductsGrid(
   const innerX = marginX + contentPadX;
   const innerWidth = contentWidth - contentPadX * 2;
   const colW = (innerWidth - gap * 2) / 3;
-  const cardH = 22.4;
+  const cardH = 20.4;
   const rowCount = Math.ceil(items.length / 3);
   const sectionH = 10.4 + rowCount * (cardH + 1.8) + 0.6;
   const sectionY = layout.y;
@@ -794,7 +784,8 @@ function drawProductCard(
   image: PdfImage | null
 ) {
   const { doc } = layout;
-  const imageSize = 14.4;
+  const cardPadding = 2;
+  const imageSize = h - cardPadding * 2;
   const rawProductName = sanitizeDisplayText(item.productName);
   const fallbackNumberValue =
     rawProductName.match(/\bNo:\s*([A-Za-z0-9]+)/i)?.[1] ?? "";
@@ -806,26 +797,46 @@ function drawProductCard(
   const extraQuantity =
     item.extraQuantity ??
     (item.unitPrice > 0 ? Math.max(Math.round(item.totalPrice / item.unitPrice), 0) : 0);
+  const isEffectivelyIncluded = extraQuantity === 0 && includedQuantity > 0;
+  const isIncluded = isEffectivelyIncluded || item.totalPrice <= 0;
 
-  setFill(doc, COLORS.paper);
+  setFill(doc, COLORS.sectionBg);
   setDraw(doc, COLORS.border);
   doc.rect(x, y, w, h, "FD");
 
   if (image) {
-    doc.addImage(image.dataUrl, image.format, x + 2, y + 2, imageSize, imageSize);
+    doc.addImage(
+      image.dataUrl,
+      image.format,
+      x + cardPadding,
+      y + cardPadding,
+      imageSize,
+      imageSize
+    );
   } else {
     setFill(doc, COLORS.sectionHeadBg);
-    doc.rect(x + 2, y + 2, imageSize, imageSize, "F");
+    doc.rect(
+      x + cardPadding,
+      y + cardPadding,
+      imageSize,
+      imageSize,
+      "F"
+    );
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.6);
     doc.setTextColor(...COLORS.textMuted);
-    doc.text("IMG", x + 2 + imageSize / 2, y + 2 + imageSize / 2 + 0.4, {
-      align: "center",
-    });
+    doc.text(
+      "IMG",
+      x + cardPadding + imageSize / 2,
+      y + cardPadding + imageSize / 2 + 0.4,
+      { align: "center" }
+    );
   }
 
-  const textX = x + 2 + imageSize + 1.8;
-  const textW = w - (textX - x) - 2;
+  const textX = x + cardPadding + imageSize + 1.8;
+  const statusRight = x + w - cardPadding;
+  const statusWidth = isIncluded ? 14 : 12;
+  const textW = Math.max(statusRight - statusWidth - textX - 1.5, 12);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.3);
@@ -840,7 +851,7 @@ function drawProductCard(
   doc.setFontSize(7.6);
   doc.setTextColor(...COLORS.textMuted);
   doc.text(
-    sanitizeDisplayText(`${item.variantLabel} • x${item.quantity}`),
+    sanitizeDisplayText(`${item.variantLabel} · Qty ${item.quantity}`),
     textX,
     y + 9.5
   );
@@ -849,63 +860,31 @@ function drawProductCard(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.9);
     doc.setTextColor(...COLORS.textNormal);
-    doc.text(`No: ${numberValue}`, textX, y + 13.1);
+    doc.text(`No: ${numberValue}`, textX, y + 13.3);
   }
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6.9);
-  doc.setTextColor(...COLORS.textMuted);
-  doc.text(
-    getProductBreakdownLabel({
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      includedQuantity,
-      extraQuantity,
-      totalPrice: item.totalPrice,
-    }),
-    textX,
-    y + 16.4
-  );
-
-  const isEffectivelyIncluded = extraQuantity === 0 && includedQuantity > 0;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.6);
-  const priceColor = (isEffectivelyIncluded || item.totalPrice <= 0) ? COLORS.textMuted : COLORS.textStrong;
-  doc.setTextColor(priceColor[0], priceColor[1], priceColor[2]);
-  doc.text(
-    isEffectivelyIncluded || item.totalPrice <= 0 ? "Included" : formatCurrency(item.totalPrice),
-    x + w - 2,
-    y + h - 2.2,
-    { align: "right" }
-  );
-}
-
-function getProductBreakdownLabel({
-  quantity,
-  unitPrice,
-  includedQuantity,
-  extraQuantity,
-  totalPrice,
-}: {
-  quantity: number;
-  unitPrice: number;
-  includedQuantity: number;
-  extraQuantity: number;
-  totalPrice: number;
-}) {
-  if (includedQuantity > 0 && extraQuantity > 0) {
-    return `${includedQuantity} included + ${extraQuantity} extra x ${formatCurrency(unitPrice)}`;
+  if (isIncluded) {
+    const badgeW = 13.8;
+    const badgeH = 5;
+    const badgeX = statusRight - badgeW;
+    const badgeY = y + 2;
+    doc.setFillColor(237, 243, 241);
+    doc.setDrawColor(185, 216, 211);
+    doc.rect(badgeX, badgeY, badgeW, badgeH, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.6);
+    doc.setTextColor(36, 94, 91);
+    doc.text("Included", badgeX + badgeW / 2, badgeY + 3.4, {
+      align: "center",
+    });
+  } else {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.6);
+    doc.setTextColor(...COLORS.textStrong);
+    doc.text(formatCurrency(item.totalPrice), statusRight, y + 5.2, {
+      align: "right",
+    });
   }
-
-  if (includedQuantity > 0 && totalPrice <= 0) {
-    return `${includedQuantity} included with package`;
-  }
-
-  if (totalPrice <= 0) {
-    return `${quantity} included with package`;
-  }
-
-  return `${quantity} x ${formatCurrency(unitPrice)}`;
 }
 
 function drawFooter(layout: PdfLayout) {
