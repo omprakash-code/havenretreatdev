@@ -436,6 +436,7 @@ model BookingItem {
 
 model SignedAgreement {
   id                  String @id @default(cuid())
+  agreementRef        String @unique
   bookingId           String
   agreementTemplateId String
   signerName          String
@@ -450,6 +451,9 @@ model SignedAgreement {
   confirmationAccepted Boolean @default(false)
   paymentReference    String?
   pdfGeneratedAt      DateTime?
+  pdfFileName         String?
+  pdfSha256           String?
+  pdfContent          Bytes?
 
   booking           Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   agreementTemplate AgreementTemplate @relation(fields: [agreementTemplateId], references: [id])

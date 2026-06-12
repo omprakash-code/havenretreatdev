@@ -27,7 +27,7 @@ describe("buildSignedAgreementPdf", () => {
       remainingPayable: 1050,
       items: [],
       signedAgreement: {
-        id: "agreement-123",
+        id: "HRA0612202600123",
         signerName: "Test Renter",
         signerEmail: "renter@example.com",
         signedAt: "2026-06-12T18:30:00.000Z",
@@ -42,7 +42,7 @@ describe("buildSignedAgreementPdf", () => {
     const result = await buildSignedAgreementPdf(data);
 
     expect(result.filename).toBe(
-      "HR-AGREEMENT-123-signed-agreement.pdf"
+      "HRA0612202600123-signed-agreement.pdf"
     );
     expect(result.arrayBuffer.byteLength).toBeGreaterThan(5000);
     expect(

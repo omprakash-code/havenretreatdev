@@ -9,13 +9,15 @@ import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { resolveLocationDisplayName } from "@/lib/location-display";
-import { sendEmail } from "@/services/email.service";
+import { sendEmail, type EmailAttachment } from "@/services/email.service";
 import { resolveAdminBookingNotificationRecipients } from "@/services/booking/booking-notification-recipients.service";
+import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
 
 type SendAdminBookingConfirmationEmailParams = {
   bookingRef: string;
   emailData: BookingConfirmationEmailProps;
   confirmationSource?: string;
+  agreementAttachment?: EmailAttachment | null;
 };
 
 function stringifyOccasionValue(value: Prisma.JsonValue): string {
@@ -133,7 +135,7 @@ function buildAddonItemsWithNumberValues(
 export async function sendAdminBookingConfirmationEmail({
   bookingRef,
   emailData,
-  confirmationSource,
+  agreementAttachment,
 }: SendAdminBookingConfirmationEmailParams) {
   const recipients = resolveAdminBookingNotificationRecipients();
   if (recipients.length === 0) {
@@ -146,6 +148,7 @@ export async function sendAdminBookingConfirmationEmail({
         to,
         subject: `New Booking - Haven Retreat | ${bookingRef}`,
         react: AdminBookingConfirmationEmail(emailData),
+        attachments: agreementAttachment ? [agreementAttachment] : undefined,
       })
     )
   );
@@ -173,6 +176,23 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      signedAgreements: {
+        orderBy: { signedAt: "desc" },
+        take: 1,
+        select: {
+          agreementRef: true,
+          signerName: true,
+          signerEmail: true,
+          signedAt: true,
+          signatureImage: true,
+          agreementVersion: true,
+          agreementHtmlSnapshot: true,
+          acknowledgedClauses: true,
+          confirmationAccepted: true,
+          pdfFileName: true,
+          pdfContent: true,
+        },
+      },
     },
   });
 
@@ -194,6 +214,7 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
   }
 
   const latestPayment = booking.payment[0];
+  const signedAgreement = booking.signedAgreements[0] ?? null;
   const addonItems = buildAddonItemsWithNumberValues(
     booking.items,
     (booking.occasionData as Prisma.JsonValue | null) ?? null
@@ -215,6 +236,23 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
       (booking.occasionData as Prisma.JsonValue | null) ?? null
     ),
     addonItems,
+    signedAgreement: signedAgreement
+      ? {
+          id: signedAgreement.agreementRef,
+          signerName: signedAgreement.signerName,
+          signerEmail: signedAgreement.signerEmail,
+          signedAt: signedAgreement.signedAt.toISOString(),
+          signatureImage: signedAgreement.signatureImage,
+          agreementVersion: signedAgreement.agreementVersion,
+          agreementHtmlSnapshot: signedAgreement.agreementHtmlSnapshot,
+          acknowledgedClauses: Array.isArray(signedAgreement.acknowledgedClauses)
+            ? signedAgreement.acknowledgedClauses.filter(
+                (clause): clause is number => typeof clause === "number"
+              )
+            : [],
+          confirmationAccepted: signedAgreement.confirmationAccepted,
+        }
+      : null,
     paymentType: latestPayment?.provider ?? undefined,
     paymentMethod: latestPayment?.method ?? undefined,
     paymentStatus: booking.paymentStatus ?? latestPayment?.status ?? undefined,
@@ -229,5 +267,11 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     bookingRef: booking.bookingRef,
     emailData,
     confirmationSource,
+    agreementAttachment: signedAgreement
+      ? createStoredAgreementAttachment({
+          filename: signedAgreement.pdfFileName,
+          content: signedAgreement.pdfContent,
+        })
+      : null,
   });
 }

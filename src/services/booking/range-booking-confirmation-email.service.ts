@@ -11,6 +11,7 @@ import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { resolveLocationDisplayName } from "@/lib/location-display";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
 import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
+import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
 
 function stringifyOccasionValue(value: Prisma.JsonValue): string {
   if (typeof value === "string") return value.trim();
@@ -137,6 +138,7 @@ export async function sendRangeBookingConfirmationEmails({
         take: 1,
         select: {
           id: true,
+          agreementRef: true,
           signerName: true,
           signerEmail: true,
           signedAt: true,
@@ -145,6 +147,8 @@ export async function sendRangeBookingConfirmationEmails({
           agreementHtmlSnapshot: true,
           acknowledgedClauses: true,
           confirmationAccepted: true,
+          pdfFileName: true,
+          pdfContent: true,
         },
       },
     },
@@ -167,6 +171,12 @@ export async function sendRangeBookingConfirmationEmails({
   const successUrl = `${baseUrl}/booking/success?t=${encodeURIComponent(successToken)}`;
   const latestPayment = booking.payment[0];
   const signedAgreement = booking.signedAgreements[0] ?? null;
+  const agreementAttachment = signedAgreement
+    ? createStoredAgreementAttachment({
+        filename: signedAgreement.pdfFileName,
+        content: signedAgreement.pdfContent,
+      })
+    : null;
   const packageSnapshot =
     booking.packageSnapshot &&
     typeof booking.packageSnapshot === "object" &&
@@ -223,7 +233,7 @@ export async function sendRangeBookingConfirmationEmails({
     addonItems,
     signedAgreement: signedAgreement
       ? {
-          id: signedAgreement.id,
+          id: signedAgreement.agreementRef,
           signerName: signedAgreement.signerName,
           signerEmail: signedAgreement.signerEmail,
           signedAt: signedAgreement.signedAt.toISOString(),
@@ -260,6 +270,7 @@ export async function sendRangeBookingConfirmationEmails({
         bookingRef: booking.bookingRef,
         emailData,
         theme: process.env.BOOKING_EMAIL_THEME,
+        agreementAttachment,
       });
       await prisma.booking.update({
         where: { id: booking.id },
@@ -275,6 +286,7 @@ export async function sendRangeBookingConfirmationEmails({
       bookingRef: booking.bookingRef,
       emailData,
       confirmationSource,
+      agreementAttachment,
     });
   } catch (err) {
     console.error("RANGE_BOOKING_ADMIN_EMAIL_FAILED", err);

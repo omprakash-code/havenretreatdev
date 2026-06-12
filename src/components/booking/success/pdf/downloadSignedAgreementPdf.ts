@@ -52,9 +52,45 @@ function getFallbackClauses(): AgreementClause[] {
   ];
 }
 
+function decodeSnapshotText(value: string) {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&")
+    .trim();
+}
+
+function extractStoredClausesWithoutDom(snapshot: string) {
+  return Array.from(
+    snapshot.matchAll(
+      /<section[^>]*data-clause-number="(\d+)"[^>]*>[\s\S]*?<h2>([\s\S]*?)<\/h2>\s*<p>([\s\S]*?)<\/p>/gi
+    )
+  )
+    .map((match) => ({
+      number: Number(match[1]),
+      title: decodeSnapshotText(match[2] ?? ""),
+      body: decodeSnapshotText(match[3] ?? ""),
+    }))
+    .filter(
+      (clause): clause is AgreementClause =>
+        Number.isInteger(clause.number) &&
+        clause.number > 0 &&
+        Boolean(clause.title)
+    )
+    .sort((left, right) => left.number - right.number);
+}
+
 function extractStoredClauses(snapshot: string | null | undefined) {
-  if (!snapshot || typeof DOMParser === "undefined") {
+  if (!snapshot) {
     return getFallbackClauses();
+  }
+  if (typeof DOMParser === "undefined") {
+    const clauses = extractStoredClausesWithoutDom(snapshot);
+    return clauses.length > 0 ? clauses : getFallbackClauses();
   }
 
   const document = new DOMParser().parseFromString(snapshot, "text/html");
@@ -322,7 +358,7 @@ export async function buildSignedAgreementPdf(
   }
 
   const filename = `${sanitizeFilename(
-    data.bookingRef || "booking"
+    agreement.id || data.bookingRef || "agreement"
   )}-signed-agreement.pdf`;
   return { filename, arrayBuffer: doc.output("arraybuffer") };
 }

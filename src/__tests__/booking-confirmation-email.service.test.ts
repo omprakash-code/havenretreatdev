@@ -54,11 +54,18 @@ describe("sendBookingConfirmationEmail", () => {
   });
 
   it("sends email with PDF attachment", async () => {
+    const agreementAttachment = {
+      filename: "HRA0612202600001-signed-agreement.pdf",
+      content: Buffer.from("agreement-pdf"),
+      contentType: "application/pdf",
+    };
+
     await sendBookingConfirmationEmail({
       to: "demo@example.com",
       bookingRef: "HR-BOOK-100",
       emailData: baseEmailData,
       theme: "dark",
+      agreementAttachment,
     });
 
     expect(buildPdfMock).toHaveBeenCalledWith("HR-BOOK-100", baseEmailData);
@@ -79,6 +86,7 @@ describe("sendBookingConfirmationEmail", () => {
             contentType: "text/calendar; charset=utf-8; method=REQUEST",
             content: expect.any(String),
           }),
+          agreementAttachment,
         ]),
       })
     );

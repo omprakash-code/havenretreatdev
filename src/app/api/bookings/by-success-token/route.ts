@@ -89,6 +89,7 @@ export async function GET(req: Request) {
           take: 1,
           select: {
             id: true,
+            agreementRef: true,
             signerName: true,
             signerEmail: true,
             signedAt: true,
@@ -286,7 +287,7 @@ export async function GET(req: Request) {
       })),
       signedAgreement: signedAgreement
         ? {
-            id: signedAgreement.id,
+            id: signedAgreement.agreementRef,
             signerName: signedAgreement.signerName,
             signerEmail: signedAgreement.signerEmail,
             signedAt: signedAgreement.signedAt.toISOString(),

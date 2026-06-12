@@ -10,6 +10,8 @@ import {
 } from "@/services/booking/range-booking-session.service";
 import { normalizeAcknowledgedClauses } from "@/lib/agreement-acknowledgments";
 import { buildHavenAgreementHtmlSnapshot } from "@/lib/agreement-snapshot";
+import { buildAgreementReference } from "@/lib/agreement-reference";
+import { buildStoredSignedAgreementPdf } from "@/lib/pdf/stored-signed-agreement";
 
 function extractRequestIp(req: Request) {
   const forwardedFor = req.headers.get("x-forwarded-for");
@@ -91,11 +93,34 @@ export async function POST(req: Request) {
       }
 
       const signedAt = new Date();
+      const agreementVersion = body.agreementVersion ?? template.version;
+      const agreementRef = buildAgreementReference(booking.bookingRef);
+      const agreementHtmlSnapshot = buildHavenAgreementHtmlSnapshot({
+        title: template.title,
+        version: agreementVersion,
+        acknowledgedClauses,
+      });
+      const storedPdf = await buildStoredSignedAgreementPdf({
+        bookingRef: booking.bookingRef,
+        agreement: {
+          id: agreementRef,
+          signerName: body.signerName.trim(),
+          signerEmail: booking.contactEmail ?? "",
+          signedAt: signedAt.toISOString(),
+          signatureImage: body.signatureImage,
+          agreementVersion,
+          agreementHtmlSnapshot,
+          acknowledgedClauses,
+          confirmationAccepted: true,
+        },
+      });
+
       await prisma.$transaction(async (tx) => {
         await requireActiveRangeBookingSession(rangeIdentity, signedAt, tx);
         await tx.signedAgreement.deleteMany({ where: { bookingId } });
         await tx.signedAgreement.create({
           data: {
+            agreementRef,
             bookingId,
             agreementTemplateId: template.id,
             signerName: body.signerName!.trim(),
@@ -104,14 +129,14 @@ export async function POST(req: Request) {
             signatureImage: body.signatureImage!,
             ipAddress: extractRequestIp(req),
             userAgent: req.headers.get("user-agent"),
-            agreementVersion: body.agreementVersion ?? template.version,
-            agreementHtmlSnapshot: buildHavenAgreementHtmlSnapshot({
-              title: template.title,
-              version: body.agreementVersion ?? template.version,
-              acknowledgedClauses,
-            }),
+            agreementVersion,
+            agreementHtmlSnapshot,
             acknowledgedClauses,
             confirmationAccepted: true,
+            pdfGeneratedAt: storedPdf.generatedAt,
+            pdfFileName: storedPdf.filename,
+            pdfSha256: storedPdf.sha256,
+            pdfContent: storedPdf.content,
           },
         });
         await tx.booking.update({
@@ -169,6 +194,27 @@ export async function POST(req: Request) {
     }
 
     const signedAt = new Date();
+    const agreementVersion = body.agreementVersion ?? template.version;
+    const agreementRef = buildAgreementReference(booking.bookingRef);
+    const agreementHtmlSnapshot = buildHavenAgreementHtmlSnapshot({
+      title: template.title,
+      version: agreementVersion,
+      acknowledgedClauses,
+    });
+    const storedPdf = await buildStoredSignedAgreementPdf({
+      bookingRef: booking.bookingRef,
+      agreement: {
+        id: agreementRef,
+        signerName: body.signerName.trim(),
+        signerEmail: booking.contactEmail ?? "",
+        signedAt: signedAt.toISOString(),
+        signatureImage: body.signatureImage,
+        agreementVersion,
+        agreementHtmlSnapshot,
+        acknowledgedClauses,
+        confirmationAccepted: true,
+      },
+    });
 
     await prisma.$transaction(async (tx) => {
       await tx.signedAgreement.deleteMany({
@@ -177,6 +223,7 @@ export async function POST(req: Request) {
 
       await tx.signedAgreement.create({
         data: {
+          agreementRef,
           bookingId,
           agreementTemplateId: template.id,
           signerName: body.signerName!.trim(),
@@ -185,14 +232,14 @@ export async function POST(req: Request) {
           signatureImage: body.signatureImage!,
           ipAddress: extractRequestIp(req),
           userAgent: req.headers.get("user-agent"),
-          agreementVersion: body.agreementVersion ?? template.version,
-          agreementHtmlSnapshot: buildHavenAgreementHtmlSnapshot({
-            title: template.title,
-            version: body.agreementVersion ?? template.version,
-            acknowledgedClauses,
-          }),
+          agreementVersion,
+          agreementHtmlSnapshot,
           acknowledgedClauses,
           confirmationAccepted: true,
+          pdfGeneratedAt: storedPdf.generatedAt,
+          pdfFileName: storedPdf.filename,
+          pdfSha256: storedPdf.sha256,
+          pdfContent: storedPdf.content,
         },
       });
 

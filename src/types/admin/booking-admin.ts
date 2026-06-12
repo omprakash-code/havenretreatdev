@@ -105,6 +105,8 @@ export type AdminBooking = {
     confirmationAccepted: boolean;
     paymentReference: string | null;
     pdfGeneratedAt: string | null;
+    pdfFileName: string | null;
+    pdfSha256: string | null;
     createdAt: string;
   } | null;
 

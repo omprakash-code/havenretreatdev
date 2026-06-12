@@ -250,6 +250,7 @@ export async function GET(
           take: 1,
           select: {
             id: true,
+            agreementRef: true,
             signerName: true,
             signerEmail: true,
             signedAt: true,
@@ -262,6 +263,8 @@ export async function GET(
             confirmationAccepted: true,
             paymentReference: true,
             pdfGeneratedAt: true,
+            pdfFileName: true,
+            pdfSha256: true,
             createdAt: true,
           },
         },
@@ -484,7 +487,7 @@ export async function GET(
           termsAcceptedAt: booking.termsAcceptedAt?.toISOString() ?? null,
           signedAgreement: latestSignedAgreement
             ? {
-                id: latestSignedAgreement.id,
+                id: latestSignedAgreement.agreementRef,
                 signerName: latestSignedAgreement.signerName,
                 signerEmail: latestSignedAgreement.signerEmail,
                 signedAt: latestSignedAgreement.signedAt.toISOString(),
@@ -505,6 +508,8 @@ export async function GET(
                 confirmationAccepted: latestSignedAgreement.confirmationAccepted,
                 paymentReference: latestSignedAgreement.paymentReference,
                 pdfGeneratedAt: latestSignedAgreement.pdfGeneratedAt?.toISOString() ?? null,
+                pdfFileName: latestSignedAgreement.pdfFileName,
+                pdfSha256: latestSignedAgreement.pdfSha256,
                 createdAt: latestSignedAgreement.createdAt.toISOString(),
               }
             : null,

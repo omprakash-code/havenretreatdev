@@ -688,6 +688,16 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                             <FieldRow label="Agreement ID">
                               <MonoValue>{booking.signedAgreement.id}</MonoValue>
                             </FieldRow>
+                            <FieldRow label="Stored PDF">
+                              <MonoValue>
+                                {booking.signedAgreement.pdfFileName ?? "—"}
+                              </MonoValue>
+                            </FieldRow>
+                            <FieldRow label="PDF SHA-256">
+                              <MonoValue>
+                                {booking.signedAgreement.pdfSha256 ?? "—"}
+                              </MonoValue>
+                            </FieldRow>
                             <FieldRow label="Agreement Version">
                               {booking.signedAgreement.agreementVersion ?? "—"}
                             </FieldRow>

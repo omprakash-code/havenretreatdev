@@ -13,6 +13,7 @@ import {
   type BookingConfirmationDetail,
   type BookingConfirmationEmailProps,
 } from "@/emails/BookingConfirmationEmail";
+import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
 
 type ConfirmationEmailData = BookingConfirmationEmailProps & {
   customerName: string;
@@ -252,6 +253,23 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
           orderBy: { createdAt: "desc" },
           take: 1,
         },
+        signedAgreements: {
+          orderBy: { signedAt: "desc" },
+          take: 1,
+          select: {
+            agreementRef: true,
+            signerName: true,
+            signerEmail: true,
+            signedAt: true,
+            signatureImage: true,
+            agreementVersion: true,
+            agreementHtmlSnapshot: true,
+            acknowledgedClauses: true,
+            confirmationAccepted: true,
+            pdfFileName: true,
+            pdfContent: true,
+          },
+        },
       },
     });
 
@@ -291,6 +309,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     );
 
     const latestPayment = booking.payment[0];
+    const signedAgreement = booking.signedAgreements[0] ?? null;
     const schedule = resolvePresentedBookingSchedule({
       eventDate: booking.eventDate,
       eventStartTime: booking.eventStartTime,
@@ -310,7 +329,8 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       );
     }
 
-    const emailData = buildEmailData({
+    const emailData: BookingConfirmationEmailProps = {
+      ...buildEmailData({
       bookingRef: booking.bookingRef,
       successToken,
       contactName: booking.contactName,
@@ -337,13 +357,39 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       totalAmount: booking.totalAmount,
       advancePaid: booking.advancePaid,
       remainingPayable: booking.remainingPayable,
-    });
+      }),
+      signedAgreement: signedAgreement
+        ? {
+            id: signedAgreement.agreementRef,
+            signerName: signedAgreement.signerName,
+            signerEmail: signedAgreement.signerEmail,
+            signedAt: signedAgreement.signedAt.toISOString(),
+            signatureImage: signedAgreement.signatureImage,
+            agreementVersion: signedAgreement.agreementVersion,
+            agreementHtmlSnapshot: signedAgreement.agreementHtmlSnapshot,
+            acknowledgedClauses: Array.isArray(
+              signedAgreement.acknowledgedClauses
+            )
+              ? signedAgreement.acknowledgedClauses.filter(
+                  (clause): clause is number => typeof clause === "number"
+                )
+              : [],
+            confirmationAccepted: signedAgreement.confirmationAccepted,
+          }
+        : null,
+    };
 
     await sendBookingConfirmationEmail({
       to: emailToSend,
       bookingRef: booking.bookingRef,
       emailData,
       theme: process.env.BOOKING_EMAIL_THEME,
+      agreementAttachment: signedAgreement
+        ? createStoredAgreementAttachment({
+            filename: signedAgreement.pdfFileName,
+            content: signedAgreement.pdfContent,
+          })
+        : null,
     });
 
     if (!requestedToEmail || requestedToEmail === booking.contactEmail) {
