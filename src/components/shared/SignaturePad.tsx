@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const PEN_CURSOR =
   'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2224%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23111827%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M17 3a2.85 2.85 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5Z%22/%3E%3Cpath d=%22m15 5 4 4%22/%3E%3C/svg%3E") 3 21, crosshair';
@@ -20,6 +20,8 @@ export default function SignaturePad({
   const drawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const hasDrawnRef = useRef(false);
+  const renderedValueRef = useRef<string | null>(null);
+  const drawRequestRef = useRef(0);
   const historyRef = useRef<Array<string | null>>([null]);
   const historyIndexRef = useRef(0);
   const [canUndo, setCanUndo] = useState(false);
@@ -30,7 +32,7 @@ export default function SignaturePad({
     setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
   };
 
-  const configureContext = () => {
+  const configureContext = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
@@ -58,26 +60,29 @@ export default function SignaturePad({
     context.fillStyle = "#111827";
 
     return { canvas, context, width, height };
-  };
+  }, []);
 
-  const getCanvasSnapshot = () => {
+  const getCanvasSnapshot = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !hasDrawnRef.current) return null;
     return canvas.toDataURL("image/png");
-  };
+  }, []);
 
-  const drawSnapshot = (snapshot: string | null) => {
+  const drawSnapshot = useCallback((snapshot: string | null) => {
+    const requestId = ++drawRequestRef.current;
     const configured = configureContext();
     if (!configured) return;
 
     configured.context.clearRect(0, 0, configured.width, configured.height);
     if (!snapshot) {
       hasDrawnRef.current = false;
+      renderedValueRef.current = null;
       return;
     }
 
     const image = new Image();
     image.onload = () => {
+      if (requestId !== drawRequestRef.current) return;
       const refreshed = configureContext();
       if (!refreshed) return;
       refreshed.context.clearRect(0, 0, refreshed.width, refreshed.height);
@@ -89,9 +94,10 @@ export default function SignaturePad({
         refreshed.height
       );
       hasDrawnRef.current = true;
+      renderedValueRef.current = snapshot;
     };
     image.src = snapshot;
-  };
+  }, [configureContext]);
 
   const commitSnapshot = (snapshot: string | null) => {
     const currentSnapshot = historyRef.current[historyIndexRef.current] ?? null;
@@ -103,53 +109,37 @@ export default function SignaturePad({
     ];
     historyIndexRef.current = historyRef.current.length - 1;
     syncHistoryControls();
+    renderedValueRef.current = snapshot;
     onChange(snapshot);
   };
 
   useEffect(() => {
-    const configured = configureContext();
-    if (!configured) return;
-
-    const { context, width, height } = configured;
-    context.clearRect(0, 0, width, height);
-
-    if (!value) {
-      hasDrawnRef.current = false;
-      return;
-    }
-
-    const image = new Image();
-    image.onload = () => {
-      const refreshed = configureContext();
-      if (!refreshed) return;
-      refreshed.context.clearRect(0, 0, refreshed.width, refreshed.height);
-      refreshed.context.drawImage(image, 0, 0, refreshed.width, refreshed.height);
-      hasDrawnRef.current = true;
-    };
-    image.src = value;
-  }, [value]);
+    // A locally committed stroke is already on the canvas. Redrawing it here
+    // clears the pixels between pointer-up and asynchronous image decoding.
+    if (value === renderedValueRef.current) return;
+    drawSnapshot(value);
+  }, [drawSnapshot, value]);
 
   useEffect(() => {
     const handleResize = () => {
-      const configured = configureContext();
-      if (!configured) return;
-      configured.context.clearRect(0, 0, configured.width, configured.height);
-      if (!value) return;
-      const image = new Image();
-      image.onload = () => {
-        const refreshed = configureContext();
-        if (!refreshed) return;
-        refreshed.context.drawImage(image, 0, 0, refreshed.width, refreshed.height);
-      };
-      image.src = value;
+      const snapshot = getCanvasSnapshot() ?? renderedValueRef.current;
+      drawSnapshot(snapshot);
     };
 
     handleResize();
+    const canvas = canvasRef.current;
+    const resizeObserver =
+      canvas && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(handleResize)
+        : null;
+    if (canvas) resizeObserver?.observe(canvas);
     window.addEventListener("resize", handleResize);
+
     return () => {
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", handleResize);
     };
-  }, [value]);
+  }, [drawSnapshot, getCanvasSnapshot]);
 
   const getPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -163,6 +153,7 @@ export default function SignaturePad({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (disabled) return;
+    event.preventDefault();
     const configured = configureContext();
     const point = getPoint(event);
     if (!configured || !point) return;
@@ -180,6 +171,7 @@ export default function SignaturePad({
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (disabled) return;
     if (!drawingRef.current) return;
+    event.preventDefault();
     const configured = configureContext();
     const point = getPoint(event);
     const lastPoint = lastPointRef.current;
@@ -198,6 +190,8 @@ export default function SignaturePad({
 
   const handlePointerUp = (event?: React.PointerEvent<HTMLCanvasElement>) => {
     if (disabled) return;
+    event?.preventDefault();
+    if (!drawingRef.current) return;
     drawingRef.current = false;
     lastPointRef.current = null;
     if (event?.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -249,7 +243,6 @@ export default function SignaturePad({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        onPointerLeave={handlePointerUp}
         style={disabled ? undefined : { cursor: PEN_CURSOR }}
         className={`h-44 w-full touch-none border ${
           disabled

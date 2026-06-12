@@ -4,7 +4,7 @@ import Image from "next/image";
 import { CheckCircle2, X } from "lucide-react";
 import { Minus, Plus } from "@/components/icons";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Product, Variant } from "./types";
 import { getVariantPriceMeta } from "./price";
 import type { BookingItemSnapshot } from "@/context/BookingContext";
@@ -23,6 +23,22 @@ import {
 type Props = {
   product: Product;
   selectedProducts: BookingItemSnapshot[];
+};
+
+const PACKAGE_DETAILS: Record<
+  string,
+  {
+    includedItems: string[];
+  }
+> = {
+  "balloon-decor-package": {
+    includedItems: [
+      "Up to 3 balloon colors of your choice",
+      "Balloon arch design",
+      "Cake cylinders/pedestals",
+      "Basic setup and styling",
+    ],
+  },
 };
 
 function formatCurrency(amount: number) {
@@ -59,7 +75,26 @@ export default function ProductCard({
   const [activeVariant, setActiveVariant] =
     useState<Variant | undefined>(defaultVariant);
   const [showLedPrompt, setShowLedPrompt] = useState(false);
+  const [showPackageDetails, setShowPackageDetails] = useState(false);
   const [draftLedNumber, setDraftLedNumber] = useState("");
+  const packageDetails = product.slug ? PACKAGE_DETAILS[product.slug] : undefined;
+
+  useEffect(() => {
+    if (!showPackageDetails) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowPackageDetails(false);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showPackageDetails]);
 
   /* -----------------------------
      Existing item lookup
@@ -195,6 +230,16 @@ export default function ProductCard({
         </p>
       )}
 
+      {packageDetails && (
+        <button
+          type="button"
+          onClick={() => setShowPackageDetails(true)}
+          className="mt-1.5 w-fit cursor-pointer text-left text-[11px] font-semibold text-[#347f7c] underline decoration-[#347f7c]/40 underline-offset-2 transition hover:text-[#245e5b] sm:text-xs"
+        >
+          View package details
+        </button>
+      )}
+
       {/* Variants */}
       <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2 sm:mt-3">
         {variants.map((v) => {
@@ -320,6 +365,85 @@ export default function ProductCard({
           </AnimatePresence>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showPackageDetails && packageDetails && (
+          <motion.div
+            className="fixed inset-0 z-[120] flex items-end bg-black/45 sm:items-center sm:justify-center sm:px-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`package-details-${product.id}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setShowPackageDetails(false);
+              }
+            }}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="w-full rounded-t-2xl border border-[#2f7e7a]/20 bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl sm:max-w-md sm:rounded-none sm:p-6"
+            >
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 sm:hidden" />
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3
+                    id={`package-details-${product.id}`}
+                    className="text-lg font-bold text-gray-900"
+                  >
+                    {product.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Our balloon décor packages start at{" "}
+                    <span className="font-semibold text-gray-900">
+                      {formatCurrency(priceMeta.displayPrice)}
+                    </span>{" "}
+                    and include:
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPackageDetails(false)}
+                  aria-label="Close package details"
+                  className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center border border-[#d7e4e1] text-gray-500 transition hover:bg-[#edf3f1] hover:text-[#245e5b]"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <ul className="mt-5 space-y-3">
+                {packageDetails.includedItems.map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-3 text-sm leading-5 text-gray-700"
+                  >
+                    <CheckCircle2
+                      size={17}
+                      className="mt-0.5 shrink-0 text-[#347f7c]"
+                    />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                type="button"
+                onClick={() => setShowPackageDetails(false)}
+                className="mt-6 w-full cursor-pointer border border-[#347f7c] bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#245e5b]"
+              >
+                Done
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showLedPrompt && (
