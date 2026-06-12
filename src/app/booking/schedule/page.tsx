@@ -10,26 +10,45 @@ import { toDateKeyString } from "@/lib/date";
 
 function ScheduleContent() {
   const router = useRouter();
-  const { booking, refreshBooking } = useBooking();
+  const { booking, refreshBooking, hydrated } = useBooking();
   const [selectedPackageRate, setSelectedPackageRate] = useState<number | null>(null);
   const [selectedPackageName, setSelectedPackageName] = useState<string | null>(null);
   const [selectedPackageBasePrice, setSelectedPackageBasePrice] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!hydrated) return;
+
     const pendingPackageId = sessionStorage.getItem("hr_pending_package_id");
-    if (!pendingPackageId) {
+    // Returning from a later step: the pending keys are cleared once the lock
+    // is created, but the active booking session still identifies the package.
+    const activePackage = booking.bookingId ? booking.package : null;
+
+    if (!pendingPackageId && !activePackage) {
       router.replace(BOOKING_ROUTES.PACKAGE);
       return;
     }
+
     const rate = Number(sessionStorage.getItem("hr_pending_package_rate") || "0");
     if (rate > 0) setSelectedPackageRate(rate);
+    else if (activePackage?.hourlyRate) setSelectedPackageRate(activePackage.hourlyRate);
+
     const name = sessionStorage.getItem("hr_pending_package_name") || "";
     if (name) setSelectedPackageName(name);
+    else if (activePackage?.name) setSelectedPackageName(activePackage.name);
+
     const basePrice = Number(sessionStorage.getItem("hr_pending_package_base_price") || "0");
+    const snapshotPackageAmount = Number(booking.rangePricingSnapshot?.packageAmount ?? 0);
     if (basePrice > 0) setSelectedPackageBasePrice(basePrice);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    else if (snapshotPackageAmount > 0) setSelectedPackageBasePrice(snapshotPackageAmount);
+    else if (activePackage?.basePrice) setSelectedPackageBasePrice(activePackage.basePrice);
+  }, [
+    hydrated,
+    booking.bookingId,
+    booking.package,
+    booking.rangePricingSnapshot,
+    router,
+  ]);
 
   const canContinue = Boolean(
     booking.date &&
@@ -41,7 +60,9 @@ function ScheduleContent() {
   const handleContinue = async () => {
     if (!canContinue || !booking.date || isSubmitting) return;
 
-    const packageId = sessionStorage.getItem("hr_pending_package_id");
+    const packageId =
+      sessionStorage.getItem("hr_pending_package_id") ??
+      (booking.bookingId ? booking.package?.id ?? null : null);
     if (!packageId) {
       router.replace(BOOKING_ROUTES.PACKAGE);
       return;

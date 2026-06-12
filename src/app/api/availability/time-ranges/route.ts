@@ -13,6 +13,7 @@ import {
   BOOKING_TIME_ZONE,
   DEFAULT_MINIMUM_BOOKING_MINUTES,
 } from "@/lib/booking-policy";
+import { getOwnedBookingIdFromCookies } from "@/services/booking/range-booking-api-session";
 
 function timeToMinutes(t: string) {
   return parseBookingTime(t) ?? 0;
@@ -85,6 +86,10 @@ export async function GET(req: Request) {
   );
   const now = new Date();
 
+  // The caller's own held booking must stay selectable so they can change
+  // their time range; only other sessions' holds block availability.
+  const ownedBookingId = await getOwnedBookingIdFromCookies();
+
   // Find CONFIRMED bookings that overlap this date
   const bookings = await prisma.booking.findMany({
     where: {
@@ -94,6 +99,7 @@ export async function GET(req: Request) {
         {
           bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
           holdExpiresAt: { gt: now },
+          ...(ownedBookingId ? { id: { not: ownedBookingId } } : {}),
         },
       ],
       startsAtUtc: { lt: dayEndUtc },

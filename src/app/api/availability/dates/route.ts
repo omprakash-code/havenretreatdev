@@ -10,6 +10,7 @@ import {
   BOOKING_TIME_ZONE,
 } from "@/lib/booking-policy";
 import { timeToMinutes } from "@/lib/booking-range";
+import { getOwnedBookingIdFromCookies } from "@/services/booking/range-booking-api-session";
 
 function minutesToTime(minutes: number) {
   const hours = Math.floor(minutes / 60);
@@ -65,6 +66,9 @@ export async function GET(req: Request) {
   // Find dates that are fully blocked (CONFIRMED booking occupies entire day window)
   // For simplicity, mark a date unavailable only if a CONFIRMED booking spans the
   // entire business hours window (09:00–23:00) on that date.
+  // The caller's own held booking must not block dates for them.
+  const ownedBookingId = await getOwnedBookingIdFromCookies();
+
   const confirmedBookings = await prisma.booking.findMany({
     where: {
       venueId: { in: venueIds },
@@ -73,6 +77,7 @@ export async function GET(req: Request) {
         {
           bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
           holdExpiresAt: { gt: now },
+          ...(ownedBookingId ? { id: { not: ownedBookingId } } : {}),
         },
       ],
       eventDate: {
