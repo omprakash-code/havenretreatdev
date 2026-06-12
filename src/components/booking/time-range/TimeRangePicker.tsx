@@ -287,6 +287,13 @@ export default function TimeRangePicker({
       if (candidateMinutes !== null && candidateMinutes > businessCloseMinutes) {
         return `${label} is outside business hours`;
       }
+      if (
+        candidateMinutes !== null &&
+        draftStartMinutes !== null &&
+        candidateMinutes < draftStartMinutes
+      ) {
+        return `${label} is before your selected start time`;
+      }
       if (!canUseDraftEndTime(time)) {
         if (draftStartTime && rangeOverlapsUnavailable(draftStartTime, time)) {
           return `${label} conflicts with an existing booked or blocked range`;
@@ -326,23 +333,15 @@ export default function TimeRangePicker({
 
     return `${label} is available as a start time`;
   };
+  // Always render the full business-hours grid so the layout never shifts
+  // between start and end selection; invalid options are disabled instead.
   const visibleTimes = times.filter((time) => {
     const candidateMinutes = parseTimeValue(time);
-    const isInBusinessWindow =
+    return (
       candidateMinutes !== null &&
       candidateMinutes >= businessOpenMinutes &&
-      candidateMinutes <= businessCloseMinutes;
-
-    if (isSelectingEndTime) {
-      return (
-        draftStartMinutes !== null &&
-        candidateMinutes !== null &&
-        candidateMinutes >= draftStartMinutes &&
-        candidateMinutes <= businessCloseMinutes
-      );
-    }
-
-    return isInBusinessWindow;
+      candidateMinutes <= businessCloseMinutes
+    );
   });
 
   return (
@@ -401,9 +400,11 @@ export default function TimeRangePicker({
         >
           {disabled
             ? "Choose package and date first."
-            : `${minDurationHours} ${
-                minDurationHours === 1 ? "hour" : "hours"
-              } minimum`}
+            : durationHours
+              ? `${durationHours} ${durationHours === 1 ? "hour" : "hours"} selected`
+              : `${minDurationHours} ${
+                  minDurationHours === 1 ? "hour" : "hours"
+                } minimum`}
         </p>
       </div>
 
