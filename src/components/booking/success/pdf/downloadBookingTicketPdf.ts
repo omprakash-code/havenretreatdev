@@ -360,12 +360,6 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
       value: formatCurrency(data.remainingPayable),
       tone: "strong",
     });
-    rows.push({
-      label: "Note",
-      value:
-        "Please arrive 15 minutes before your booking time. Remaining balance can be paid at the venue via Card or Cash.",
-      tone: "muted",
-    });
   }
 
   return rows;
