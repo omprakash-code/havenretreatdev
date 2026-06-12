@@ -14,6 +14,19 @@ type AgreementClause = {
   body: string;
 };
 
+const PDF_COLORS = {
+  teal: [47, 126, 123] as const,
+  tealDark: [31, 91, 89] as const,
+  tealSoft: [238, 247, 245] as const,
+  tealBorder: [188, 218, 213] as const,
+  ink: [15, 23, 42] as const,
+  body: [65, 81, 105] as const,
+  muted: [100, 116, 139] as const,
+  border: [218, 226, 232] as const,
+  surface: [248, 250, 252] as const,
+  white: [255, 255, 255] as const,
+};
+
 function normalizePdfText(value: string) {
   return String(value ?? "")
     .replaceAll("\u2018", "'")
@@ -160,148 +173,245 @@ export async function buildSignedAgreementPdf(
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const marginX = 14;
-  const marginY = 14;
+  const marginX = 16;
+  const marginY = 15;
   const contentWidth = pageWidth - marginX * 2;
   const acknowledgedSet = new Set(agreement.acknowledgedClauses);
   const clauses = extractStoredClauses(agreement.agreementHtmlSnapshot);
   let y = marginY;
 
+  const drawContinuationHeader = () => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.tealDark);
+    doc.text("HAVEN RETREAT", marginX, marginY);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...PDF_COLORS.muted);
+    doc.text("SIGNED EVENT RENTAL AGREEMENT", pageWidth - marginX, marginY, {
+      align: "right",
+    });
+    doc.setDrawColor(...PDF_COLORS.tealBorder);
+    doc.setLineWidth(0.35);
+    doc.line(marginX, marginY + 3, pageWidth - marginX, marginY + 3);
+    y = marginY + 9;
+  };
+
   const addPage = () => {
     doc.addPage();
-    y = marginY;
+    drawContinuationHeader();
   };
 
   const ensureSpace = (height: number) => {
-    if (y + height <= pageHeight - marginY) return;
+    if (y + height <= pageHeight - 15) return;
     addPage();
   };
 
-  doc.setDrawColor(52, 127, 124);
-  doc.setLineWidth(0.7);
-  doc.line(marginX, y, marginX + contentWidth, y);
-  y += 8;
-
+  doc.setFillColor(...PDF_COLORS.teal);
+  doc.rect(marginX, y, 4, 25, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(17);
-  doc.setTextColor(15, 23, 42);
-  doc.text("Haven Retreat Signed Agreement", marginX, y);
-  y += 7;
-
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.tealDark);
+  doc.text("HAVEN RETREAT", marginX + 8, y + 4);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  doc.setTextColor(...PDF_COLORS.ink);
+  doc.text("Event Rental Agreement", marginX + 8, y + 13);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(71, 84, 103);
-  const metadata = [
-    `Booking reference: ${normalizePdfText(data.bookingRef)}`,
-    `Signer: ${normalizePdfText(agreement.signerName)}`,
-    `Signed: ${normalizePdfText(formatISTDateTime(agreement.signedAt))}`,
-    `Agreement version: ${normalizePdfText(
-      agreement.agreementVersion ?? "Not specified"
-    )}`,
-    `Agreement ID: ${normalizePdfText(agreement.id)}`,
-    `Acknowledgments: ${agreement.acknowledgedClauses.length} of ${clauses.length}`,
-  ];
-  metadata.forEach((line) => {
-    doc.text(line, marginX, y);
-    y += 4.8;
-  });
-
-  y += 2;
-  doc.setFillColor(242, 248, 246);
-  doc.setDrawColor(185, 216, 211);
-  doc.rect(marginX, y, contentWidth, 11, "FD");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9.5);
-  doc.setTextColor(36, 94, 91);
+  doc.setFontSize(8.7);
+  doc.setTextColor(...PDF_COLORS.muted);
   doc.text(
-    "Each clause below was individually acknowledged before signing.",
-    marginX + 3,
-    y + 6.8
+    "ELECTRONICALLY SIGNED AND INDIVIDUALLY ACKNOWLEDGED",
+    marginX + 8,
+    y + 19
   );
-  y += 16;
+
+  doc.setFillColor(...PDF_COLORS.tealSoft);
+  doc.setDrawColor(...PDF_COLORS.tealBorder);
+  doc.roundedRect(pageWidth - marginX - 31, y + 2, 31, 9, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.tealDark);
+  doc.text("SIGNED", pageWidth - marginX - 15.5, y + 7.7, {
+    align: "center",
+  });
+  y += 32;
+
+  const metadata = [
+    ["BOOKING REFERENCE", normalizePdfText(data.bookingRef)],
+    ["AGREEMENT ID", normalizePdfText(agreement.id)],
+    ["SIGNED BY", normalizePdfText(agreement.signerName)],
+    ["SIGNED AT", normalizePdfText(formatISTDateTime(agreement.signedAt))],
+    [
+      "AGREEMENT VERSION",
+      normalizePdfText(agreement.agreementVersion ?? "Not specified"),
+    ],
+    [
+      "ACKNOWLEDGMENTS",
+      `${agreement.acknowledgedClauses.length} of ${clauses.length} completed`,
+    ],
+  ];
+
+  const summaryHeight = 31;
+  const summaryColumnWidth = contentWidth / 2;
+  doc.setFillColor(...PDF_COLORS.surface);
+  doc.setDrawColor(...PDF_COLORS.border);
+  doc.roundedRect(marginX, y, contentWidth, summaryHeight, 1.5, 1.5, "FD");
+  doc.setDrawColor(...PDF_COLORS.border);
+  doc.line(
+    marginX + summaryColumnWidth,
+    y + 4,
+    marginX + summaryColumnWidth,
+    y + summaryHeight - 4
+  );
+
+  metadata.forEach(([label, value], index) => {
+    const column = index % 2;
+    const row = Math.floor(index / 2);
+    const x = marginX + column * summaryColumnWidth + 4;
+    const rowY = y + 6 + row * 9;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.7);
+    doc.setTextColor(...PDF_COLORS.muted);
+    doc.text(label, x, rowY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.7);
+    doc.setTextColor(...PDF_COLORS.ink);
+    doc.text(value, x, rowY + 3.8, {
+      maxWidth: summaryColumnWidth - 8,
+    });
+  });
+  y += summaryHeight + 9;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(...PDF_COLORS.ink);
+  doc.text("Terms and Acknowledgments", marginX, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.muted);
+  doc.text(
+    "Each clause was reviewed and acknowledged before the electronic signature was submitted.",
+    marginX,
+    y + 5
+  );
+  y += 11;
 
   clauses.forEach((clause) => {
-    const title = normalizePdfText(clause.title);
+    const title = normalizePdfText(clause.title).replace(
+      new RegExp(`^\\s*${clause.number}\\.\\s*`),
+      ""
+    );
     const body = normalizePdfText(clause.body);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.3);
+    doc.setFontSize(9);
     const titleLines = doc.splitTextToSize(
       title,
-      contentWidth - 13
+      contentWidth - 18
     ) as string[];
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.4);
+    doc.setFontSize(8.15);
     const bodyLines = doc.splitTextToSize(
       body,
-      contentWidth - 13
+      contentWidth - 18
     ) as string[];
     const clauseHeight =
-      6 + titleLines.length * 4.1 + bodyLines.length * 3.8 + 5;
+      6 + titleLines.length * 3.9 + bodyLines.length * 3.55 + 4.5;
 
-    ensureSpace(clauseHeight + 2);
-    doc.setDrawColor(226, 232, 240);
-    doc.setFillColor(248, 250, 252);
-    doc.rect(marginX, y, contentWidth, clauseHeight, "FD");
+    ensureSpace(clauseHeight + 1.5);
+    doc.setFillColor(...PDF_COLORS.white);
+    doc.setDrawColor(...PDF_COLORS.border);
+    doc.roundedRect(marginX, y, contentWidth, clauseHeight, 1.2, 1.2, "FD");
+    doc.setFillColor(...PDF_COLORS.tealSoft);
+    doc.roundedRect(marginX, y, 13, clauseHeight, 1.2, 1.2, "F");
 
-    const checkboxX = marginX + 3;
+    const checkboxX = marginX + 4;
     const checkboxY = y + 4;
-    doc.setDrawColor(52, 127, 124);
-    doc.setFillColor(52, 127, 124);
-    doc.rect(checkboxX, checkboxY, 5, 5, "FD");
+    doc.setDrawColor(...PDF_COLORS.teal);
+    doc.setFillColor(...PDF_COLORS.teal);
+    doc.circle(checkboxX + 2.5, checkboxY + 2.5, 2.6, "FD");
     if (acknowledgedSet.has(clause.number)) {
-      doc.setDrawColor(255, 255, 255);
-      doc.setLineWidth(0.55);
-      doc.line(checkboxX + 1.1, checkboxY + 2.7, checkboxX + 2.2, checkboxY + 3.8);
-      doc.line(checkboxX + 2.2, checkboxY + 3.8, checkboxX + 4.1, checkboxY + 1.3);
+      doc.setDrawColor(...PDF_COLORS.white);
+      doc.setLineWidth(0.45);
+      doc.line(checkboxX + 1.1, checkboxY + 2.6, checkboxX + 2.2, checkboxY + 3.7);
+      doc.line(checkboxX + 2.2, checkboxY + 3.7, checkboxX + 4.1, checkboxY + 1.4);
     }
 
-    const textX = marginX + 11;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...PDF_COLORS.tealDark);
+    doc.text(String(clause.number).padStart(2, "0"), marginX + 6.5, y + clauseHeight - 4, {
+      align: "center",
+    });
+
+    const textX = marginX + 17;
     let textY = y + 6.6;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.3);
-    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(9);
+    doc.setTextColor(...PDF_COLORS.ink);
     doc.text(titleLines, textX, textY);
-    textY += titleLines.length * 4.1 + 1.2;
+    textY += titleLines.length * 3.9 + 1;
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.4);
-    doc.setTextColor(71, 84, 103);
+    doc.setFontSize(8.15);
+    doc.setTextColor(...PDF_COLORS.body);
     doc.text(bodyLines, textX, textY);
-    textY += bodyLines.length * 3.8 + 1.5;
+    textY += bodyLines.length * 3.55 + 1.2;
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.8);
-    doc.setTextColor(52, 127, 124);
+    doc.setFontSize(6.8);
+    doc.setTextColor(...PDF_COLORS.teal);
     doc.text(
       acknowledgedSet.has(clause.number)
-        ? "ACKNOWLEDGED"
+        ? "ACKNOWLEDGED ELECTRONICALLY"
         : "ACKNOWLEDGMENT NOT RECORDED",
       textX,
       textY
     );
 
-    y += clauseHeight + 2;
+    y += clauseHeight + 1.5;
   });
 
-  ensureSpace(62);
-  doc.setDrawColor(226, 232, 240);
-  doc.setFillColor(255, 255, 255);
-  doc.rect(marginX, y, contentWidth, 57, "FD");
+  ensureSpace(66);
+  y += 5;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(15, 23, 42);
-  doc.text("Electronic Signature", marginX + 3, y + 7);
+  doc.setTextColor(...PDF_COLORS.ink);
+  doc.text("Electronic Signature Certificate", marginX, y);
+  y += 5;
+
+  doc.setDrawColor(...PDF_COLORS.tealBorder);
+  doc.setFillColor(...PDF_COLORS.tealSoft);
+  doc.roundedRect(marginX, y, contentWidth, 54, 1.5, 1.5, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...PDF_COLORS.tealDark);
+  doc.text("SIGNATURE ON FILE", marginX + 5, y + 7);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.8);
-  doc.setTextColor(71, 84, 103);
+  doc.setFontSize(8.2);
+  doc.setTextColor(...PDF_COLORS.body);
   doc.text(
     normalizePdfText(
       `I, ${agreement.signerName}, confirm that this electronic signature is mine and that I agree to the terms above.`
     ),
-    marginX + 3,
+    marginX + 5,
     y + 13,
-    { maxWidth: contentWidth - 6 }
+    { maxWidth: contentWidth - 10 }
+  );
+
+  const signatureBoxY = y + 19;
+  const signatureBoxWidth = 76;
+  doc.setFillColor(...PDF_COLORS.white);
+  doc.setDrawColor(...PDF_COLORS.tealBorder);
+  doc.roundedRect(
+    marginX + 5,
+    signatureBoxY,
+    signatureBoxWidth,
+    27,
+    1,
+    1,
+    "FD"
   );
 
   try {
@@ -313,48 +423,76 @@ export async function buildSignedAgreementPdf(
     doc.addImage(
       agreement.signatureImage,
       signatureFormat,
-      marginX + 3,
-      y + 20,
+      marginX + 8,
+      signatureBoxY + 3,
       70,
-      24
+      18
     );
   } catch {
     doc.setFont("helvetica", "italic");
-    doc.setFontSize(8.5);
-    doc.text("Stored signature image could not be rendered.", marginX + 3, y + 31);
+    doc.setFontSize(8);
+    doc.text(
+      "Stored signature image could not be rendered.",
+      marginX + 9,
+      signatureBoxY + 14
+    );
   }
-
+  doc.setDrawColor(...PDF_COLORS.border);
+  doc.line(
+    marginX + 10,
+    signatureBoxY + 22,
+    marginX + signatureBoxWidth,
+    signatureBoxY + 22
+  );
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(71, 84, 103);
-  doc.text(`Signed by: ${normalizePdfText(agreement.signerName)}`, marginX + 80, y + 27);
-  doc.text(
-    `Signed at: ${normalizePdfText(formatISTDateTime(agreement.signedAt))}`,
-    marginX + 80,
-    y + 33
-  );
-  doc.text(
-    `Signature consent: ${
-      agreement.confirmationAccepted ? "Accepted" : "Not recorded"
-    }`,
-    marginX + 80,
-    y + 39
-  );
+  doc.setFontSize(6.6);
+  doc.setTextColor(...PDF_COLORS.muted);
+  doc.text("ELECTRONIC SIGNATURE", marginX + 10, signatureBoxY + 25);
+
+  const certificateX = marginX + 90;
+  const certificateRows = [
+    ["SIGNER", normalizePdfText(agreement.signerName)],
+    ["SIGNED AT", normalizePdfText(formatISTDateTime(agreement.signedAt))],
+    [
+      "CONSENT",
+      agreement.confirmationAccepted ? "Electronically accepted" : "Not recorded",
+    ],
+    ["AGREEMENT ID", normalizePdfText(agreement.id)],
+  ];
+  certificateRows.forEach(([label, value], index) => {
+    const rowY = signatureBoxY + 3 + index * 6.2;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.4);
+    doc.setTextColor(...PDF_COLORS.muted);
+    doc.text(label, certificateX, rowY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF_COLORS.ink);
+    doc.text(value, certificateX, rowY + 3.1, {
+      maxWidth: pageWidth - marginX - certificateX - 3,
+    });
+  });
 
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
     doc.setPage(page);
+    doc.setDrawColor(...PDF_COLORS.border);
+    doc.setLineWidth(0.25);
+    doc.line(marginX, pageHeight - 12, pageWidth - marginX, pageHeight - 12);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(6.8);
+    doc.setTextColor(...PDF_COLORS.muted);
     doc.text(
-      `Haven Retreat - ${normalizePdfText(data.bookingRef)}`,
+      `HAVEN RETREAT  |  ${normalizePdfText(agreement.id)}`,
       marginX,
-      pageHeight - 7
+      pageHeight - 7.5
     );
-    doc.text(`Page ${page} of ${pageCount}`, pageWidth - marginX, pageHeight - 7, {
-      align: "right",
-    });
+    doc.text(
+      `Booking ${normalizePdfText(data.bookingRef)}  |  Page ${page} of ${pageCount}`,
+      pageWidth - marginX,
+      pageHeight - 7.5,
+      { align: "right" }
+    );
   }
 
   const filename = `${sanitizeFilename(

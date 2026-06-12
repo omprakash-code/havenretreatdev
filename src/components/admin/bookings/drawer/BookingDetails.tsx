@@ -15,6 +15,7 @@ import {
   FileText,
   X,
   CreditCard,
+  Download,
 } from "lucide-react";
 import { getNumberDecorationLabel } from "@/lib/product-numbering";
 import {
@@ -665,6 +666,18 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                         />
                       </div>
                     </div>
+
+                    {booking.signedAgreement.pdfFileName && (
+                      <a
+                        href={`/api/admin/bookings/${encodeURIComponent(
+                          booking.id
+                        )}/agreement/download`}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-700 bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-800"
+                      >
+                        <Download size={16} aria-hidden="true" />
+                        Download Signed Agreement
+                      </a>
+                    )}
 
                     <button
                       type="button"
