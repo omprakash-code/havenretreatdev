@@ -559,6 +559,8 @@ export async function GET(
         },
         locationId: booking.eventPackage?.locationId ?? "",
         date: schedule.date,
+        eventStartTime: booking.eventStartTime ?? "",
+        eventEndTime: booking.eventEndTime ?? "",
         packageId: booking.packageId,
         guestCount: booking.guestCount,
         decorationRequired: booking.decorationRequired,

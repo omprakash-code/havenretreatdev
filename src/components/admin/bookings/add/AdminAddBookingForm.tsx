@@ -799,8 +799,12 @@ export function AdminAddBookingForm({
     async function loadAvailability() {
       setLoadingAvailability(true);
       try {
+        const excludeParam =
+          mode === "edit" && bookingId
+            ? `&excludeBookingId=${encodeURIComponent(bookingId)}`
+            : "";
         const res = await fetch(
-          `/api/availability/time-ranges?locationId=${encodeURIComponent(locationId)}&date=${encodeURIComponent(date)}`,
+          `/api/availability/time-ranges?locationId=${encodeURIComponent(locationId)}&date=${encodeURIComponent(date)}${excludeParam}`,
           { credentials: "include" }
         );
         const json = (await res.json().catch(() => null)) as {
@@ -829,7 +833,7 @@ export function AdminAddBookingForm({
     return () => {
       cancelled = true;
     };
-  }, [locationId, date]);
+  }, [locationId, date, mode, bookingId]);
 
   useEffect(() => {
     if (!theatreId) return;

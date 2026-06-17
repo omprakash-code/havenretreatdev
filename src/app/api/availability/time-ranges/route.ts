@@ -34,6 +34,9 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const locationId = searchParams.get("locationId");
   const dateKey = normalizeDateKey(searchParams.get("date"));
+  // When editing an existing booking, its own slot must stay selectable so the
+  // admin can keep or adjust the time range; self-conflict is handled on save.
+  const excludeBookingId = searchParams.get("excludeBookingId");
 
   if (!locationId || !dateKey) {
     return NextResponse.json(
@@ -94,6 +97,7 @@ export async function GET(req: Request) {
   const bookings = await prisma.booking.findMany({
     where: {
       venueId: { in: venueIds },
+      ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
       OR: [
         { bookingStatus: "CONFIRMED" },
         {
