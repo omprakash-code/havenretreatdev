@@ -81,6 +81,9 @@ function makeTxClient(overrides: Record<string, unknown> = {}) {
     couponUsage: {
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
+    appSetting: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     $queryRaw: vi.fn().mockResolvedValue([]),
     ...overrides,
   };

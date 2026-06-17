@@ -2,7 +2,10 @@ import { Prisma, type PaymentStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { createSuccessToken } from "@/services/booking/successToken.server";
-import { getBookingHoldExpiry } from "@/lib/booking-policy";
+import {
+  getBookingHoldExpiry,
+  resolveBookingHoldMinutes,
+} from "@/lib/booking-policy";
 
 export type RangePaymentProvider = "SQUARE" | "RAZORPAY";
 
@@ -273,7 +276,10 @@ export async function completeRangePaymentAttempt(input: {
         paymentStatus: "AWAITING_PAYMENT",
         advancePaid: attempt.amount,
         remainingPayable: Math.max(booking.totalAmount - attempt.amount, 0),
-        holdExpiresAt: getBookingHoldExpiry(input.now ?? new Date()),
+        holdExpiresAt: getBookingHoldExpiry(
+          input.now ?? new Date(),
+          await resolveBookingHoldMinutes(tx)
+        ),
       },
     });
     return payment;

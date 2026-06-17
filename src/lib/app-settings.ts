@@ -289,6 +289,16 @@ export function parseAdvancePaymentAmount(value: unknown) {
   return Math.trunc(amount);
 }
 
+export function parseBookingLockMinutes(value: unknown) {
+  const minutes = Number(value);
+  if (!Number.isFinite(minutes)) return null;
+  if (!Number.isInteger(minutes)) return null;
+  if (minutes < BOOKING_LOCK_MINUTES_MIN || minutes > BOOKING_LOCK_MINUTES_MAX) {
+    return null;
+  }
+  return Math.trunc(minutes);
+}
+
 export function parseMinimumBookingDurationHours(value: unknown) {
   const hours = Number(value);
   if (!Number.isFinite(hours)) return null;

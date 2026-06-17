@@ -14,6 +14,7 @@ import {
   BOOKING_BUSINESS_OPEN_TIME,
   BOOKING_TIME_ZONE,
   getBookingHoldExpiry,
+  resolveBookingHoldMinutes,
 } from "@/lib/booking-policy";
 import { prisma } from "@/lib/db";
 import {
@@ -310,6 +311,8 @@ export async function createOrReplaceVenueBookingSession(
     const totalAmount = pricingSnapshot.totalAmount;
     const remainingPayable = pricingSnapshot.remainingPayable;
 
+    const holdMinutes = await resolveBookingHoldMinutes(tx);
+
     let bookingId: string;
     let newVersion: number;
 
@@ -345,7 +348,7 @@ export async function createOrReplaceVenueBookingSession(
           advancePaid: 0,
           remainingPayable,
           lockVersion: newVersion,
-          holdExpiresAt: getBookingHoldExpiry(now),
+          holdExpiresAt: getBookingHoldExpiry(now, holdMinutes),
           bookingStatus: "INCOMPLETE",
           paymentStatus: null,
         },
@@ -381,7 +384,7 @@ export async function createOrReplaceVenueBookingSession(
           remainingPayable,
           bookingStatus: "INCOMPLETE",
           lockVersion: newVersion,
-          holdExpiresAt: getBookingHoldExpiry(now),
+          holdExpiresAt: getBookingHoldExpiry(now, holdMinutes),
         },
       });
       bookingId = booking.id;
