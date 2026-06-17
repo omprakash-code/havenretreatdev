@@ -2,7 +2,7 @@
 import Image from "next/image";
 import {
   Clock3,
-  DollarSign,
+  Timer,
   PartyPopper,
   Percent,
   Info,
@@ -11,9 +11,9 @@ import {
   Tag,
   Ticket,
   UserPlus,
+  Mail,
   X,
 } from "lucide-react";
-import { WhatsAppIcon } from "@/components/icons/WhatsApp";
 import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -23,7 +23,7 @@ import {
 } from "@/context/BookingContext";
 import StepIndicator from "@/components/booking/steps/StepIndicator";
 import type { BookingSummaryProps } from "./types";
-import { formatISTDate } from "@/lib/formatters";
+import { formatISTDateShort } from "@/lib/formatters";
 import { isCouponConditionMessage } from "@/lib/coupon-feedback";
 import { resolveCouponIdentityGate } from "@/lib/coupon-identity-gate";
 import { useLockCountdown } from "@/hooks/booking/useLockCountdown";
@@ -62,8 +62,8 @@ function formatCurrency(amount: number) {
 
 function formatDurationHours(durationInMinutes: number) {
   const hours = durationInMinutes / 60;
-  if (Number.isInteger(hours)) return `${hours} hr`;
-  return `${hours.toFixed(1)} hr`;
+  const value = Number.isInteger(hours) ? `${hours}` : hours.toFixed(1);
+  return `${value} ${hours === 1 ? "hr" : "hrs"}`;
 }
 
 type CouponFeedbackTone = "help" | "error";
@@ -411,13 +411,11 @@ export default function BookingSummary({
   const packageBasePrice = Number(pricing.packageBase) || 0;
   const extraHoursPrice = Number(pricing.extraHours) || 0;
   const extraDurationHours = Number(pricing.extraDurationHours) || 0;
-  const extraHourlyRate = Number(pricing.extraHourlyRate) || 0;
   // For range bookings use the server snapshot's booked duration so the label stays
   // correct if booking.durationHours is temporarily stale in context.
   const snapshotBookedHours =
     Number(booking.rangePricingSnapshot?.bookedDurationHours ?? 0) || 0;
   const rentalDurationHours = snapshotBookedHours > 0 ? snapshotBookedHours : (Number(booking.durationHours) || 0);
-  const includedRentalHours = Math.max(rentalDurationHours - extraDurationHours, 0);
   const extrasPrice = Number(pricing.extras) || 0;
   const decorationPrice = Number(pricing.decoration) || 0;
   const productsPrice = Number(pricing?.products ?? 0);
@@ -431,7 +429,6 @@ export default function BookingSummary({
     booking.guestCount ?? selectedPackage.baseGuests,
     selectedPackage.baseGuests
   );
-  const extraGuestCount = Math.max(displayedGuestCount - selectedPackage.baseGuests, 0);
   const fallbackOccasionLabel = booking.occasion?.key
     ? booking.occasion.key
       .replace(/_/g, " ")
@@ -687,72 +684,56 @@ export default function BookingSummary({
             <section className="border border-[#d7e4e1] bg-white p-3.5 [&>div:last-child]:mb-0 [&>div:last-child]:border-b-0 [&>div:last-child]:pb-0">
               <SummaryRow
                 label="Package"
-                value={selectedPackage.name}
+                value={formatCurrency(packageBasePrice)}
                 labelClassName="text-gray-500 text-sm font-normal"
                 icon={Ticket}
                 customLabel={
-                  <span className="inline-flex items-start gap-1.5">
-                    <Ticket size={14} className="mt-0.5 text-gray-400" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <Ticket size={14} className="text-gray-400" />
                     <span>
-                      <span className="block">Package</span>
-                      <span className="mt-0.5 block text-xs font-normal text-gray-400">
-                        {formatCurrency(packageBasePrice)} · {formatDurationHours(includedRentalHours * 60)} included
-                      </span>
+                      Package{" "}
+                      <span className="text-gray-400">({selectedPackage.name})</span>
                     </span>
                   </span>
                 }
               />
 
               <SummaryRow
-                label="Date & Slot"
-                value={`${booking.date ? formatISTDate(booking.date) : "—"}, ${schedule.time}`}
+                label="Date & Time"
+                value={`${booking.date ? formatISTDateShort(booking.date) : "—"}, ${schedule.time}`}
                 labelClassName="text-gray-500 text-sm font-normal"
                 customLabel={
                   <span className="inline-flex items-center gap-1.5">                    
-                    <Clock3 size={14} className="text-gray-400" /> Slot
+                    <Clock3 size={14} className="text-gray-400" /> Date & Time
                   </span>
                 }
               />
 
-              {extraHoursPrice > 0 && (
-                <SummaryRow
-                  label={`Extra Hours (${formatDurationHours(extraDurationHours * 60)})`}
-                  value={formatCurrency(extraHoursPrice)}
-                  labelClassName="text-gray-500 text-sm font-normal"
-                  customLabel={
-                    <span className="inline-flex items-start gap-1.5">
-                      <DollarSign size={14} className="mt-0.5 text-gray-400" />
-                      <span>
-                        <span className="block">
-                          Extra Hours ({formatDurationHours(extraDurationHours * 60)})
-                        </span>
-                        <span className="mt-0.5 block text-xs font-normal text-gray-400">
-                          {formatDurationHours(extraDurationHours * 60)} × {formatCurrency(extraHourlyRate)}/hr
-                        </span>
+              <SummaryRow
+                label="Duration"
+                value={extraHoursPrice > 0 ? formatCurrency(extraHoursPrice) : "Included"}
+                labelClassName="text-gray-500 text-sm font-normal"
+                customLabel={
+                  <span className="inline-flex items-center gap-1.5">
+                    <Timer size={14} className="text-gray-400" />
+                    <span>
+                      Duration{" "}
+                      <span className="text-gray-400">
+                        ({formatDurationHours(rentalDurationHours * 60)}
+                        {extraHoursPrice > 0
+                          ? ` · ${formatDurationHours(extraDurationHours * 60)} extra`
+                          : ""})
                       </span>
                     </span>
-                  }
-                />
-              )}
+                  </span>
+                }
+              />
 
               <SummaryRow
                 label="People"
                 value={`${displayedGuestCount}`}
                 labelClassName="text-gray-500 text-sm font-normal"
-                customLabel={
-                  <span className="inline-flex items-start gap-1.5">
-                    <UserPlus size={14} className="mt-0.5 text-gray-400" />
-                    <span>
-                      <span className="block">People</span>
-                      <span className="mt-0.5 block text-xs font-normal text-gray-400">
-                        {selectedPackage.baseGuests} included with package
-                        {extraGuestCount > 0
-                          ? ` · ${extraGuestCount} additional at no charge`
-                          : ""}
-                      </span>
-                    </span>
-                  </span>
-                }
+                icon={UserPlus}
               />
 
               {decorationPrice > 0 && (
@@ -972,7 +953,7 @@ export default function BookingSummary({
                   Pay {formatCurrency(advancePay)} only to confirm
                 </p>
                 <p className="text-xs text-[#347f7c]">
-                  Remaining at venue: {formatCurrency(remainingAtTheatre)}
+                  Remaining {formatCurrency(remainingAtTheatre)} is due one week before your event
                 </p>
               </div>
             </section>
@@ -1053,8 +1034,8 @@ export default function BookingSummary({
             </div>
           </div>
           <p className="mt-2.5 flex items-center justify-center gap-2 text-xs text-gray-500">
-            <WhatsAppIcon size={14} className="text-green-500" />
-            Updates are sent by WhatsApp and email.
+            <Mail size={14} className="text-[#347f7c]" />
+            Updates are sent by email.
           </p>
         </div>
       </div>

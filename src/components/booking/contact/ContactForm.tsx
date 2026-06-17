@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { User, Mail, Minus, Plus, Lock, Balloon, ChevronLeft } from "@/components/icons";
+import { User, Mail, Minus, Plus, Lock, Balloon, ChevronLeft, ChevronRight } from "@/components/icons";
 import { useBooking } from "@/context/BookingContext";
 import { useRouter } from "next/navigation";
 import { BOOKING_ROUTES } from "@/constants/routes";
@@ -11,9 +11,10 @@ import type { EventPackageSummary } from "@/types/venue-package";
 
 const DECORATION_FORCED_HINT = "Selected slots come with a decorated setup.";
 
-type NextPackageSuggestion = {
+type PackageSuggestion = {
   name: string;
   slug: string;
+  includedGuests: number;
 };
 
 export default function ContactForm({
@@ -197,16 +198,17 @@ export default function ContactForm({
     [selectedPackage]
   );
 
-  // The next-larger package (by included guest count) to recommend once this
-  // package's maximum is reached. Grand (the largest) yields no recommendation.
-  const nextPackage = useMemo<NextPackageSuggestion | null>(() => {
+  // The single next-larger package (by included guest count) to recommend.
+  // Grand (the largest) yields no recommendation.
+  const nextPackage = useMemo<PackageSuggestion | null>(() => {
     if (!selectedPackage) return null;
     const includedGuests = selectedPackage.baseGuests;
-    const larger = packages
+    const next = packages
       .filter((pkg) => Number(pkg.guestLimit) > includedGuests)
-      .sort((a, b) => Number(a.guestLimit) - Number(b.guestLimit));
-    const next = larger[0];
-    return next ? { name: next.name, slug: next.slug } : null;
+      .sort((a, b) => Number(a.guestLimit) - Number(b.guestLimit))[0];
+    return next
+      ? { name: next.name, slug: next.slug, includedGuests: Number(next.guestLimit) }
+      : null;
   }, [packages, selectedPackage]);
 
   useEffect(() => {
@@ -346,7 +348,7 @@ export default function ContactForm({
           </label>
 
           <p className="text-xs text-gray-500 mb-2">
-            Up to {baseGuests} guests included · up to {venueGuestLimit} at no extra charge
+            {baseGuests} guests included • Up to {venueGuestLimit} allowed at no extra charge
           </p>
 
           <div className="flex h-12 items-center justify-between border border-[#d7e4e1] bg-[#f8fbfa] px-1 sm:px-2">
@@ -383,16 +385,29 @@ export default function ContactForm({
 
           </div>
 
-          {guests >= venueGuestLimit && nextPackage && (
-            <p className="mt-2 text-xs text-[#245e5b]">
-              Need more guests? Consider{" "}
+          {nextPackage && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-gray-600">
+                Need more than {venueGuestLimit} guests?
+              </p>
               <Link
                 href={`/packages/${nextPackage.slug}`}
-                className="font-semibold underline underline-offset-2 hover:text-[#347f7c]"
+                className="group mt-2 flex items-center justify-between gap-3 border border-gray-300 bg-white px-3 py-2 transition hover:border-gray-400 hover:bg-gray-50"
               >
-                {nextPackage.name}
+                <span className="flex flex-col">
+                  <span className="text-xs font-semibold text-gray-800">
+                    {nextPackage.name}
+                  </span>
+                  <span className="text-[11px] text-gray-500">
+                    Includes up to {nextPackage.includedGuests} guests
+                  </span>
+                </span>
+                <ChevronRight
+                  size={14}
+                  className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5"
+                />
               </Link>
-            </p>
+            </div>
           )}
 
         </div>
@@ -416,7 +431,7 @@ export default function ContactForm({
             {decorationForced
               ? "Decor setup included for this package schedule."
               : decorationSelected
-              ? "Pick a decoration package from the add-ons if you'd like one."
+              ? "Would you like us to decorate the venue for your event?"
               : " "}
           </p>
 
