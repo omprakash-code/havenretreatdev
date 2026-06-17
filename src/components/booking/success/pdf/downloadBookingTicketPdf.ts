@@ -238,13 +238,6 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
       : data.payment?.provider === "RAZORPAY"
         ? "Online"
         : null;
-  const extraGuestCount =
-    data.extraGuestCount ??
-    Math.max(data.guestCount - (data.includedGuestCount ?? data.guestCount), 0);
-  const extraPersonPrice = data.extraPersonPrice ?? 0;
-  const extraGuestAmount = extraGuestCount * extraPersonPrice;
-  const fallbackExtrasAmount = Math.max(data.extrasAmount ?? 0, 0);
-
   const rows: SectionRow[] = [];
 
   const packageAmount = data.packageAmount ?? 0;
@@ -265,18 +258,6 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     rows.push({
       label: `Extra Hours${rateLabel}`,
       value: formatCurrency(extraDurationAmount),
-    });
-  }
-
-  if (extraGuestAmount > 0) {
-    rows.push({
-      label: `Extra Guests (${extraGuestCount} × ${formatCurrency(extraPersonPrice)})`,
-      value: formatCurrency(extraGuestAmount),
-    });
-  } else if (fallbackExtrasAmount > 0) {
-    rows.push({
-      label: "Extra Guests",
-      value: formatCurrency(fallbackExtrasAmount),
     });
   }
 
@@ -841,14 +822,22 @@ function drawProductCard(
   ) as string[];
   doc.text(nameLines.slice(0, 1), textX, y + 4.8);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.6);
-  doc.setTextColor(...COLORS.textMuted);
-  doc.text(
-    sanitizeDisplayText(`${item.variantLabel} · Qty ${item.quantity}`),
-    textX,
-    y + 9.5
-  );
+  // Package-included furniture reads "3 tables"; paid add-ons read "2× Bartender"
+  // (a single paid item needs no line — the title already names it).
+  const detailText =
+    includedQuantity > 0
+      ? `${item.quantity} ${productTitle.toLowerCase()}${
+          extraQuantity > 0 ? ` · ${extraQuantity} extra` : ""
+        }`
+      : item.quantity > 1
+        ? `${item.quantity}× ${productTitle}`
+        : "";
+  if (detailText) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.6);
+    doc.setTextColor(...COLORS.textMuted);
+    doc.text(sanitizeDisplayText(detailText), textX, y + 9.5);
+  }
 
   if (numberValue) {
     doc.setFont("helvetica", "normal");

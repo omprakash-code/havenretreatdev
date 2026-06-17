@@ -1207,14 +1207,19 @@ function SummaryProductRow({
   );
   const isPackageIncluded = includedQuantity > 0;
   const canRemove = Boolean(onRemoveItem) && !isPackageIncluded;
-  const lineItems = [`${item.variantLabel} x ${item.quantity}`];
-
+  // Package-included furniture (Tables/Chairs) reads as a count + product noun
+  // ("3 tables"). Paid add-ons show "{n}× {name}" (the variant's "Per Booking"
+  // unit is internal and confusing); the single-item line is hidden since the
+  // title already names it. The right column carries the cost signal.
+  const lineItems: string[] = [];
   if (isPackageIncluded) {
-    lineItems.push(`${includedQuantity} included`);
-  }
-
-  if (extraQuantity > 0) {
-    lineItems.push(`${extraQuantity} extra charged`);
+    lineItems.push(`${item.quantity} ${item.productName.toLowerCase()}`);
+    // "extra" = count beyond what the package covers (furniture only).
+    if (extraQuantity > 0) {
+      lineItems.push(`${extraQuantity} extra`);
+    }
+  } else if (item.quantity > 1) {
+    lineItems.push(`${item.quantity}× ${item.productName}`);
   }
 
   return (
@@ -1234,9 +1239,11 @@ function SummaryProductRow({
           <p className="truncate pr-2 font-semibold text-gray-900">
             {item.productName}
           </p>
-          <p className="text-xs font-medium text-gray-600">
-            {lineItems.join(" • ")}
-          </p>
+          {lineItems.length > 0 && (
+            <p className="text-xs font-medium text-gray-600">
+              {lineItems.join(" • ")}
+            </p>
+          )}
           {item.ledNumber ? (
             <p className="text-[11px] text-gray-500">
               {getNumberDecorationLabel({

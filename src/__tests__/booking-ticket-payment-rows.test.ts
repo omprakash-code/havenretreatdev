@@ -52,20 +52,19 @@ describe("booking ticket payment rows", () => {
     );
   });
 
-  it("shows email-sourced extra guest charges without guest breakdown fields", () => {
+  it("never renders an extra-guest charge (guests above included are free)", () => {
     const rows = buildPaymentRows(
       makeBookingData({
-        extrasAmount: 40,
-        includedGuestCount: undefined,
-        extraGuestCount: undefined,
-        extraPersonPrice: undefined,
+        guestCount: 23,
+        includedGuestCount: 20,
+        extraGuestCount: 3,
+        extraPersonPrice: 20,
+        extrasAmount: 60,
       })
     );
 
-    expect(rows).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ label: "Extra Guests", value: "$40" }),
-      ])
-    );
+    expect(
+      rows.some((row) => row.label.startsWith("Extra Guests"))
+    ).toBe(false);
   });
 });

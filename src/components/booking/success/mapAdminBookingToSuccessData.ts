@@ -2,6 +2,10 @@ import type { BookingSuccessData } from "@/components/booking/success/types";
 import { buildOccasionDetails } from "@/lib/booking-celebration";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { getNumberDecorationLabel } from "@/lib/product-numbering";
+import {
+  getPackageIncludedProductExtraQuantity,
+  getPackageIncludedProductQuantity,
+} from "@/lib/package-included-products";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 
 export type AdminBookingPdfSource = Omit<AdminBooking, "slot"> & {
@@ -96,6 +100,15 @@ export function mapAdminBookingToSuccessData(
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
+      includedQuantity: getPackageIncludedProductQuantity(
+        { name: booking.package?.name ?? null },
+        { name: item.productName }
+      ),
+      extraQuantity: getPackageIncludedProductExtraQuantity(
+        { name: booking.package?.name ?? null },
+        { name: item.productName },
+        item.quantity
+      ),
       image: item.image ?? item.productImage ?? null,
       numberLabel: item.ledNumber
         ? getNumberDecorationLabel({

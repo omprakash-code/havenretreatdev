@@ -86,17 +86,32 @@ export default function ExtrasShowcase({
                     </p>
                   ) : null}
                 </div>
-                <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-slate-500">
-                  <p className="min-w-0 truncate">
-                    {item.variantLabel}
-                  </p>
-                  <span aria-hidden="true" className="shrink-0 text-[#9ab0ad]">
-                    ·
-                  </span>
-                  <p className="shrink-0 font-medium text-zinc-600">
-                    Qty {item.quantity}
-                  </p>
-                </div>
+                {(() => {
+                  const includedQty = Math.max(Number(item.includedQuantity ?? 0), 0);
+                  const isPackageIncluded = includedQty > 0;
+                  const extraQty = Math.max(
+                    Number(
+                      item.extraQuantity ??
+                        (isPackageIncluded ? item.quantity - includedQty : 0)
+                    ),
+                    0
+                  );
+                  // Package-included furniture reads "3 tables"; paid add-ons read
+                  // "2× Bartender" (single paid items need no line — the title says it).
+                  const detailLine = isPackageIncluded
+                    ? `${item.quantity} ${item.productName.toLowerCase()}${
+                        extraQty > 0 ? ` · ${extraQty} extra` : ""
+                      }`
+                    : item.quantity > 1
+                      ? `${item.quantity}× ${item.productName}`
+                      : null;
+                  if (!detailLine) return null;
+                  return (
+                    <div className="mt-1 min-w-0 text-xs text-slate-500">
+                      <p className="truncate font-medium text-zinc-600">{detailLine}</p>
+                    </div>
+                  );
+                })()}
               </div>
 
               {(() => {
