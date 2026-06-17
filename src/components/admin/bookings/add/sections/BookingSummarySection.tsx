@@ -245,10 +245,6 @@ export function BookingSummarySection({
                 />
               ) : null}
 
-              {extrasAmount > 0 ? (
-                <SummaryRow label="Extra guests" value={formatCurrency(extrasAmount)} />
-              ) : null}
-
               {selectedProductItems.length > 0 ? (
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
                   <p className="mb-1 text-xs font-semibold text-slate-700">Selected products</p>
@@ -257,14 +253,15 @@ export function BookingSummarySection({
                       <div key={item.key} className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-xs font-medium text-slate-900">
-                            {item.productName} ({item.variantLabel}) x{item.quantity}
+                            {item.includedQuantity > 0
+                              ? `${item.quantity} ${item.productName.toLowerCase()}`
+                              : item.quantity > 1
+                                ? `${item.quantity}× ${item.productName}`
+                                : item.productName}
                           </p>
-                          {item.includedQuantity > 0 ? (
+                          {item.includedQuantity > 0 && item.extraQuantity > 0 ? (
                             <p className="text-[11px] text-slate-500">
-                              {item.includedQuantity} included
-                              {item.extraQuantity > 0
-                                ? ` + ${item.extraQuantity} extra × ${formatCurrency(item.unitPrice)}`
-                                : ""}
+                              {item.extraQuantity} extra × {formatCurrency(item.unitPrice)}
                             </p>
                           ) : null}
                           {item.ledNumber ? (

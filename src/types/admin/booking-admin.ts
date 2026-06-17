@@ -86,6 +86,7 @@ export type AdminBooking = {
   occasionLabel: string | null;
   occasionKey: string | null;
   occasionData: Record<string, unknown> | null;
+  specialInstructions?: string | null;
 
   confirmationEmailSent: boolean;
   abandonmentCustomerEmailSentAt: string | null;

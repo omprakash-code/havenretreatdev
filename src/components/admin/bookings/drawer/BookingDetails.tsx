@@ -566,6 +566,20 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                 </div>
               )}
 
+              {/* Admin Notes (internal) */}
+              {booking.specialInstructions?.trim() ? (
+                <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <FileText size={16} />
+                    Admin Notes
+                    <span className="text-xs font-normal text-slate-400">(internal)</span>
+                  </h3>
+                  <p className="whitespace-pre-wrap text-sm text-slate-700">
+                    {booking.specialInstructions}
+                  </p>
+                </div>
+              ) : null}
+
               {/* Products Added */}
               {booking.items && booking.items.length > 0 && (
                 <div className="border border-slate-200 rounded-lg p-4 space-y-3">

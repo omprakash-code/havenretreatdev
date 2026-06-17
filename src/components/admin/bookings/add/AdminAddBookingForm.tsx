@@ -97,6 +97,7 @@ type EditBookingResponse = {
   eventEndTime: string;
   guestCount: number;
   decorationRequired: boolean;
+  specialInstructions?: string;
   occasionKey: string;
   occasionData: Record<string, unknown>;
   couponCode?: string;
@@ -409,6 +410,7 @@ export function AdminAddBookingForm({
         setExistingUserName(booking.customer.name ?? null);
 
         setDecorationRequired(Boolean(booking.decorationRequired));
+        setSpecialInstructions(booking.specialInstructions ?? "");
         setOccasionKey(booking.occasionKey ?? "");
         setOccasionData(normalizedOccasionData);
         const prefilledCoupons = Array.isArray(booking.appliedCoupons)

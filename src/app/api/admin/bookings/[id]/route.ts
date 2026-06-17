@@ -101,6 +101,7 @@ type UpdateBookingPayload = {
   };
   guestCount?: number;
   decorationRequired?: boolean;
+  specialInstructions?: string;
   occasionKey?: string;
   occasionData?: Record<string, unknown>;
   couponCode?: string;
@@ -482,6 +483,7 @@ export async function GET(
           occasionLabel: booking.occasionLabel ?? null,
           occasionKey: booking.occasionKey ?? null,
           occasionData,
+          specialInstructions: booking.specialInstructions ?? null,
           confirmationEmailSent: booking.confirmationEmailSent,
           abandonmentCustomerEmailSentAt:
             booking.abandonmentCustomerEmailSentAt?.toISOString() ?? null,
@@ -560,6 +562,7 @@ export async function GET(
         packageId: booking.packageId,
         guestCount: booking.guestCount,
         decorationRequired: booking.decorationRequired,
+        specialInstructions: booking.specialInstructions ?? "",
         occasionKey: booking.occasionKey ?? "",
         occasionData,
         couponCode: couponCodes[0] ?? "",
@@ -653,6 +656,8 @@ export async function PATCH(
     const email = emailRaw.length > 0 ? emailRaw : null;
     const guestCount = Number(body.guestCount ?? 0);
     const decorationRequired = Boolean(body.decorationRequired);
+    const specialInstructions =
+      String(body.specialInstructions ?? "").trim() || null;
 
     if (!customerName) {
       throw new AdminBookingEditError(
@@ -1420,6 +1425,7 @@ export async function PATCH(
           occasionData: occasionJson,
           guestCount,
           decorationRequired: effectiveDecorationRequired,
+          specialInstructions,
           baseAmount: pricing.baseAmount,
           extrasAmount: pricing.extrasAmount,
           productsAmount: pricing.productsAmount,
