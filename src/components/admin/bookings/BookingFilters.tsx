@@ -37,13 +37,13 @@ interface Props {
 }
 
 const PRESET_LABEL: Record<string, string> = {
-  ALL: "All dates",
-  TODAY: "Today",
-  YESTERDAY: "Yesterday",
-  LAST_3: "Last 3 days",
-  LAST_7: "Last 7 days",
-  LAST_15: "Last 15 days",
-  LAST_30: "Last 30 days",
+  ALL: "All event dates",
+  TODAY: "Event today",
+  YESTERDAY: "Event yesterday",
+  LAST_3: "Event in last 3 days",
+  LAST_7: "Event in last 7 days",
+  LAST_15: "Event in last 15 days",
+  LAST_30: "Event in last 30 days",
 };
 
 
@@ -121,7 +121,7 @@ export default function BookingsFilters({
   };
 
   const formattedCustomDate = useMemo(() => {
-    if (!customDate) return "Date";
+    if (!customDate) return "Event Date";
     const date = new Date(`${customDate}T00:00:00`);
     if (Number.isNaN(date.getTime())) return "Custom date";
     return new Intl.DateTimeFormat("en-GB", {
@@ -213,7 +213,7 @@ export default function BookingsFilters({
                   value={customDate}
                   onChange={(event) => setCustomDate(event.target.value)}
                   className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                  aria-label="Select custom date"
+                  aria-label="Select event date"
                 />
                 <div className="inline-flex h-10 w-full items-center justify-between gap-2 rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-700">
                   <span className="inline-flex items-center gap-2 truncate">

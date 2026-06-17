@@ -19,7 +19,7 @@ const MAX_PAGE_SIZE = 200;
  * - type=active|live|abandoned
  * - page, pageSize (optional; enables server pagination)
  * - search, package, timeRange (optional server filters)
- * - dateFrom, dateTo (optional createdAt range: [dateFrom, dateTo))
+ * - dateFrom, dateTo (optional event-date range on startsAtUtc: [dateFrom, dateTo))
  */
 export async function GET(req: Request) {
   try {
@@ -137,8 +137,9 @@ export async function GET(req: Request) {
       !Number.isNaN(dateFrom.getTime()) &&
       !Number.isNaN(dateTo.getTime())
     ) {
+      // Filter by the event (venue booked) date, not the booking creation date.
       whereAnd.push({
-        createdAt: {
+        startsAtUtc: {
           gte: dateFrom,
           lt: dateTo,
         },
