@@ -18,6 +18,7 @@ import {
 } from "@/lib/booking-duration-pricing";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
+  maxGuestsForIncluded,
   resolvePackageIncludedGuestCount,
 } from "@/lib/package-guest-pricing";
 import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
@@ -77,10 +78,12 @@ export async function POST(req: Request) {
         const includedGuests = resolveRangePackageGuestLimit(
           booking.packageSnapshot
         );
+        const maxGuests = maxGuestsForIncluded(includedGuests);
         const parsedGuestCount = Number(guestCount);
         if (
           !Number.isInteger(parsedGuestCount) ||
-          parsedGuestCount < includedGuests
+          parsedGuestCount < includedGuests ||
+          parsedGuestCount > maxGuests
         ) {
           throw new Error("INVALID_GUEST_COUNT");
         }
@@ -160,10 +163,13 @@ export async function POST(req: Request) {
         throw new Error("BOOKING_INVALID_STATE");
       }
 
-      const includedGuestCount = resolvePackageIncludedGuestCount(
-        booking.packageSnapshot as { capacity?: number | null } | null
-      );
-      const guestLimit = includedGuestCount;
+      const legacySnapshot = booking.packageSnapshot as
+        | { capacity?: number | null; guestLimit?: number | null }
+        | null;
+      const includedGuestCount = resolvePackageIncludedGuestCount({
+        capacity: legacySnapshot?.guestLimit ?? legacySnapshot?.capacity ?? null,
+      });
+      const guestLimit = maxGuestsForIncluded(includedGuestCount);
       const parsedGuestCount = Number(guestCount);
       const normalizedGuestCount = Math.min(
         Math.max(

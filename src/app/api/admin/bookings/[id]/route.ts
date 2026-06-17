@@ -7,7 +7,10 @@ import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-present
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
 import { resolveLocationDisplayName } from "@/lib/location-display";
-import { PACKAGE_EXTRA_PERSON_PRICE } from "@/lib/package-guest-pricing";
+import {
+  PACKAGE_EXTRA_PERSON_PRICE,
+  maxGuestsForIncluded,
+} from "@/lib/package-guest-pricing";
 import { calculateDurationHours } from "@/lib/booking-time-range";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import {
@@ -816,9 +819,9 @@ export async function PATCH(
             DEFAULT_MINIMUM_BOOKING_MINUTES,
           bufferMinutes: BOOKING_BUFFER_MINUTES,
           maximumGuests:
-            booking.eventPackage?.venue.maxGuests ??
-            booking.eventPackage?.guestLimit ??
-            9999,
+            booking.eventPackage?.guestLimit != null
+              ? maxGuestsForIncluded(booking.eventPackage.guestLimit)
+              : booking.eventPackage?.venue.maxGuests ?? 9999,
         },
         timezone: BOOKING_TIME_ZONE,
         excludeBookingId: booking.id,
@@ -1138,8 +1141,7 @@ export async function PATCH(
         slotFinalPrice: packageSnap?.subtotalAmount ?? null,
         guestCount,
         theatreBaseGuests: packageSnap?.guestLimit ?? 2,
-        theatreExtraPersonPrice:
-          packageSnap?.extraPersonPrice ?? PACKAGE_EXTRA_PERSON_PRICE,
+        theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         productsAmount,
         discountAmount: 0,
         advancePaid: 0,
@@ -1222,8 +1224,7 @@ export async function PATCH(
         slotFinalPrice: packageSnap?.subtotalAmount ?? null,
         guestCount,
         theatreBaseGuests: packageSnap?.guestLimit ?? 2,
-        theatreExtraPersonPrice:
-          packageSnap?.extraPersonPrice ?? PACKAGE_EXTRA_PERSON_PRICE,
+        theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         productsAmount,
         discountAmount: couponDiscount,
         advancePaid: desiredAdvance,

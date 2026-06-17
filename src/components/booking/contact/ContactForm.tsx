@@ -1,24 +1,20 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { User, Mail, Minus, Plus, Lock, Balloon, ChevronLeft } from "@/components/icons";
 import { useBooking } from "@/context/BookingContext";
 import { useRouter } from "next/navigation";
 import { BOOKING_ROUTES } from "@/constants/routes";
-import {
-  PACKAGE_EXTRA_PERSON_PRICE,
-  resolvePackageIncludedGuestCount,
-} from "@/lib/package-guest-pricing";
+import { resolvePackageMaxGuestCount } from "@/lib/package-guest-pricing";
+import type { EventPackageSummary } from "@/types/venue-package";
 
 const DECORATION_FORCED_HINT = "Selected slots come with a decorated setup.";
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+type NextPackageSuggestion = {
+  name: string;
+  slug: string;
+};
 
 export default function ContactForm({
   onContactChange,
@@ -76,6 +72,26 @@ export default function ContactForm({
 
   const [showForcedDecorationMobileHint, setShowForcedDecorationMobileHint] =
     useState(false);
+
+  // Package list is used only to recommend the next-larger package once the
+  // guest counter reaches this package's maximum. We never switch packages here.
+  const [packages, setPackages] = useState<EventPackageSummary[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/packages", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((result) => {
+        if (cancelled) return;
+        setPackages(Array.isArray(result?.data) ? result.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setPackages([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /* -----------------------------
      Validation helpers
@@ -177,9 +193,21 @@ export default function ContactForm({
   }, [showForcedDecorationMobileHint]);
 
   const venueGuestLimit = useMemo(
-    () => resolvePackageIncludedGuestCount(selectedPackage),
+    () => resolvePackageMaxGuestCount(selectedPackage),
     [selectedPackage]
   );
+
+  // The next-larger package (by included guest count) to recommend once this
+  // package's maximum is reached. Grand (the largest) yields no recommendation.
+  const nextPackage = useMemo<NextPackageSuggestion | null>(() => {
+    if (!selectedPackage) return null;
+    const includedGuests = selectedPackage.baseGuests;
+    const larger = packages
+      .filter((pkg) => Number(pkg.guestLimit) > includedGuests)
+      .sort((a, b) => Number(a.guestLimit) - Number(b.guestLimit));
+    const next = larger[0];
+    return next ? { name: next.name, slug: next.slug } : null;
+  }, [packages, selectedPackage]);
 
   useEffect(() => {
     if (!selectedPackage || booking.guestCount >= selectedPackage.baseGuests) return;
@@ -318,7 +346,7 @@ export default function ContactForm({
           </label>
 
           <p className="text-xs text-gray-500 mb-2">
-            Up to {baseGuests} guests included · {formatCurrency(PACKAGE_EXTRA_PERSON_PRICE)}/person for each additional guest
+            Up to {baseGuests} guests included · up to {venueGuestLimit} at no extra charge
           </p>
 
           <div className="flex h-12 items-center justify-between border border-[#d7e4e1] bg-[#f8fbfa] px-1 sm:px-2">
@@ -348,12 +376,24 @@ export default function ContactForm({
               {/* Tooltip */}
               {!canIncrease && (
                 <div className=" absolute left-1/2 -translate-x-1/2 top-full mt-2 whitespace-nowrap rounded-md bg-black text-white text-xs px-3 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-10">
-                  Venue guest limit reached
+                  Package guest limit reached
                 </div>
               )}
             </div>
 
           </div>
+
+          {guests >= venueGuestLimit && nextPackage && (
+            <p className="mt-2 text-xs text-[#245e5b]">
+              Need more guests? Consider{" "}
+              <Link
+                href={`/packages/${nextPackage.slug}`}
+                className="font-semibold underline underline-offset-2 hover:text-[#347f7c]"
+              >
+                {nextPackage.name}
+              </Link>
+            </p>
+          )}
 
         </div>
 

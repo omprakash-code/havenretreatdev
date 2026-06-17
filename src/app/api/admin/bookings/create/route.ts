@@ -6,7 +6,10 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
-import { PACKAGE_EXTRA_PERSON_PRICE } from "@/lib/package-guest-pricing";
+import {
+  PACKAGE_EXTRA_PERSON_PRICE,
+  maxGuestsForIncluded,
+} from "@/lib/package-guest-pricing";
 import { resolveLocationDisplayName } from "@/lib/location-display";
 import { timeToMinutes } from "@/lib/time";
 import {
@@ -513,8 +516,7 @@ export async function POST(req: Request) {
             selectedPackage.eventDurationHours * 60 ||
             DEFAULT_MINIMUM_BOOKING_MINUTES,
           bufferMinutes: BOOKING_BUFFER_MINUTES,
-          maximumGuests:
-            selectedPackage.venue.maxGuests ?? selectedPackage.guestLimit,
+          maximumGuests: maxGuestsForIncluded(selectedPackage.guestLimit),
         },
         timezone: BOOKING_TIME_ZONE,
       });
@@ -952,6 +954,7 @@ export async function POST(req: Request) {
               name: selectedPackage.name,
               slug: selectedPackage.slug,
               guestLimit: selectedPackage.guestLimit,
+              maxGuests: maxGuestsForIncluded(selectedPackage.guestLimit),
               eventDurationHours: selectedPackage.eventDurationHours,
               complimentarySetupHours:
                 selectedPackage.complimentarySetupHours,

@@ -564,14 +564,10 @@ const loadBooking = async () => {
         Number(snapshot.extraDurationAmount ?? 0) || 0,
         0
       );
-      const extras =
-        Math.max(booking.guestCount - booking.package.baseGuests, 0) *
-        Math.max(
-          Number(
-            snapshot.extraGuestPrice ?? booking.package.extraPersonPrice
-          ) || 0,
-          0
-        );
+      // Guests above the included count (within the package maximum) are free,
+      // so extra guests never add cost. Legacy snapshots may still carry a
+      // non-zero extraGuestPrice; ignore it and keep this at 0.
+      const extras = 0;
       const products = booking.bookingItems.reduce(
         (sum, item) => sum + item.totalPrice,
         0

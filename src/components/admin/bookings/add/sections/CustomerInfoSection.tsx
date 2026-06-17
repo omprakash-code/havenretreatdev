@@ -152,7 +152,7 @@ export function CustomerInfoSection({
 
           {selectedTheatre ? (
             <p className="mt-1 text-xs text-slate-500">
-              {selectedTheatre.baseGuests} included · Max {selectedTheatre.capacity} for this venue
+              {selectedTheatre.baseGuests} included · up to {selectedTheatre.capacity} at no extra charge
             </p>
           ) : (
             <p className="mt-1 text-xs text-slate-500">Select a venue to manage guests</p>

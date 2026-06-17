@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { calculateBookingPricing } from "@/lib/booking-pricing";
-import { PACKAGE_EXTRA_PERSON_PRICE } from "@/lib/package-guest-pricing";
+import {
+  PACKAGE_EXTRA_PERSON_PRICE,
+  maxGuestsForIncluded,
+} from "@/lib/package-guest-pricing";
 import { timeToMinutes } from "@/lib/time";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
@@ -754,7 +757,7 @@ export function AdminAddBookingForm({
               venueId: String(eventPackage.venueId ?? venue.id ?? ""),
               packageId,
               name: String(eventPackage.name ?? "Unnamed Package"),
-              capacity: Number(venue.maxGuests ?? guestLimit),
+              capacity: maxGuestsForIncluded(guestLimit),
               baseGuests: guestLimit,
               extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
               basePrice: packageAmount,

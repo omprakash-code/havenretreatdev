@@ -747,24 +747,13 @@ export default function BookingSummary({
                       <span className="mt-0.5 block text-xs font-normal text-gray-400">
                         {selectedPackage.baseGuests} included with package
                         {extraGuestCount > 0
-                          ? ` · ${extraGuestCount} extra × ${formatCurrency(
-                              selectedPackage.extraPersonPrice
-                            )}`
+                          ? ` · ${extraGuestCount} additional at no charge`
                           : ""}
                       </span>
                     </span>
                   </span>
                 }
               />
-
-              {extrasPrice > 0 && (
-                <SummaryRow
-                  label={`Extra Guests (${extraGuestCount})`}
-                  value={formatCurrency(extrasPrice)}
-                  labelClassName="text-gray-500 text-sm font-normal"
-                  icon={UserPlus}
-                />
-              )}
 
               {decorationPrice > 0 && (
                 <SummaryRow

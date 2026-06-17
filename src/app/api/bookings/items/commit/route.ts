@@ -35,6 +35,7 @@ import {
 } from "@/lib/booking-duration-pricing";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
+  maxGuestsForIncluded,
 } from "@/lib/package-guest-pricing";
 import {
   getPackageIncludedProductTotalPrice,
@@ -366,7 +367,7 @@ export async function POST(req: Request) {
       );
 
       const includedGuestCount = resolveRangePackageGuestLimit(booking.packageSnapshot);
-      const guestLimit = includedGuestCount;
+      const guestLimit = maxGuestsForIncluded(includedGuestCount);
       const parsedRequestedGuestCount =
         requestedGuestCountRaw == null ? booking.guestCount : requestedGuestCountRaw;
       const requestedGuestCount =
