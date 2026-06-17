@@ -202,64 +202,56 @@ export async function GET(req: Request) {
       ],
     };
 
-    const [total, bookings, packageRows, timeRangeRows] = paginationRequested
-      ? await prisma.$transaction([
-          prisma.booking.count({ where }),
-          prisma.booking.findMany({
-            where,
-            orderBy: { createdAt: "desc" },
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-            select: bookingSelect,
-          }),
-          prisma.eventPackage.findMany({
-            where: { isActive: true, venue: { isActive: true } },
-            select: { name: true },
-            orderBy: { sortOrder: "asc" },
-          }),
-          prisma.booking.findMany({
-            where: filterOptionWhere,
-            select: {
-              eventStartTime: true,
-              eventEndTime: true,
-            },
-          }),
-        ])
-      : await prisma.$transaction([
-          prisma.booking.count({ where }),
-          prisma.booking.findMany({
-            where,
-            orderBy: { createdAt: "desc" },
-            select: bookingSelect,
-          }),
-          prisma.eventPackage.findMany({
-            where: { isActive: true, venue: { isActive: true } },
-            select: { name: true },
-            orderBy: { sortOrder: "asc" },
-          }),
-          prisma.booking.findMany({
-            where: filterOptionWhere,
-            select: {
-              eventStartTime: true,
-              eventEndTime: true,
-            },
-          }),
-        ]);
+    // Filter dropdown options are derived from the unfiltered base set, so they
+    // never change between pages. Only compute them on the first page (or when
+    // pagination is off) to avoid re-scanning on every page change / search.
+    const includeFilterOptions = !paginationRequested || page === 1;
 
-    const packageOptions = Array.from(
-      new Set(packageRows.map((row) => row.name.trim()).filter(Boolean))
-    );
-    const timeRangeOptions = Array.from(
-      new Set(
-        timeRangeRows
-          .map((row) =>
-            row.eventStartTime && row.eventEndTime
-              ? `${row.eventStartTime} - ${row.eventEndTime}`
-              : ""
-          )
-          .filter(Boolean)
-      )
-    );
+    const [total, bookings] = await prisma.$transaction([
+      prisma.booking.count({ where }),
+      prisma.booking.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        ...(paginationRequested
+          ? { skip: (page - 1) * pageSize, take: pageSize }
+          : {}),
+        select: bookingSelect,
+      }),
+    ]);
+
+    let packageOptions: string[] = [];
+    let timeRangeOptions: string[] = [];
+    if (includeFilterOptions) {
+      const [packageRows, timeRangeRows] = await prisma.$transaction([
+        prisma.eventPackage.findMany({
+          where: { isActive: true, venue: { isActive: true } },
+          select: { name: true },
+          orderBy: { sortOrder: "asc" },
+        }),
+        // groupBy returns only distinct time-range combos (DB-deduped) instead
+        // of every matching booking row.
+        prisma.booking.groupBy({
+          by: ["eventStartTime", "eventEndTime"],
+          where: filterOptionWhere,
+          orderBy: [{ eventStartTime: "asc" }, { eventEndTime: "asc" }],
+        }),
+      ]);
+
+      packageOptions = Array.from(
+        new Set(packageRows.map((row) => row.name.trim()).filter(Boolean))
+      );
+      timeRangeOptions = Array.from(
+        new Set(
+          timeRangeRows
+            .map((row) =>
+              row.eventStartTime && row.eventEndTime
+                ? `${row.eventStartTime} - ${row.eventEndTime}`
+                : ""
+            )
+            .filter(Boolean)
+        )
+      );
+    }
 
     const data = bookings.map((b, index) => {
       const packageSnapshot =
@@ -367,10 +359,14 @@ export async function GET(req: Request) {
             ? page < Math.max(Math.ceil(total / pageSize), 1)
             : false,
         },
-        filterOptions: {
-          packages: packageOptions,
-          timeRanges: timeRangeOptions,
-        },
+        ...(includeFilterOptions
+          ? {
+              filterOptions: {
+                packages: packageOptions,
+                timeRanges: timeRangeOptions,
+              },
+            }
+          : {}),
       },
     });
   } catch (error) {

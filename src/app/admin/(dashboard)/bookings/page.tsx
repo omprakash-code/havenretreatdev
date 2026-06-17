@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import BookingsPageClient from "./BookingsPageClient";
+import BookingTableSkeleton from "@/components/admin/bookings/BookingTableSkeleton";
 
 export default function BookingsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm">Loading bookings…</div>}>
+    <Suspense fallback={<BookingTableSkeleton />}>
       <BookingsPageClient />
     </Suspense>
   );

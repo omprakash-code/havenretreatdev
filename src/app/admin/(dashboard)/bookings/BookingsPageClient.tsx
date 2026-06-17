@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import PageHeader from "@/components/admin/page/PageHeader";
 import BookingsFilters from "@/components/admin/bookings/BookingFilters";
 import BookingsTable from "@/components/admin/bookings/BookingTable";
+import BookingTableSkeleton from "@/components/admin/bookings/BookingTableSkeleton";
 import BookingDrawer from "@/components/admin/bookings/drawer/BookingDrawer";
 import AddBookingDrawer from "@/components/admin/bookings/drawer/AddBookingDrawer";
 import ConfirmActionModal from "@/components/admin/drawer/ConfirmActionModal";
@@ -237,8 +238,12 @@ export default function BookingsPage() {
       const json = (await res.json().catch(() => null)) as BookingsListResponse | null;
       const nextBookings = json?.success && Array.isArray(json.data) ? json.data : [];
       setBookings(nextBookings);
-      setPackageOptions(json?.meta?.filterOptions?.packages ?? []);
-      setTimeRangeOptions(json?.meta?.filterOptions?.timeRanges ?? []);
+      // Filter options are only returned on the first page; preserve existing
+      // options on later pages instead of clearing the dropdowns.
+      if (json?.meta?.filterOptions) {
+        setPackageOptions(json.meta.filterOptions.packages ?? []);
+        setTimeRangeOptions(json.meta.filterOptions.timeRanges ?? []);
+      }
 
       const meta = json?.meta?.pagination;
       const nextPage = Math.max(Number(meta?.page ?? targetPage), 1);
@@ -418,10 +423,8 @@ export default function BookingsPage() {
         onClearFilters={clearAllFilters}
       />
 
-      {loading ? (
-        <div className="py-10 text-sm text-neutral-500">
-          Loading bookings…
-        </div>
+      {loading && bookings.length === 0 ? (
+        <BookingTableSkeleton />
       ) : bookings.length === 0 ? (
         <AdminEmptyState
           title={hasActiveFilters ? "No bookings match your filters" : "No bookings yet"}

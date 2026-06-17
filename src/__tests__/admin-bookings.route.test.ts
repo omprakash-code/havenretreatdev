@@ -5,6 +5,7 @@ const { prismaMock } = vi.hoisted(() => ({
     booking: {
       count: vi.fn(),
       findMany: vi.fn(),
+      groupBy: vi.fn(),
     },
     eventPackage: {
       findMany: vi.fn(),
@@ -84,6 +85,9 @@ describe("GET /api/admin/bookings", () => {
     (
       prisma.eventPackage.findMany as unknown as ReturnType<typeof vi.fn>
     ).mockResolvedValue([{ name: "Starter Package" }]);
+    (
+      prisma.booking.groupBy as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValue([{ eventStartTime: "14:30", eventEndTime: "17:30" }]);
     (
       prisma.$transaction as unknown as ReturnType<typeof vi.fn>
     ).mockImplementation(async (operations: unknown[]) => Promise.all(operations));
