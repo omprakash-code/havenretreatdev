@@ -686,10 +686,15 @@ export async function PATCH(
       );
     }
 
-    const paymentType = body.payment.type;
+    // Online collection has been removed from admin bookings, so edits always
+    // settle offline. Coercing here keeps the gateway out of the edit path
+    // (avoids "Payment gateway is not configured") regardless of the payload.
+    const paymentType = "OFFLINE" as PaymentType;
     const paymentAmountMode = body.payment.amountMode;
     const customAdvanceAmount = Number(body.payment.advanceAmount ?? 0);
-    const offlineMethod = body.payment.offlineMethod;
+    // Admin collection is always offline; default the method so a partial payload
+    // can't fail validation.
+    const offlineMethod = body.payment.offlineMethod ?? "CASH";
     const offlineReference = body.payment.offlineReference?.trim() ?? "";
     const requestedPaymentStatus = body.payment.paymentStatus;
     if (!PAYMENT_TYPES.includes(paymentType as PaymentType)) {

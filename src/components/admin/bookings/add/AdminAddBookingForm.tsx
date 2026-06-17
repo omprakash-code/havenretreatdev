@@ -445,7 +445,9 @@ export function AdminAddBookingForm({
         setCouponDiscount(Math.max(Number(booking.pricing.discountAmount ?? 0), 0));
         setCouponError(null);
 
-        setPaymentType(booking.payment.type);
+        // Online collection has been removed from admin; edits always collect
+        // offline so Method/Reference stay available and consistent with create.
+        setPaymentType("OFFLINE");
         const mappedAmountMode: "ADVANCE" | "REMAINING" =
           booking.pricing.remainingPayable > 0 &&
           booking.payment.amountMode === "ADVANCE"
@@ -2504,9 +2506,9 @@ export function AdminAddBookingForm({
           type: paymentType,
           amountMode: paymentAmountModeForApi,
           advanceAmount: advanceAmountForApi,
-          offlineMethod: paymentType === "OFFLINE" ? offlineMethod : undefined,
-          offlineReference:
-            paymentType === "OFFLINE" ? offlineReference.trim() || undefined : undefined,
+          // Admin collection is always offline; always send the method/reference.
+          offlineMethod,
+          offlineReference: offlineReference.trim() || undefined,
           paymentStatus,
         },
       };
@@ -2537,9 +2539,9 @@ export function AdminAddBookingForm({
           type: paymentType,
           amountMode: paymentAmountModeForApi,
           advanceAmount: advanceAmountForApi,
-          offlineMethod: paymentType === "OFFLINE" ? offlineMethod : undefined,
-          offlineReference:
-            paymentType === "OFFLINE" ? offlineReference.trim() || undefined : undefined,
+          // Admin collection is always offline; always send the method/reference.
+          offlineMethod,
+          offlineReference: offlineReference.trim() || undefined,
         },
       };
 

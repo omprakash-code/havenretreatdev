@@ -386,7 +386,8 @@ export async function POST(req: Request) {
     const guestCount = Number(body.guestCount ?? 0);
     const decorationRequired = Boolean(body.decorationRequired);
     const specialInstructions = String(body.specialInstructions ?? "").trim() || null;
-    const paymentType = body.payment.type;
+    // Online collection has been removed from admin bookings; always settle offline.
+    const paymentType = "OFFLINE" as PaymentType;
     const createdByAdminId = authenticatedAdminId;
 
     if (!customerName) {
