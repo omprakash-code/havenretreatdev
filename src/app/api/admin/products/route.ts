@@ -48,6 +48,7 @@ function toAdminProductResponse(
           ? variant.salePrice
           : null,
       stock: variant.stock,
+      maxPerBooking: variant.maxPerBooking,
       isDefault: variant.isDefault,
       isActive: variant.isActive,
       sortOrder: variant.sortOrder,
@@ -72,7 +73,8 @@ function normalizeProductData(input: ProductFormValues) {
         : null,
     isDefault: variant.isDefault,
     isActive: variant.isActive,
-    stock: variant.stock,
+    stock: variant.stock ?? null,
+    maxPerBooking: variant.maxPerBooking ?? null,
     sortOrder: variant.sortOrder ?? index,
   }));
 
@@ -87,6 +89,7 @@ function normalizeProductData(input: ProductFormValues) {
     regularPrice: variant.regularPrice,
     salePrice: variant.salePrice,
     stock: variant.stock,
+    maxPerBooking: variant.maxPerBooking,
     isDefault: index === defaultIndex,
     isActive: variant.isActive,
     sortOrder: variant.sortOrder,
@@ -259,6 +262,7 @@ export async function POST(req: Request) {
             regularPrice: variant.regularPrice,
             salePrice: variant.salePrice,
             stock: variant.stock,
+            maxPerBooking: variant.maxPerBooking,
             isDefault: variant.isDefault,
             isActive: variant.isActive,
             sortOrder: variant.sortOrder,
@@ -360,6 +364,7 @@ export async function PATCH(req: Request) {
             regularPrice: variant.regularPrice,
             salePrice: variant.salePrice,
             stock: variant.stock,
+            maxPerBooking: variant.maxPerBooking,
             isDefault: variant.isDefault,
             isActive: variant.isActive,
             sortOrder: variant.sortOrder,

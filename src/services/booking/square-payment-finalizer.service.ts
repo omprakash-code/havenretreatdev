@@ -195,6 +195,16 @@ export async function finalizeSquarePayment(input: {
     });
 
     for (const item of bookingItems) {
+      const variant = await tx.productVariant.findUnique({
+        where: { id: item.variantId },
+        select: { stock: true },
+      });
+
+      // stock === null means unlimited / untracked → never decrement, always available.
+      if (variant && variant.stock === null) {
+        continue;
+      }
+
       const updated = await tx.productVariant.updateMany({
         where: {
           id: item.variantId,

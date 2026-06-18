@@ -507,7 +507,8 @@ model ProductVariant {
   label        String // "500g", "1kg", "Premium", "Gold"
   regularPrice Int
   salePrice    Int? // optional
-  stock        Int     @default(0)
+  stock        Int? // null = unlimited (untracked), 0 = out of stock, N = tracked inventory
+  maxPerBooking Int? // null = no per-booking cap, N = max quantity allowed in a single booking
   isDefault    Boolean @default(false)
   isActive     Boolean @default(true)
   sortOrder    Int     @default(0)

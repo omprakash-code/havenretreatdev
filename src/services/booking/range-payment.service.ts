@@ -511,7 +511,8 @@ export async function finalizeRangePayment(input: {
         where: { id: item.variantId },
         select: { stock: true },
       });
-      if (!variant || variant.stock < item.quantity) {
+      // stock === null means unlimited / untracked → never unavailable
+      if (!variant || (variant.stock !== null && variant.stock < item.quantity)) {
         const reviewed = await markManualReview(tx, {
           bookingId: booking.id,
           paymentId: payment.id,
@@ -531,8 +532,9 @@ export async function finalizeRangePayment(input: {
       }
     }
     for (const item of bookingItems) {
-      await tx.productVariant.update({
-        where: { id: item.variantId },
+      // Only decrement tracked inventory; unlimited (null) stock is left untouched.
+      await tx.productVariant.updateMany({
+        where: { id: item.variantId, stock: { not: null } },
         data: { stock: { decrement: item.quantity } },
       });
     }

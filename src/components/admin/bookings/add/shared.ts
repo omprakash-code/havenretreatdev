@@ -41,7 +41,8 @@ export type ProductVariant = {
   label: string;
   regularPrice: number;
   salePrice: number | null;
-  stock: number;
+  stock: number | null;        // null = unlimited / untracked
+  maxPerBooking: number | null; // null = no per-booking cap
   isDefault: boolean;
 };
 

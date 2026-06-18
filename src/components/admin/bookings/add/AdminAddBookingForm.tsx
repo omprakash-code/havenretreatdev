@@ -22,6 +22,7 @@ import {
 } from "@/lib/app-settings";
 import { resolveCouponIdentityGate } from "@/lib/coupon-identity-gate";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import { getVariantMaxAllowed as resolveVariantMaxAllowed } from "@/lib/product-stock";
 import {
   getPackageIncludedProductQuantity,
   getPackageIncludedProductTotalPrice,
@@ -535,7 +536,10 @@ export function AdminAddBookingForm({
                     label: String(variant.label),
                     regularPrice: Number(variant.regularPrice ?? 0),
                     salePrice: variant.salePrice == null ? null : Number(variant.salePrice),
-                    stock: Math.max(Number(variant.stock ?? 0), 0),
+                    stock:
+                      variant.stock == null ? null : Math.max(Number(variant.stock), 0),
+                    maxPerBooking:
+                      variant.maxPerBooking == null ? null : Number(variant.maxPerBooking),
                     isDefault: Boolean(variant.isDefault),
                   }))
               : [];
@@ -551,6 +555,7 @@ export function AdminAddBookingForm({
                   regularPrice: Number(item.unitPrice ?? 0),
                   salePrice: null,
                   stock: 0,
+                  maxPerBooking: null,
                   isDefault: false,
                 }));
 
@@ -595,6 +600,7 @@ export function AdminAddBookingForm({
                   regularPrice: Number(item.unitPrice ?? 0),
                   salePrice: null,
                   stock: 0,
+                  maxPerBooking: null,
                   isDefault: true,
                 },
               ],
@@ -609,7 +615,8 @@ export function AdminAddBookingForm({
             label: string;
             regularPrice: number;
             salePrice: number | null;
-            stock: number;
+            stock: number | null;
+            maxPerBooking: number | null;
             isDefault: boolean;
           }>
         ) => {
@@ -1731,13 +1738,13 @@ export function AdminAddBookingForm({
     const variant = product.variants.find((entry) => entry.id === variantId);
     if (!variant) return 0;
 
-    const stockCap = Math.max(Number(variant.stock ?? 0), 0);
-    if (stockCap <= 0) return 0;
+    const maxAllowed = resolveVariantMaxAllowed(variant);
+    if (maxAllowed <= 0) return 0;
 
     if (isNumberDecorationProduct({ slug: product.slug, name: product.name })) {
-      return Math.min(stockCap, 1);
+      return Math.min(maxAllowed, 1);
     }
-    return stockCap;
+    return maxAllowed;
   }, []);
 
   const incrementQuantity = useCallback((product: ProductOption) => {

@@ -1375,6 +1375,11 @@ export async function PATCH(
             );
           }
 
+          // stock === null means unlimited / untracked → never decrement.
+          if (variant.stock === null) {
+            continue;
+          }
+
           const updatedStock = await tx.productVariant.updateMany({
             where: {
               id: variantId,

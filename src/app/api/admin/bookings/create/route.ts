@@ -663,7 +663,8 @@ export async function POST(req: Request) {
           );
         }
 
-        if (item.quantity > variant.stock) {
+        // stock === null means unlimited / untracked → no availability ceiling.
+        if (variant.stock !== null && item.quantity > variant.stock) {
           throw new AdminBookingError(
             409,
             "PRODUCT_OUT_OF_STOCK",
@@ -709,6 +710,11 @@ export async function POST(req: Request) {
 
       if (paymentType === "OFFLINE" && bookingItemsToCreate.length > 0) {
         for (const item of bookingItemsToCreate) {
+          // stock === null means unlimited / untracked → never decrement.
+          if (variantMap.get(item.variantId)?.stock === null) {
+            continue;
+          }
+
           const updated = await tx.productVariant.updateMany({
             where: {
               id: item.variantId,

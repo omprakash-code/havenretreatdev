@@ -10,6 +10,7 @@ import {
   type ProductOption,
 } from "@/components/admin/bookings/add/shared";
 import { getNumberDecorationKind, getNumberDecorationLabel } from "@/lib/product-numbering";
+import { getVariantMaxAllowed } from "@/lib/product-stock";
 
 type ProductCardProps = {
   product: ProductOption;
@@ -61,10 +62,10 @@ function ProductCardComponent({
   const quantity = selection.quantity;
 
   if (!activeVariant) return null;
-  const stockAvailable = Math.max(Number(activeVariant.stock ?? 0), 0);
-  const maxAllowed = isLed
-    ? Math.min(stockAvailable, 1)
-    : stockAvailable;
+  const isUnlimitedStock = activeVariant.stock === null;
+  const stockLabel = isUnlimitedStock ? "∞" : String(Math.max(Number(activeVariant.stock), 0));
+  const variantMaxAllowed = getVariantMaxAllowed(activeVariant);
+  const maxAllowed = isLed ? Math.min(variantMaxAllowed, 1) : variantMaxAllowed;
   const outOfStock = maxAllowed <= 0;
   const reachedLimit = quantity >= maxAllowed && maxAllowed > 0;
 
@@ -91,7 +92,7 @@ function ProductCardComponent({
                         {numberShortLabel}: {selection.ledNumber}
                       </p>
                     ) : null}
-                    <p className="text-[11px] leading-none text-slate-500">S: {stockAvailable}</p>
+                    <p className="text-[11px] leading-none text-slate-500">S: {stockLabel}</p>
                   </div>
                 </div>
               </div>

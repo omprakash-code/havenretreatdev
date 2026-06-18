@@ -19,6 +19,7 @@ import {
   getPackageIncludedProductQuantity,
   getPackageIncludedProductTotalPrice,
 } from "@/lib/package-included-products";
+import { getVariantMaxAllowed } from "@/lib/product-stock";
 
 type Props = {
   product: Product;
@@ -575,12 +576,4 @@ function upsertItem({
   }
 
   return items;
-}
-
-function getVariantMaxAllowed(
-  variant: Variant
-): number {
-  const stockCap = Math.max(Number(variant.stock ?? 0), 0);
-  if (stockCap <= 0) return 0;
-  return stockCap;
 }

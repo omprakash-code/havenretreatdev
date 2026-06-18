@@ -120,7 +120,12 @@ export default function ProductView({ product, onClose, onEdit }: ProductViewPro
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <Tag size={12} />
-                        Stock {variant.stock}
+                        Stock {variant.stock === null ? "Unlimited" : variant.stock}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Tag size={12} />
+                        Max/booking{" "}
+                        {variant.maxPerBooking === null ? "No limit" : variant.maxPerBooking}
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <Clock size={12} />

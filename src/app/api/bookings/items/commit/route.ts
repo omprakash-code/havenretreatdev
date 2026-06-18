@@ -28,6 +28,7 @@ import { getRequiredAdvancePaymentAmount } from "@/lib/advance-payment";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import { getVariantMaxAllowed } from "@/lib/product-stock";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
 import {
   resolveBookingDurationPricingConfig,
@@ -68,14 +69,6 @@ function getVariantUnitPrice(variant: {
     variant.salePrice > 0
     ? variant.salePrice
     : variant.regularPrice;
-}
-
-function getVariantMaxAllowed(input: {
-  stock: number;
-}) {
-  const stockCap = Math.max(Number(input.stock ?? 0), 0);
-  if (stockCap <= 0) return 0;
-  return stockCap;
 }
 
 export async function POST(req: Request) {
@@ -280,9 +273,7 @@ export async function POST(req: Request) {
           throw new Error("INVALID_PRODUCT_SELECTION");
         }
 
-        const maxAllowed = getVariantMaxAllowed({
-          stock: variant.stock,
-        });
+        const maxAllowed = getVariantMaxAllowed(variant);
 
         if (maxAllowed <= 0 || item.quantity > maxAllowed) {
           throw new Error(

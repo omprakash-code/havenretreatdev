@@ -86,6 +86,7 @@ export async function GET(req: Request) {
           regularPrice: v.regularPrice,
           salePrice: validSalePrice,
           stock: v.stock,
+          maxPerBooking: v.maxPerBooking,
           price: validSalePrice ?? v.regularPrice,
           isDefault: v.isDefault,
         };

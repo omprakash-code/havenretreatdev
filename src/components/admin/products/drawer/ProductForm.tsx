@@ -92,6 +92,9 @@ function normalizeForCompare(values: ProductFormValues | undefined) {
           ? null
           : Number(variant.salePrice),
       stock: Number.isFinite(variant.stock) ? Number(variant.stock) : null,
+      maxPerBooking: Number.isFinite(variant.maxPerBooking)
+        ? Number(variant.maxPerBooking)
+        : null,
       isDefault: Boolean(variant.isDefault),
       isActive: Boolean(variant.isActive),
       sortOrder: Number.isFinite(variant.sortOrder) ? Number(variant.sortOrder) : 0,
@@ -408,7 +411,7 @@ export default function ProductForm({
                   >
                     <input type="hidden" {...register(`variants.${index}.id`)} />
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
                       <label className="text-sm text-slate-700">
                         Variation
                         <input
@@ -463,14 +466,38 @@ export default function ProductForm({
                         <input
                           type="number"
                           {...register(`variants.${index}.stock`, {
-                            setValueAs: (value) => (value === "" ? Number.NaN : Number(value)),
+                            setValueAs: (value) => (value === "" ? null : Number(value)),
                           })}
                           min={0}
                           className={fieldClass(Boolean(rowErrors?.stock), "h-9")}
-                          placeholder="e.g. 50"
+                          placeholder="Unlimited"
                         />
+                        <span className="mt-1 block text-[11px] text-slate-400">
+                          Leave blank for unlimited
+                        </span>
                         {rowErrors?.stock && (
                           <p className="mt-1 text-xs text-red-600">{rowErrors.stock.message}</p>
+                        )}
+                      </label>
+
+                      <label className="text-sm text-slate-700">
+                        Max / Booking
+                        <input
+                          type="number"
+                          {...register(`variants.${index}.maxPerBooking`, {
+                            setValueAs: (value) => (value === "" ? null : Number(value)),
+                          })}
+                          min={1}
+                          className={fieldClass(Boolean(rowErrors?.maxPerBooking), "h-9")}
+                          placeholder="No limit"
+                        />
+                        <span className="mt-1 block text-[11px] text-slate-400">
+                          Max units per booking
+                        </span>
+                        {rowErrors?.maxPerBooking && (
+                          <p className="mt-1 text-xs text-red-600">
+                            {rowErrors.maxPerBooking.message}
+                          </p>
                         )}
                       </label>
 

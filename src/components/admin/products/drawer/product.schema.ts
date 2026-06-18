@@ -30,7 +30,10 @@ export const productVariantSchema = z
       .min(0, "Sale price cannot be negative")
       .nullable()
       .optional(),
-    stock: nonNegativeInteger("Stock quantity"),
+    // null = unlimited / untracked stock
+    stock: nonNegativeInteger("Stock quantity").nullable(),
+    // null = no per-booking cap
+    maxPerBooking: positiveInteger("Max per booking").nullable().optional(),
     isDefault: z.boolean(),
     isActive: z.boolean(),
     sortOrder: nonNegativeInteger("Variant sort order"),
@@ -134,7 +137,8 @@ export function createEmptyVariant(
     label: overrides.label ?? "",
     regularPrice: (overrides.regularPrice ?? undefined) as unknown as number,
     salePrice: overrides.salePrice ?? null,
-    stock: overrides.stock ?? 0,
+    stock: overrides.stock ?? null,
+    maxPerBooking: overrides.maxPerBooking ?? null,
     isDefault: overrides.isDefault ?? false,
     isActive: overrides.isActive ?? true,
     sortOrder: (overrides.sortOrder ?? undefined) as unknown as number,
@@ -151,7 +155,7 @@ export function getDefaultProductFormValues(): ProductFormValues {
     locationId: "__ALL__",
     isActive: true,
     sortOrder: undefined as unknown as number,
-    variants: [createEmptyVariant({ isDefault: true, stock: 0 })],
+    variants: [createEmptyVariant({ isDefault: true, stock: null })],
   };
 }
 
@@ -174,6 +178,7 @@ export function mapProductToFormValues(product: AdminProduct): ProductFormValues
               regularPrice: variant.regularPrice,
               salePrice: variant.salePrice,
               stock: variant.stock,
+              maxPerBooking: variant.maxPerBooking,
               isDefault: variant.isDefault,
               isActive: variant.isActive,
               sortOrder: variant.sortOrder ?? index,

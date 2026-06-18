@@ -42,10 +42,17 @@ export default function ProductRow({
             ? defaultVariant.salePrice
             : defaultVariant.regularPrice)
         : null;
+    const hasUnlimitedStock = product.variants.some(
+        (variant) => variant.stock === null || variant.stock === undefined
+    );
     const totalStock = product.variants.reduce(
-        (sum, variant) => sum + Math.max(Number(variant.stock ?? 0), 0),
+        (sum, variant) =>
+            variant.stock === null || variant.stock === undefined
+                ? sum
+                : sum + Math.max(Number(variant.stock), 0),
         0
     );
+    const isStockAvailable = hasUnlimitedStock || totalStock > 0;
 
             return (
         <tr className="border-t border-neutral-100 text-[13px] hover:bg-neutral-50">
@@ -125,12 +132,12 @@ export default function ProductRow({
             <td className="px-3 py-3 whitespace-nowrap">
                 <span
                     className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                        totalStock > 0
+                        isStockAvailable
                             ? "bg-emerald-100 text-emerald-700"
                             : "bg-red-100 text-red-700"
                     }`}
                 >
-                    {totalStock > 0 ? totalStock : "Out"}
+                    {hasUnlimitedStock ? "Unlimited" : totalStock > 0 ? totalStock : "Out"}
                 </span>
             </td>
 
