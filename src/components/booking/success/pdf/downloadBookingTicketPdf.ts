@@ -717,36 +717,79 @@ function drawProductsGrid(
   const innerWidth = contentWidth - contentPadX * 2;
   const colW = (innerWidth - gap * 2) / 3;
   const cardH = 20.4;
-  const rowCount = Math.ceil(items.length / 3);
-  const sectionH = 10.4 + rowCount * (cardH + 1.8) + 0.6;
-  const sectionY = layout.y;
+  const rowGap = 1.8;
+  // Vertical offset from the panel top to the first card row (title bar + padding).
+  const headerBlock = 10.4;
+  // Bottom inset between the last card row and the panel's bottom border.
+  const bottomPad = 0.6;
 
-  ensureSpace(layout, sectionH + 2);
-  setFill(doc, COLORS.sectionBg);
-  setDraw(doc, COLORS.border);
-  doc.rect(marginX, sectionY, contentWidth, sectionH, "FD");
-
-  setFill(doc, COLORS.sectionHeadBg);
-  doc.rect(marginX + 1.4, sectionY + 1.2, contentWidth - 2.8, 6.2, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10.3);
-  doc.setTextColor(...COLORS.textStrong);
-  doc.text("Package Inclusions & Add-ons", marginX + 2.6, sectionY + 5.7);
-  layout.y = sectionY + 10.4;
-
+  // Group items into rows of three. Each row is an indivisible unit, but the
+  // section as a whole flows across pages so it never reserves a full block of
+  // height up front (which is what left large blank strips at page bottoms).
+  const rows: BookingSuccessData["items"][] = [];
   for (let i = 0; i < items.length; i += 3) {
-    const rowItems = items.slice(i, i + 3);
-    ensureSpace(layout, cardH + 1.8);
-
-    rowItems.forEach((item, col) => {
-      const x = innerX + col * (colW + gap);
-      drawProductCard(layout, x, layout.y, colW, cardH, item, imageMap.get(item.id) ?? null);
-    });
-
-    layout.y += cardH + 1.8;
+    rows.push(items.slice(i, i + 3));
   }
 
-  layout.y = sectionY + sectionH + 2.2;
+  const pageBottom = layout.pageHeight - layout.marginY;
+  let rowIndex = 0;
+
+  while (rowIndex < rows.length) {
+    // Guarantee the header + at least one row fit; otherwise start a new page.
+    ensureSpace(layout, headerBlock + cardH + rowGap + bottomPad);
+
+    const segmentTopY = layout.y;
+
+    // Pack as many rows as fit on the remaining page height for this segment.
+    let rowsInSegment = 0;
+    while (
+      rowIndex + rowsInSegment < rows.length &&
+      segmentTopY +
+        headerBlock +
+        (rowsInSegment + 1) * (cardH + rowGap) +
+        bottomPad <=
+        pageBottom
+    ) {
+      rowsInSegment++;
+    }
+    if (rowsInSegment === 0) rowsInSegment = 1; // safety: never stall
+
+    const segmentH = headerBlock + rowsInSegment * (cardH + rowGap) + bottomPad;
+
+    // Panel background + border for this page segment (drawn behind the cards).
+    setFill(doc, COLORS.sectionBg);
+    setDraw(doc, COLORS.border);
+    doc.rect(marginX, segmentTopY, contentWidth, segmentH, "FD");
+
+    // Repeat the header on each segment so a continued grid stays labelled.
+    setFill(doc, COLORS.sectionHeadBg);
+    doc.rect(marginX + 1.4, segmentTopY + 1.2, contentWidth - 2.8, 6.2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.3);
+    doc.setTextColor(...COLORS.textStrong);
+    doc.text("Package Inclusions & Add-ons", marginX + 2.6, segmentTopY + 5.7);
+
+    let rowY = segmentTopY + headerBlock;
+    for (let r = 0; r < rowsInSegment; r++) {
+      const rowItems = rows[rowIndex + r];
+      rowItems.forEach((item, col) => {
+        const x = innerX + col * (colW + gap);
+        drawProductCard(
+          layout,
+          x,
+          rowY,
+          colW,
+          cardH,
+          item,
+          imageMap.get(item.id) ?? null
+        );
+      });
+      rowY += cardH + rowGap;
+    }
+
+    layout.y = segmentTopY + segmentH + 2.2;
+    rowIndex += rowsInSegment;
+  }
 }
 
 function drawProductCard(
