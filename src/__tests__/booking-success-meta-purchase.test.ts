@@ -10,8 +10,8 @@ const paidBooking = {
   bookingRef: "HR-BOOK-1",
   paymentStatus: "PAID",
   payment: {
-    provider: "razorpay",
-    method: "upi",
+    provider: "square",
+    method: "card",
     transactionId: "pay_123",
   },
   totalAmount: 2000,
@@ -19,7 +19,7 @@ const paidBooking = {
 } as const;
 
 describe("booking success meta purchase helpers", () => {
-  it("tracks purchase only for paid Razorpay bookings", () => {
+  it("tracks purchase only for paid Square bookings", () => {
     expect(shouldTrackBookingSuccessPurchase(paidBooking)).toBe(true);
     expect(
       shouldTrackBookingSuccessPurchase({
@@ -43,14 +43,14 @@ describe("booking success meta purchase helpers", () => {
       eventId: "purchase:HR-BOOK-1:pay_123",
       storageKey: "meta:purchase:HR-BOOK-1:token-1",
       params: {
-        currency: "INR",
+        currency: "USD",
         value: 2000,
         advance_paid_value: 750,
         total_booking_value: 2000,
         order_id: "HR-BOOK-1",
         content_name: "Haven Retreat Booking",
         content_category: "event_venue",
-        payment_method: "upi",
+        payment_method: "card",
       },
     });
   });

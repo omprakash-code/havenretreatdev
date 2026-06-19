@@ -46,7 +46,7 @@ function buildSampleData(): BookingConfirmationEmailProps {
       },
     ],
     paymentType: "ONLINE",
-    paymentMethod: "RAZORPAY",
+    paymentMethod: "SQUARE",
     paymentStatus: "PAID",
     paymentReference: "pay_Q1A2B3C4D5",
     baseAmount: 2999,

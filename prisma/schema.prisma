@@ -374,7 +374,7 @@ enum BookingStatus {
 }
 
 enum PaymentStatus {
-  INITIALIZED // Razorpay order created
+  INITIALIZED // payment order created
   AWAITING_PAYMENT // checkout opened / user redirected
   PAID
   MANUAL_REVIEW // provider captured payment but booking could not be confirmed
@@ -526,12 +526,12 @@ model ProductVariant {
 // =======================================================
 
 // Payment
-// Razorpay + Offline support
+// Square + Offline support
 model Payment {
   id        String @id @default(cuid())
   bookingId String
 
-  provider           String // "MOCK" | "RAZORPAY"
+  provider           String // "SQUARE" | "OFFLINE"
   transactionId      String?
   providerOrderId    String?
   providerPaymentId  String?

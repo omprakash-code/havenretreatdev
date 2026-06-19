@@ -14,7 +14,7 @@ export function shouldTrackBookingSuccessPurchase(
 
   return (
     data.paymentStatus === "PAID" &&
-    data.payment?.provider?.toLowerCase() === "razorpay"
+    data.payment?.provider?.toLowerCase() === "square"
   );
 }
 
@@ -29,7 +29,7 @@ export function buildBookingSuccessPurchaseEvent(
     }),
     storageKey: `meta:purchase:${data.bookingRef}:${token}`,
     params: {
-      currency: "INR",
+      currency: "USD",
       value: data.totalAmount,
       advance_paid_value: data.advancePaid,
       total_booking_value: data.totalAmount,
@@ -37,7 +37,7 @@ export function buildBookingSuccessPurchaseEvent(
       content_name: "Haven Retreat Booking",
       content_category: "event_venue",
       payment_method:
-        data.payment?.method ?? data.payment?.provider ?? "razorpay",
+        data.payment?.method ?? data.payment?.provider ?? "square",
     },
   };
 }
