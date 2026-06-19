@@ -14,17 +14,25 @@ type AgreementClause = {
   body: string;
 };
 
+// Palette aligned with the booking flow UI tokens (teal #347f7c family).
 const PDF_COLORS = {
-  teal: [47, 126, 123] as const,
-  tealDark: [31, 91, 89] as const,
-  tealSoft: [238, 247, 245] as const,
-  tealBorder: [188, 218, 213] as const,
-  ink: [15, 23, 42] as const,
-  body: [65, 81, 105] as const,
-  muted: [100, 116, 139] as const,
-  border: [218, 226, 232] as const,
-  surface: [248, 250, 252] as const,
+  teal: [52, 127, 124] as const, // #347f7c
+  tealDark: [36, 94, 91] as const, // #245e5b
+  tealSoft: [237, 243, 241] as const, // #edf3f1
+  tealBorder: [215, 228, 225] as const, // #d7e4e1
+  ink: [16, 24, 40] as const, // #101828
+  body: [71, 84, 103] as const, // #475467
+  muted: [102, 112, 133] as const, // #667085
+  border: [215, 228, 225] as const, // #d7e4e1 (teal-tinted, matches booking cards)
+  surface: [248, 251, 250] as const, // #f8fbfa
   white: [255, 255, 255] as const,
+};
+
+// Flat style to match the booking flow UI (sharp corners, no border radius).
+const PDF_RADIUS = {
+  card: 0,
+  inner: 0,
+  pill: 0,
 };
 
 function normalizePdfText(value: string) {
@@ -227,7 +235,15 @@ export async function buildSignedAgreementPdf(
 
   doc.setFillColor(...PDF_COLORS.tealSoft);
   doc.setDrawColor(...PDF_COLORS.tealBorder);
-  doc.roundedRect(pageWidth - marginX - 31, y + 2, 31, 9, 2, 2, "FD");
+  doc.roundedRect(
+    pageWidth - marginX - 31,
+    y + 2,
+    31,
+    9,
+    PDF_RADIUS.pill,
+    PDF_RADIUS.pill,
+    "FD"
+  );
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...PDF_COLORS.tealDark);
@@ -255,7 +271,15 @@ export async function buildSignedAgreementPdf(
   const summaryColumnWidth = contentWidth / 2;
   doc.setFillColor(...PDF_COLORS.surface);
   doc.setDrawColor(...PDF_COLORS.border);
-  doc.roundedRect(marginX, y, contentWidth, summaryHeight, 1.5, 1.5, "FD");
+  doc.roundedRect(
+    marginX,
+    y,
+    contentWidth,
+    summaryHeight,
+    PDF_RADIUS.card,
+    PDF_RADIUS.card,
+    "FD"
+  );
   doc.setDrawColor(...PDF_COLORS.border);
   doc.line(
     marginX + summaryColumnWidth,
@@ -321,9 +345,19 @@ export async function buildSignedAgreementPdf(
     ensureSpace(clauseHeight + 1.5);
     doc.setFillColor(...PDF_COLORS.white);
     doc.setDrawColor(...PDF_COLORS.border);
-    doc.roundedRect(marginX, y, contentWidth, clauseHeight, 1.2, 1.2, "FD");
+    doc.roundedRect(
+      marginX,
+      y,
+      contentWidth,
+      clauseHeight,
+      PDF_RADIUS.card,
+      PDF_RADIUS.card,
+      "FD"
+    );
+    // Left accent strip (flat).
+    const accentWidth = 13;
     doc.setFillColor(...PDF_COLORS.tealSoft);
-    doc.roundedRect(marginX, y, 13, clauseHeight, 1.2, 1.2, "F");
+    doc.rect(marginX, y, accentWidth, clauseHeight, "F");
 
     const checkboxX = marginX + 4;
     const checkboxY = y + 4;
@@ -382,7 +416,15 @@ export async function buildSignedAgreementPdf(
 
   doc.setDrawColor(...PDF_COLORS.tealBorder);
   doc.setFillColor(...PDF_COLORS.tealSoft);
-  doc.roundedRect(marginX, y, contentWidth, 54, 1.5, 1.5, "FD");
+  doc.roundedRect(
+    marginX,
+    y,
+    contentWidth,
+    54,
+    PDF_RADIUS.card,
+    PDF_RADIUS.card,
+    "FD"
+  );
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...PDF_COLORS.tealDark);
@@ -409,8 +451,8 @@ export async function buildSignedAgreementPdf(
     signatureBoxY,
     signatureBoxWidth,
     27,
-    1,
-    1,
+    PDF_RADIUS.inner,
+    PDF_RADIUS.inner,
     "FD"
   );
 
