@@ -249,9 +249,11 @@ export async function POST(req: Request) {
           termsAcceptedAt: booking.termsAcceptedAt ?? signedAt,
           bookingStatus: "AWAITING_PAYMENT",
           paymentStatus: "INITIALIZED",
-          razorpayOrderId: null,
-          razorpayPaymentId: null,
-          razorpaySignature: null,
+          paymentProvider: null,
+          paymentOrderId: null,
+          paymentTransactionId: null,
+          paymentSignature: null,
+          paymentCheckoutUrl: null,
         },
       });
     });

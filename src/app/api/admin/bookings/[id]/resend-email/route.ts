@@ -348,7 +348,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       paymentMethod: latestPayment?.method ?? null,
       paymentStatus: booking.paymentStatus ?? latestPayment?.status ?? null,
       paymentReference:
-        latestPayment?.transactionId ?? booking.razorpayPaymentId ?? null,
+        latestPayment?.transactionId ?? booking.paymentTransactionId ?? null,
       baseAmount: booking.baseAmount,
       extrasAmount: booking.extrasAmount,
       productsAmount: booking.productsAmount,

@@ -256,7 +256,7 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     paymentType: latestPayment?.provider ?? undefined,
     paymentMethod: latestPayment?.method ?? undefined,
     paymentStatus: booking.paymentStatus ?? latestPayment?.status ?? undefined,
-    paymentReference: latestPayment?.transactionId ?? booking.razorpayPaymentId ?? undefined,
+    paymentReference: latestPayment?.transactionId ?? booking.paymentTransactionId ?? undefined,
     totalAmount: booking.totalAmount,
     advancePaid: booking.advancePaid,
     remainingPayable: booking.remainingPayable,

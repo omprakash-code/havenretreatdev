@@ -307,11 +307,7 @@ model Booking {
   paymentStatus PaymentStatus?
   bookingStatus BookingStatus
 
-  razorpayOrderId   String?
-  razorpayPaymentId String?
-  razorpaySignature String?
-
-  // Provider-neutral payment bridge fields used by Square and future gateways.
+  // Provider-neutral payment fields used by future gateways.
   paymentProvider      String?
   paymentOrderId       String?
   paymentTransactionId String?

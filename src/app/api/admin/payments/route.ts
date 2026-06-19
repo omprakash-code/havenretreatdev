@@ -21,7 +21,7 @@ function deriveAttemptReason(input: {
   transactionId: string | null;
   bookingStatus: string;
   bookingPaymentStatus: string | null;
-  bookingRazorpayPaymentId: string | null;
+  bookingPaymentTransactionId: string | null;
   slotStatus: string | null;
   method: string | null;
 }) {
@@ -49,9 +49,9 @@ function deriveAttemptReason(input: {
   if (
     input.bookingStatus === "CONFIRMED" &&
     input.bookingPaymentStatus === "PAID" &&
-    input.bookingRazorpayPaymentId &&
+    input.bookingPaymentTransactionId &&
     input.transactionId &&
-    input.bookingRazorpayPaymentId !== input.transactionId
+    input.bookingPaymentTransactionId !== input.transactionId
   ) {
     return "Duplicate payment attempt. This booking was already paid from another session.";
   }
@@ -137,7 +137,7 @@ export async function GET(req: Request) {
               bookingStatus: true,
               paymentStatus: true,
               totalAmount: true,
-              razorpayPaymentId: true,
+              paymentTransactionId: true,
               eventDate: true,
               eventStartTime: true,
               eventEndTime: true,
@@ -159,7 +159,7 @@ export async function GET(req: Request) {
           transactionId: payment.transactionId,
           bookingStatus: payment.booking.bookingStatus,
           bookingPaymentStatus: payment.booking.paymentStatus,
-          bookingRazorpayPaymentId: payment.booking.razorpayPaymentId,
+          bookingPaymentTransactionId: payment.booking.paymentTransactionId,
           slotStatus: null,
           method: payment.method,
         });

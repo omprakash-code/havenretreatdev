@@ -65,7 +65,7 @@ const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
 
 function resolveDisplayPaymentStatus(
   paymentStatus: PaymentStatus | null | undefined,
-  razorpayOrderId: string | null | undefined
+  paymentOrderId: string | null | undefined
 ): PaymentStatus {
   if (!paymentStatus) {
     return PaymentStatus.INITIALIZED;
@@ -74,7 +74,7 @@ function resolveDisplayPaymentStatus(
   // Legacy safety: `AWAITING_PAYMENT` should only exist after order creation.
   if (
     paymentStatus === PaymentStatus.AWAITING_PAYMENT &&
-    !razorpayOrderId
+    !paymentOrderId
   ) {
     return PaymentStatus.INITIALIZED;
   }
@@ -326,7 +326,7 @@ export async function GET(
 
     const paymentStatusForDisplay = resolveDisplayPaymentStatus(
       booking.paymentStatus,
-      booking.razorpayOrderId
+      booking.paymentOrderId
     );
     const displaySpace = {
       id: booking.venue?.id ?? "",
@@ -520,9 +520,9 @@ export async function GET(
                 createdAt: latestSignedAgreement.createdAt.toISOString(),
               }
             : null,
-          razorpayOrderId: booking.razorpayOrderId ?? null,
-          razorpayPaymentId: booking.razorpayPaymentId ?? null,
-          razorpaySignature: booking.razorpaySignature ?? null,
+          paymentOrderId: booking.paymentOrderId ?? null,
+          paymentTransactionId: booking.paymentTransactionId ?? null,
+          paymentSignature: booking.paymentSignature ?? null,
           paymentDetails: latestPayment
             ? {
                 provider: latestPayment.provider,

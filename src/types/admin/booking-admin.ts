@@ -111,9 +111,9 @@ export type AdminBooking = {
     createdAt: string;
   } | null;
 
-  razorpayOrderId: string | null;
-  razorpayPaymentId: string | null;
-  razorpaySignature?: string | null;
+  paymentOrderId: string | null;
+  paymentTransactionId: string | null;
+  paymentSignature?: string | null;
   paymentDetails: {
     provider: string;
     method: string | null;

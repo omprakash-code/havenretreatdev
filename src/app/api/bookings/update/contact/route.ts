@@ -286,9 +286,11 @@ export async function POST(req: Request) {
             ? {
                 bookingStatus: "AWAITING_PAYMENT" as const,
                 paymentStatus: "INITIALIZED" as const,
-                razorpayOrderId: null,
-                razorpayPaymentId: null,
-                razorpaySignature: null,
+                paymentProvider: null,
+                paymentOrderId: null,
+                paymentTransactionId: null,
+                paymentSignature: null,
+                paymentCheckoutUrl: null,
               }
             : {}),
           user: {

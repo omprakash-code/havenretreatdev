@@ -7,7 +7,7 @@ import {
   resolveBookingHoldMinutes,
 } from "@/lib/booking-policy";
 
-export type RangePaymentProvider = "SQUARE" | "RAZORPAY";
+export type RangePaymentProvider = "SQUARE";
 
 export class RangePaymentError extends Error {
   constructor(
@@ -256,18 +256,11 @@ export async function completeRangePaymentAttempt(input: {
           : "ONLINE",
       },
     });
-    const providerData =
-      attempt.provider === "SQUARE"
-        ? {
-            paymentProvider: "SQUARE",
-            paymentOrderId: input.providerOrderId,
-            paymentCheckoutUrl: input.checkoutUrl ?? null,
-          }
-        : {
-            paymentProvider: "RAZORPAY",
-            paymentOrderId: input.providerOrderId,
-            razorpayOrderId: input.providerOrderId,
-          };
+    const providerData = {
+      paymentProvider: "SQUARE",
+      paymentOrderId: input.providerOrderId,
+      paymentCheckoutUrl: input.checkoutUrl ?? null,
+    };
     await tx.booking.update({
       where: { id: booking.id },
       data: {
@@ -311,12 +304,6 @@ async function markManualReview(
       paymentOrderId: input.providerOrderId,
       paymentTransactionId: input.providerPaymentId,
       paymentCheckoutUrl: null,
-      ...(input.provider === "RAZORPAY"
-        ? {
-            razorpayOrderId: input.providerOrderId,
-            razorpayPaymentId: input.providerPaymentId,
-          }
-        : {}),
     },
   });
   await tx.payment.update({
@@ -554,12 +541,6 @@ export async function finalizeRangePayment(input: {
           booking.totalAmount - (input.amount > 0 ? input.amount : payment.amount),
           0
         ),
-        ...(input.provider === "RAZORPAY"
-          ? {
-              razorpayOrderId: input.providerOrderId,
-              razorpayPaymentId: input.providerPaymentId,
-            }
-          : {}),
       },
     });
     await tx.payment.update({

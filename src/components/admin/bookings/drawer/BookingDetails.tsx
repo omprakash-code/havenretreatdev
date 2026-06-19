@@ -1043,24 +1043,24 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
               })()}
 
               {/* Payment Gateway Details */}
-              {(booking.razorpayOrderId || booking.razorpayPaymentId) && (
+              {(booking.paymentOrderId || booking.paymentTransactionId) && (
                 <div className="border border-slate-200 rounded-lg p-4 space-y-3">
                   <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                     <CreditCard size={16} />
                     Payment Gateway
                   </h3>
 
-                  {booking.razorpayOrderId && (
+                  {booking.paymentOrderId && (
                     <div className="flex items-start justify-between gap-4">
                       <span className="text-xs text-slate-500">Gateway Order ID</span>
-                      <MonoValue>{booking.razorpayOrderId}</MonoValue>
+                      <MonoValue>{booking.paymentOrderId}</MonoValue>
                     </div>
                   )}
 
-                  {booking.razorpayPaymentId && (
+                  {booking.paymentTransactionId && (
                     <div className="flex items-start justify-between gap-4">
                       <span className="text-xs text-slate-500">Gateway Payment ID</span>
-                      <MonoValue>{booking.razorpayPaymentId}</MonoValue>
+                      <MonoValue>{booking.paymentTransactionId}</MonoValue>
                     </div>
                   )}
                 </div>
