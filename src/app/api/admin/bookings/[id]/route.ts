@@ -40,9 +40,11 @@ import {
   validateAdminRangeBooking,
 } from "@/services/booking/admin-range-booking.service";
 import {
-  createRazorpayOrder,
-  RazorpayServerError,
-} from "@/lib/razorpay/server";
+  createSquarePaymentLink,
+  getSquareCurrency,
+  SquareServerError,
+} from "@/lib/square/server";
+import { sendBookingPaymentLinkEmail } from "@/services/booking/booking-payment-link-email.service";
 import {
   BookingOverlapError,
 } from "@/services/booking/booking-safety.service";
@@ -805,7 +807,7 @@ export async function PATCH(
         requestedPaymentStatus ??
         booking.paymentStatus ??
         PaymentStatus.INITIALIZED;
-      let onlineCollectionOrder: { id: string; amount: number } | null = null;
+      let onlineCollectionOrder: { amount: number } | null = null;
 
       if (wasFullyPaid && nextPaymentStatus !== PaymentStatus.PAID) {
         throw new AdminBookingEditError(
@@ -1265,8 +1267,7 @@ export async function PATCH(
 
       if (shouldCollectOnlineNow) {
         onlineCollectionOrder = {
-          id: "",
-          amount: additionalAmountToCollect * 100,
+          amount: additionalAmountToCollect,
         };
       }
 
@@ -1500,8 +1501,9 @@ export async function PATCH(
         ...updated,
         paymentType,
         onlineCollectionRequired: shouldCollectOnlineNow,
-        orderId: onlineCollectionOrder?.id ?? null,
         amount: onlineCollectionOrder?.amount ?? null,
+        paymentLinkUrl: null as string | null,
+        paymentLinkId: null as string | null,
         abandonedBookingIds: Array.from(abandonedBookingIds),
         slotReassigned: false,
         slotReassignedSummary: null,
@@ -1510,8 +1512,8 @@ export async function PATCH(
     });
 
     if (result.onlineCollectionRequired) {
-      const orderAmountInPaise = Math.max(Number(result.amount ?? 0), 0);
-      if (!Number.isFinite(orderAmountInPaise) || orderAmountInPaise <= 0) {
+      const additionalAmount = Math.max(Number(result.amount ?? 0), 0);
+      if (!Number.isFinite(additionalAmount) || additionalAmount <= 0) {
         throw new AdminBookingEditError(
           500,
           "ONLINE_PAYMENT_INIT_FAILED",
@@ -1519,8 +1521,24 @@ export async function PATCH(
         );
       }
 
-      const orderAmountInRupees = Math.max(Math.round(orderAmountInPaise / 100), 0);
-      const orderResolution = await prisma.$transaction(async (tx) => {
+      const currency = getSquareCurrency();
+      const baseUrl = (process.env.NEXT_PUBLIC_APP_URL?.trim() || "").replace(
+        /\/+$/,
+        ""
+      );
+      const createdLink = await createSquarePaymentLink({
+        idempotencyKey: `topup:${result.id}:${Date.now()}`,
+        name: `Haven Retreat ${result.bookingRef} (balance)`,
+        amount: additionalAmount * 100,
+        currency,
+        redirectUrl: `${baseUrl}/booking/payment/square/return?bookingId=${encodeURIComponent(
+          result.id
+        )}`,
+        bookingId: result.id,
+        bookingRef: result.bookingRef,
+      });
+
+      await prisma.$transaction(async (tx) => {
         await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
           SELECT id
           FROM "Booking"
@@ -1528,51 +1546,17 @@ export async function PATCH(
           FOR UPDATE
         `);
 
-        const pendingPaymentForRetry = await tx.payment.findFirst({
-          where: {
-            bookingId: result.id,
-            provider: "RAZORPAY",
-            status: PaymentStatus.INITIALIZED,
-            transactionId: {
-              not: null,
-            },
-            amount: orderAmountInRupees,
-          },
-          orderBy: { createdAt: "desc" },
-          select: {
-            transactionId: true,
-          },
-        });
-
-        if (pendingPaymentForRetry?.transactionId) {
-          await tx.booking.update({
-            where: { id: result.id },
-            data: {
-              razorpayOrderId: pendingPaymentForRetry.transactionId,
-              razorpayPaymentId: null,
-              razorpaySignature: null,
-            },
-          });
-
-          return {
-            orderId: pendingPaymentForRetry.transactionId,
-            amount: orderAmountInPaise,
-          };
-        }
-
-        const receipt = `${result.bookingRef}-ADM-${Date.now()}`.slice(0, 40);
-        const createdOrder = await createRazorpayOrder({
-          amount: orderAmountInPaise,
-          currency: "INR",
-          receipt,
-          payment_capture: true,
-        });
-
+        // Cancel any prior outstanding payment-link attempts for this booking
+        // so only the latest link can settle the balance.
         await tx.payment.updateMany({
           where: {
             bookingId: result.id,
-            provider: "RAZORPAY",
-            status: PaymentStatus.INITIALIZED,
+            provider: "SQUARE",
+            bookingLockVersion: null,
+            status: {
+              in: [PaymentStatus.INITIALIZED, PaymentStatus.AWAITING_PAYMENT],
+            },
+            method: { startsWith: "PAYMENT_LINK:" },
           },
           data: {
             status: PaymentStatus.CANCELLED,
@@ -1582,35 +1566,53 @@ export async function PATCH(
         await tx.payment.create({
           data: {
             bookingId: result.id,
-            provider: "RAZORPAY",
-            method: "ONLINE",
-            transactionId: createdOrder.id,
-            amount: Math.max(Math.round(Number(createdOrder.amount) / 100), 0),
-            status: PaymentStatus.INITIALIZED,
+            provider: "SQUARE",
+            method: `PAYMENT_LINK:${createdLink.paymentLinkId}`,
+            transactionId: createdLink.orderId,
+            providerOrderId: createdLink.orderId,
+            providerPayload: {
+              source: "admin_edit_payment_link",
+              checkoutUrl: createdLink.checkoutUrl,
+              paymentLinkId: createdLink.paymentLinkId,
+              orderId: createdLink.orderId,
+            },
+            amount: additionalAmount,
+            status: PaymentStatus.AWAITING_PAYMENT,
             recordedByAdminId: adminId,
           },
         });
-
-        await tx.booking.update({
-          where: { id: result.id },
-          data: {
-            razorpayOrderId: createdOrder.id,
-            razorpayPaymentId: null,
-            razorpaySignature: null,
-          },
-        });
-
-        return {
-          orderId: createdOrder.id,
-          amount: Number(createdOrder.amount),
-        };
       });
 
       result = {
         ...result,
-        orderId: orderResolution.orderId,
-        amount: orderResolution.amount,
+        amount: additionalAmount,
+        paymentLinkUrl: createdLink.checkoutUrl,
+        paymentLinkId: createdLink.paymentLinkId,
       };
+
+      // Auto-email the link to the customer; the admin UI also surfaces it as a
+      // fallback, so email failures should not block the response.
+      const bookingContact = await prisma.booking.findUnique({
+        where: { id: result.id },
+        select: { contactEmail: true, contactName: true, bookingRef: true },
+      });
+      if (bookingContact?.contactEmail) {
+        try {
+          await sendBookingPaymentLinkEmail({
+            to: bookingContact.contactEmail,
+            bookingRef: bookingContact.bookingRef,
+            customerName: bookingContact.contactName,
+            amountDue: additionalAmount,
+            currency,
+            paymentLinkUrl: createdLink.checkoutUrl,
+          });
+        } catch (paymentLinkEmailError) {
+          console.error(
+            "ADMIN_EDIT_PAYMENT_LINK_EMAIL_FAILED",
+            paymentLinkEmailError
+          );
+        }
+      }
     }
 
     if (result.abandonedBookingIds.length > 0) {
@@ -1639,7 +1641,7 @@ export async function PATCH(
       );
     }
 
-    if (error instanceof RazorpayServerError) {
+    if (error instanceof SquareServerError) {
       return bookingErrorResponse(
         error.status === 500 ? 500 : 502,
         error.status === 500

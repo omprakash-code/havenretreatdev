@@ -20,7 +20,6 @@ import {
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { useBooking } from "@/context/BookingContext";
 import { handleBookingError } from "@/utils/handleBookingError";
-import { ensureRazorpayCheckoutLoaded } from "@/lib/razorpay/checkout-client";
 
 type AgreementTemplateSummary = {
   title: string;
@@ -217,7 +216,6 @@ export default function BookingAgreementStep({
         return;
       }
 
-      void ensureRazorpayCheckoutLoaded();
       router.push(BOOKING_ROUTES.PAYMENT);
     } finally {
       setIsSubmitting(false);

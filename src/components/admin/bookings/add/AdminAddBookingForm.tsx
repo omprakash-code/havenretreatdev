@@ -29,12 +29,6 @@ import {
   reconcilePackageIncludedProductSelections,
   type PackageIncludedProductSource,
 } from "@/lib/package-included-products";
-import { ensureRazorpayCheckoutLoaded, openRazorpayModal } from "@/lib/razorpay/checkout-client";
-import {
-  discardPendingOnlineCreateBooking,
-  handlePendingOnlineCreateRetry,
-  type PendingOnlineCreateBooking,
-} from "@/components/admin/bookings/add/admin-online-create-retry";
 import { BookingSummarySection } from "@/components/admin/bookings/add/sections/BookingSummarySection";
 import { CustomerInfoSection } from "@/components/admin/bookings/add/sections/CustomerInfoSection";
 import { OccasionSection } from "@/components/admin/bookings/add/sections/OccasionSection";
@@ -284,10 +278,12 @@ export function AdminAddBookingForm({
     useState<AdminBookingMutationRequest | null>(null);
   const [slotOverrideLockContext, setSlotOverrideLockContext] =
     useState<SlotOverrideLockContext>("other_session");
-  const [pendingOnlineCreateBooking, setPendingOnlineCreateBooking] =
-    useState<PendingOnlineCreateBooking | null>(null);
-  const [discardingPendingOnlineCreateBooking, setDiscardingPendingOnlineCreateBooking] =
-    useState(false);
+  const [editPaymentLink, setEditPaymentLink] = useState<{
+    bookingId: string;
+    bookingRef: string;
+    amountDue: number;
+    paymentLinkUrl: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1995,185 +1991,6 @@ export function AdminAddBookingForm({
     });
   }, []);
 
-  const collectOnlinePayment = useCallback(
-    async (params: {
-      orderId: string;
-      amountInPaise: number;
-      description: string;
-      verifyEndpoint: string;
-      verifyToastId: string;
-      verifyFailureHint: string;
-      verifySuccessMessage: string;
-      buildVerifyPayload: (response: {
-        razorpay_payment_id: string;
-        razorpay_order_id: string;
-        razorpay_signature: string;
-      }) => Record<string, unknown>;
-    }) => {
-      const {
-        orderId,
-        amountInPaise,
-        description,
-        verifyEndpoint,
-        verifyToastId,
-        verifyFailureHint,
-        verifySuccessMessage,
-        buildVerifyPayload,
-      } = params;
-
-      if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
-        toast.error("Razorpay key is missing. Please check payment configuration.");
-        return false;
-      }
-
-      const isLoaded = await ensureRazorpayCheckoutLoaded();
-      if (!isLoaded) {
-        toast.error("Razorpay is not ready. Please try again.");
-        return false;
-      }
-
-      return new Promise<boolean>((resolve) => {
-        let settled = false;
-        const settle = (value: boolean) => {
-          if (settled) return;
-          settled = true;
-          resolve(value);
-        };
-
-        const opened = openRazorpayModal({
-          orderId,
-          amountInPaise,
-          name: "Haven Retreat",
-          description,
-          prefill: {
-            name: name.trim() || undefined,
-            email: email.trim() || undefined,
-            contact: normalizePhone(phone) || undefined,
-          },
-          onDismiss: () => {
-            toast.error("Payment cancelled. You can retry safely.");
-            settle(false);
-          },
-          onSuccess: async (response) => {
-            toast.loading("Verifying payment...", { id: verifyToastId });
-
-            try {
-              const verifyRes = await fetch(verifyEndpoint, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(buildVerifyPayload(response)),
-              });
-              const verifyJson = (await verifyRes.json().catch(() => null)) as
-                | { success?: boolean; message?: string }
-                | null;
-
-              if (!verifyRes.ok || !verifyJson?.success) {
-                toast.error(verifyJson?.message || "Payment verification failed.", {
-                  id: verifyToastId,
-                });
-                toast.info(verifyFailureHint);
-                settle(false);
-                return;
-              }
-
-              toast.success(verifySuccessMessage, {
-                id: verifyToastId,
-              });
-              settle(true);
-            } catch {
-              toast.error("Payment verification failed.", { id: verifyToastId });
-              toast.info(verifyFailureHint);
-              settle(false);
-            }
-          },
-          onOpenFailed: () => {
-            settle(false);
-          },
-        });
-
-        if (!opened) {
-          toast.error("Unable to open Razorpay checkout.");
-          settle(false);
-        }
-      });
-    },
-    [email, name, phone]
-  );
-
-  const collectOnlinePaymentForEdit = useCallback(
-    async (params: {
-      bookingId: string;
-      orderId: string;
-      amountInPaise: number;
-    }) => {
-      const { bookingId: targetBookingId, orderId, amountInPaise } = params;
-      return collectOnlinePayment({
-        orderId,
-        amountInPaise,
-        description: "Booking Update Payment",
-        verifyEndpoint: `/api/admin/bookings/${encodeURIComponent(targetBookingId)}/collect-online/verify`,
-        verifyToastId: "admin-edit-verify",
-        verifyFailureHint: "Retry payment to continue this booking update.",
-        verifySuccessMessage: "Payment collected successfully.",
-        buildVerifyPayload: (response) => ({
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_signature: response.razorpay_signature,
-        }),
-      });
-    },
-    [collectOnlinePayment]
-  );
-
-  const collectOnlinePaymentForCreate = useCallback(
-    async (params: {
-      bookingId: string;
-    }) => {
-      const { bookingId: targetBookingId } = params;
-
-      const orderRes = await fetch("/api/payments/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId: targetBookingId }),
-      });
-
-      const orderJson = (await orderRes.json().catch(() => null)) as
-        | { success?: boolean; orderId?: string; amount?: number; message?: string }
-        | null;
-
-      if (!orderRes.ok || !orderJson?.success) {
-        toast.error(orderJson?.message || "Unable to initialize online payment.");
-        toast.info("Retry payment to continue this booking creation.");
-        return false;
-      }
-
-      const orderId = String(orderJson.orderId ?? "");
-      const amountInPaise = Number(orderJson.amount ?? 0);
-      if (!orderId || !Number.isFinite(amountInPaise) || amountInPaise <= 0) {
-        toast.error("Online payment initialization failed for this booking.");
-        toast.info("Retry payment to continue this booking creation.");
-        return false;
-      }
-
-      return collectOnlinePayment({
-        orderId,
-        amountInPaise,
-        description: "Booking Payment",
-        verifyEndpoint: "/api/payments/razorpay/verify",
-        verifyToastId: "admin-create-verify",
-        verifyFailureHint: "Retry payment to continue this booking creation.",
-        verifySuccessMessage: "Payment collected and booking confirmed.",
-        buildVerifyPayload: (response) => ({
-          bookingId: targetBookingId,
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_signature: response.razorpay_signature,
-        }),
-      });
-    },
-    [collectOnlinePayment]
-  );
-
   const performBookingMutation = useCallback(
     async (
       request: AdminBookingMutationRequest,
@@ -2236,29 +2053,32 @@ export function AdminAddBookingForm({
           );
           if (onlineCollectionRequired) {
             const nextBookingId = String(json.data?.id ?? request.bookingId ?? "");
-            const orderId = String(json.data?.orderId ?? "");
-            const amountInPaise = Number(json.data?.amount ?? 0);
+            const paymentLinkUrl = String(json.data?.paymentLinkUrl ?? "");
+            const amountDue = Number(json.data?.amount ?? 0);
 
-            if (!nextBookingId || !orderId || !Number.isFinite(amountInPaise) || amountInPaise <= 0) {
-              toast.error("Online payment initialization failed for this booking update.");
+            if (
+              !nextBookingId ||
+              !paymentLinkUrl ||
+              !Number.isFinite(amountDue) ||
+              amountDue <= 0
+            ) {
+              toast.error(
+                "Booking updated, but the payment link could not be generated. Please retry."
+              );
               return;
             }
 
-            toast.success("Booking updated. Opening Razorpay to collect payment...");
-            const collected = await collectOnlinePaymentForEdit({
+            toast.success(
+              `Booking ${json.data?.bookingRef ?? ""} updated. Payment link sent to the customer.`
+            );
+            // Surface the link to the admin; deferring onUpdated/refresh to the
+            // modal's close handler keeps it visible until they dismiss it.
+            setEditPaymentLink({
               bookingId: nextBookingId,
-              orderId,
-              amountInPaise,
+              bookingRef: String(json.data?.bookingRef ?? ""),
+              amountDue,
+              paymentLinkUrl,
             });
-
-            if (!collected) return;
-
-            toast.success(`Booking ${json.data?.bookingRef ?? ""} updated successfully.`);
-            if (onUpdated) {
-              onUpdated(nextBookingId);
-              return;
-            }
-            router.refresh();
             return;
           }
 
@@ -2295,43 +2115,11 @@ export function AdminAddBookingForm({
         }
 
         const redirectUrl = String(json.data?.redirectUrl ?? "");
-        const nextBookingId = String(json.data?.bookingId ?? "");
         const paymentFlowType = String(json.data?.paymentType ?? "");
         const bookingRef = String(json.data?.bookingRef ?? "");
         const successToken = String(json.data?.successToken ?? "");
 
-        if (paymentFlowType === "ONLINE") {
-          if (!nextBookingId || !bookingRef) {
-            toast.error("Online payment initialization failed for this booking.");
-            return;
-          }
-
-          setPendingOnlineCreateBooking({
-            bookingId: nextBookingId,
-            bookingRef,
-          });
-
-          toast.success("Booking initialized. Opening Razorpay to collect payment...");
-          const collected = await collectOnlinePaymentForCreate({
-            bookingId: nextBookingId,
-          });
-          if (!collected) {
-            toast.info(`Booking ${bookingRef} is awaiting payment. Retry from this form.`);
-            return;
-          }
-
-          setPendingOnlineCreateBooking(null);
-          toast.success(`Booking ${bookingRef} confirmed successfully.`);
-          if (onCreated) {
-            onCreated(bookingRef);
-            return;
-          }
-          router.push(`/admin/bookings?ref=${encodeURIComponent(bookingRef)}`);
-          return;
-        }
-
         if (paymentFlowType === "OFFLINE") {
-          setPendingOnlineCreateBooking(null);
           toast.success(`Booking ${bookingRef} confirmed successfully.`);
           const successUrl =
             redirectUrl ||
@@ -2348,7 +2136,6 @@ export function AdminAddBookingForm({
           return;
         }
 
-        setPendingOnlineCreateBooking(null);
         toast.success(`Booking ${bookingRef} created successfully.`);
         if (onCreated) {
           onCreated(bookingRef);
@@ -2367,100 +2154,12 @@ export function AdminAddBookingForm({
         setSubmitting(false);
       }
     },
-    [collectOnlinePaymentForCreate, collectOnlinePaymentForEdit, onCreated, onUpdated, router]
+    [onCreated, onUpdated, router]
   );
-
-  const handleDiscardPendingOnlineBooking = useCallback(async () => {
-    if (!pendingOnlineCreateBooking || submitting || discardingPendingOnlineCreateBooking) {
-      return;
-    }
-
-    setDiscardingPendingOnlineCreateBooking(true);
-    try {
-      await discardPendingOnlineCreateBooking({
-        pendingOnlineCreateBooking,
-        confirmDiscard: (pendingBookingRef) =>
-          window.confirm(
-            `Discard pending booking ${pendingBookingRef}? This will release its slot and reserved coupons.`
-          ),
-        deletePendingBooking: async (pendingBookingId) => {
-          const res = await fetch(
-            `/api/admin/bookings/${encodeURIComponent(pendingBookingId)}`,
-            { method: "DELETE" }
-          );
-          const json = (await res.json().catch(() => null)) as
-            | { success?: boolean; message?: string }
-            | null;
-          if (!res.ok || !json?.success) {
-            toast.error(json?.message || "Failed to discard pending booking.");
-            return false;
-          }
-          return true;
-        },
-        clearPendingOnlineCreateBooking: () => {
-          setPendingOnlineCreateBooking(null);
-        },
-        onDiscardSuccess: (pendingBookingRef) => {
-          toast.success(
-            `Pending booking ${pendingBookingRef} discarded. You can now update details and create again.`
-          );
-        },
-        onDiscardFailure: () => {
-          // Error toast is emitted in deletePendingBooking for server/network failures.
-        },
-      });
-    } catch {
-      toast.error("Failed to discard pending booking.");
-    } finally {
-      setDiscardingPendingOnlineCreateBooking(false);
-    }
-  }, [
-    pendingOnlineCreateBooking,
-    submitting,
-    discardingPendingOnlineCreateBooking,
-  ]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting || discardingPendingOnlineCreateBooking) return;
-
-    const pendingRetryHandled = await handlePendingOnlineCreateRetry({
-      isEditMode,
-      pendingOnlineCreateBooking,
-      paymentType,
-      collectOnlinePaymentForCreate,
-      setSubmitting,
-      clearPendingOnlineCreateBooking: () => {
-        setPendingOnlineCreateBooking(null);
-      },
-      onModeMismatch: (pendingBookingRef) => {
-        toast.warning(
-          `Booking ${pendingBookingRef} is incomplete. Click "Discard & Start New" to create a fresh booking.`
-        );
-      },
-      onRetryPending: (pendingBookingRef) => {
-        toast.info(
-          `Booking ${pendingBookingRef} is awaiting payment. Retry from this form.`
-        );
-      },
-      onCollectedSuccess: (pendingBookingRef) => {
-        toast.success(`Booking ${pendingBookingRef} confirmed successfully.`);
-      },
-      onError: () => {
-        toast.error("Failed to collect booking payment. Please try again.");
-      },
-      onSettledCreated: (pendingBookingRef) => {
-        if (onCreated) {
-          onCreated(pendingBookingRef);
-          return;
-        }
-        router.push(`/admin/bookings?ref=${encodeURIComponent(pendingBookingRef)}`);
-      },
-    });
-
-    if (pendingRetryHandled) {
-      return;
-    }
+    if (submitting) return;
 
     if (!validateForm()) {
       toast.error("Please fix the highlighted fields.");
@@ -2596,24 +2295,6 @@ export function AdminAddBookingForm({
         className={`${embedded ? "" : "mt-6"} grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]`}
       >
         <div className="space-y-5">
-        {!isEditMode && pendingOnlineCreateBooking ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            <p>
-              Booking <span className="font-semibold">{pendingOnlineCreateBooking.bookingRef}</span> was created
-              but payment was not collected. Discard it to create a new booking.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                void handleDiscardPendingOnlineBooking();
-              }}
-              disabled={submitting || discardingPendingOnlineCreateBooking}
-              className="mt-2 inline-flex items-center rounded-md border border-amber-300 bg-white px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {discardingPendingOnlineCreateBooking ? "Discarding..." : "Discard & Start New"}
-            </button>
-          </div>
-        ) : null}
         <ScheduleSection
           locationId={locationId}
           date={date}
@@ -2756,9 +2437,7 @@ export function AdminAddBookingForm({
         <BookingSummarySection
           mode={mode}
           bookingRef={mode === "edit" ? editPrefill?.bookingRef ?? null : null}
-          pendingOnlineBookingRef={
-            !isEditMode ? pendingOnlineCreateBooking?.bookingRef ?? null : null
-          }
+          pendingOnlineBookingRef={null}
           selectedLocation={selectedLocation}
           locationId={locationId}
           date={date}
@@ -2778,20 +2457,79 @@ export function AdminAddBookingForm({
           amountToCollectNow={isEditMode ? amountPayNow : undefined}
           wasInitiallyFullyPaid={isEditMode ? initialFullPaid : false}
           hasPriceImpactingChanges={isEditMode ? hasPaymentPreviewChanges : false}
-          guidanceMessage={
-            !isEditMode && Boolean(pendingOnlineCreateBooking)
-              ? null
-              : summaryBlockerMessage
-          }
-          isFormReady={
-            !isEditMode && Boolean(pendingOnlineCreateBooking)
-              ? true
-              : isFormReady
-          }
-          submitting={submitting || discardingPendingOnlineCreateBooking}
+          guidanceMessage={summaryBlockerMessage}
+          isFormReady={isFormReady}
+          submitting={submitting}
           onRemoveSelectedProduct={removeSelectedProduct}
         />
       </form>
+
+      {editPaymentLink ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Collect balance payment
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Booking{" "}
+              <span className="font-semibold">{editPaymentLink.bookingRef}</span>{" "}
+              was updated. A secure Square payment link for the balance of{" "}
+              <span className="font-semibold">
+                ${Math.max(0, Math.trunc(editPaymentLink.amountDue))}
+              </span>{" "}
+              has been emailed to the customer. You can also copy and share it
+              below. The booking balance updates automatically once paid.
+            </p>
+
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                readOnly
+                value={editPaymentLink.paymentLinkUrl}
+                onFocus={(event) => event.currentTarget.select()}
+                className="min-w-0 flex-1 rounded-md border border-slate-300 bg-slate-50 px-2 py-1.5 text-xs text-slate-700"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard
+                    ?.writeText(editPaymentLink.paymentLinkUrl)
+                    .then(() => toast.success("Payment link copied."))
+                    .catch(() => toast.error("Could not copy the link."));
+                }}
+                className="shrink-0 rounded-md border border-[#347f7c] bg-[#347f7c] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#245e5b]"
+              >
+                Copy
+              </button>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <a
+                href={editPaymentLink.paymentLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Open link
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = editPaymentLink;
+                  setEditPaymentLink(null);
+                  if (onUpdated) {
+                    onUpdated(target.bookingId);
+                    return;
+                  }
+                  router.refresh();
+                }}
+                className="rounded-md border border-[#347f7c] bg-[#347f7c] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#245e5b]"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <ConfirmActionModal
         open={slotOverrideModalOpen}
