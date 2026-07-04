@@ -3,14 +3,19 @@ services:
     image: postgres:16
     container_name: havenretreat-db
     restart: always
+    # Credentials come from the production .env (auto-loaded by Compose),
+    # never hardcoded here.
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: havenretreat
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # DB is only on the private internal network — no host port, no proxy access.
+    networks:
+      - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d havenretreat || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -19,16 +24,27 @@ services:
     build:
       context: .
       args:
-        NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY:-}
+        # Public, client-inlined values only — safe to bake into the build.
+        # Exactly the NEXT_PUBLIC_* vars referenced in src/.
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
+        NEXT_PUBLIC_META_PIXEL_ID: ${NEXT_PUBLIC_META_PIXEL_ID:-}
+        NEXT_PUBLIC_COUPON_IDENTITY_MODE: ${NEXT_PUBLIC_COUPON_IDENTITY_MODE:-}
+      # Private build-time secret delivered via BuildKit — not an ARG, not a layer.
+      secrets:
+        - next_actions_key
     container_name: havenretreat-app
     restart: always
     depends_on:
       db:
         condition: service_healthy
+    # All private runtime secrets come from the production .env.
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/havenretreat
+      # Built from the same credentials Compose read out of .env — the password
+      # is interpolated, not hardcoded. Host is the private service name `db`.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Feature flags — preserved from the previous compose configuration.
       AVAILABILITY_ENGINE_ENABLED: ${AVAILABILITY_ENGINE_ENABLED:-false}
       RANGE_BOOKING_LOCKS_ENABLED: ${RANGE_BOOKING_LOCKS_ENABLED:-false}
       CUSTOMER_RANGE_BOOKING_ENABLED: ${CUSTOMER_RANGE_BOOKING_ENABLED:-false}
@@ -40,8 +56,39 @@ services:
       RANGE_PAYMENT_FINALIZATION_ENABLED: ${RANGE_PAYMENT_FINALIZATION_ENABLED:-false}
       SQUARE_RANGE_PAYMENTS_ENABLED: ${SQUARE_RANGE_PAYMENTS_ENABLED:-false}
       AVAILABILITY_SHADOW_DATE_SAMPLE_LIMIT: ${AVAILABILITY_SHADOW_DATE_SAMPLE_LIMIT:-3}
-    ports:
-      - "${APP_PORT:-3000}:3000"
+    # No public port binding: Traefik reaches the app over the proxy network.
+    networks:
+      - internal
+      - proxy
+    # Runtime admin uploads live on a volume so they survive image rebuilds and
+    # are never baked into layers (excluded via .dockerignore).
+    volumes:
+      - admin_uploads:/app/public/media/admin-uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-proxy}"
+      - "traefik.http.routers.havenretreat.rule=Host(`${APP_DOMAIN:-havenretreat.local}`)"
+      - "traefik.http.routers.havenretreat.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.havenretreat.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.havenretreat.loadbalancer.server.port=3000"
+
+secrets:
+  # Sourced from the environment (Compose auto-loads .env for interpolation),
+  # so the key is never written into compose or image history.
+  next_actions_key:
+    environment: NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+
+networks:
+  # Private, isolated network for db <-> app traffic. `internal: true` means
+  # no external connectivity for containers attached only to it.
+  internal:
+    driver: bridge
+    internal: true
+  # The shared Traefik network, created/owned by the reverse-proxy stack.
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK:-proxy}
 
 volumes:
   postgres_data:
+  admin_uploads:
