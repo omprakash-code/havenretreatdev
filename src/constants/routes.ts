@@ -8,6 +8,11 @@ export const BOOKING_ROUTES = {
   OCCASION: "/booking/occasion",
   EXTRAS: (category: string) => `/booking/extras/${category}`,
   AGREEMENT: "/booking/agreement",
+  // The agreement step submits for admin review and lands here.
+  SUCCESS: (successToken: string) =>
+    `/booking/success?t=${encodeURIComponent(successToken)}`,
+  // Legacy: payment is not collected during public booking. Kept for direct
+  // visits and future provider work; not part of the active journey.
   PAYMENT: "/booking/payment",
   THANK_YOU: "/booking/thank-you",
 };

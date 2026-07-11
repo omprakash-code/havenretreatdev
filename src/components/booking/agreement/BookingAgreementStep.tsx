@@ -7,7 +7,7 @@ import StepIndicator from "@/components/booking/steps/StepIndicator";
 import MobileStickyAction from "@/components/booking/global/MobileStickyAction";
 import AgreementSection from "@/components/booking/agreement/AgreementSection";
 import SignaturePad from "@/components/shared/SignaturePad";
-import { Check, ChevronLeft } from "@/components/icons";
+import { Check, ChevronLeft, ShieldCheck } from "@/components/icons";
 import {
   HAVEN_AGREEMENT_ACKNOWLEDGMENT,
   HAVEN_AGREEMENT_CLAUSE_NUMBERS,
@@ -17,6 +17,10 @@ import {
   HAVEN_AGREEMENT_SECTIONS,
   HAVEN_AGREEMENT_TOTAL_CLAUSES,
 } from "@/constants/haven-agreement-content";
+import {
+  BOOKING_NO_PAYMENT_DUE_MESSAGE,
+  BOOKING_SUBMIT_HELPER_MESSAGE,
+} from "@/constants/booking-status-copy";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { useBooking } from "@/context/BookingContext";
 import { handleBookingError } from "@/utils/handleBookingError";
@@ -116,7 +120,7 @@ export default function BookingAgreementStep({
     if (!hasSignature) missing.push("add your signature");
     if (!finalConfirmationChecked) missing.push("confirm electronic signature consent");
 
-    return `Please ${missing.join(", ")} before continuing to payment.`;
+    return `Please ${missing.join(", ")} before submitting your booking request.`;
   }, [
     finalConfirmationChecked,
     hasAllAcknowledgments,
@@ -192,7 +196,7 @@ export default function BookingAgreementStep({
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      const res = await fetch("/api/bookings/accept-terms", {
+      const res = await fetch("/api/bookings/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -208,15 +212,18 @@ export default function BookingAgreementStep({
       });
 
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) {
+      if (!res.ok || !json?.success || !json?.successToken) {
         handleBookingError(json, router, {
           resetBooking,
-          fallbackMessage: "Unable to save signed agreement.",
+          fallbackMessage: "Unable to submit your booking request.",
         });
         return;
       }
 
-      router.push(BOOKING_ROUTES.PAYMENT);
+      // The booking is submitted and no longer editable; clear the local draft so
+      // the back button cannot resume it.
+      resetBooking();
+      router.replace(BOOKING_ROUTES.SUCCESS(json.successToken));
     } finally {
       setIsSubmitting(false);
     }
@@ -251,9 +258,23 @@ export default function BookingAgreementStep({
                   Back
                 </button>
               </div>
-              <p className="mb-5 text-sm text-gray-500">
-                Review the agreement, confirm the required acknowledgments, and sign before continuing to payment.
+              <p className="mb-4 text-sm text-gray-500">
+                Review the agreement, confirm the required acknowledgments, and sign to submit your booking request.
               </p>
+
+              <div className="mb-5 flex items-start gap-2 border border-[#2f7e7a]/25 bg-[#f2f7f6] px-3 py-2.5">
+                <ShieldCheck
+                  size={16}
+                  className="mt-0.5 shrink-0 text-[#2f7e7a]"
+                  aria-hidden="true"
+                />
+                <p className="text-xs leading-5 text-[#245e5b]">
+                  <span className="font-semibold">
+                    {BOOKING_SUBMIT_HELPER_MESSAGE}
+                  </span>{" "}
+                  {BOOKING_NO_PAYMENT_DUE_MESSAGE}
+                </p>
+              </div>
 
               <div className="space-y-4">
                 <div
@@ -487,14 +508,14 @@ export default function BookingAgreementStep({
               invalidSubmitMessage={missingAgreementMessage}
               hideSubmitOnMobile
               onMobileInlineSubmitVisibilityChange={setShowInlineSummarySubmit}
-              submitLabel={isSubmitting ? "Saving..." : "Continue to Payment"}
+              submitLabel={isSubmitting ? "Submitting booking..." : "Submit Booking Request"}
             />
           </div>
         </div>
       </div>
 
       <MobileStickyAction
-        label={isSubmitting ? "Saving..." : "Continue to Payment"}
+        label={isSubmitting ? "Submitting booking..." : "Submit Booking Request"}
         onClick={submitAgreement}
         onInvalidClick={handleInvalidAgreementSubmit}
         disabled={isSubmitting}

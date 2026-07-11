@@ -7,6 +7,11 @@ import {
   getRequiredAdvancePaymentAmount,
 } from "@/lib/advance-payment";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
+import {
+  PAYMENTS_DISABLED_CODE,
+  PAYMENTS_DISABLED_MESSAGE,
+  isPublicBookingPaymentsEnabled,
+} from "@/lib/booking-feature-flags";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
 import {
@@ -16,6 +21,16 @@ import {
 
 export async function POST(req: Request) {
   try {
+    // Public booking no longer collects payment. The route stays in place for
+    // future provider work and returns a clear error while payments are off.
+    if (!isPublicBookingPaymentsEnabled()) {
+      return bookingErrorResponse(
+        503,
+        PAYMENTS_DISABLED_CODE,
+        PAYMENTS_DISABLED_MESSAGE
+      );
+    }
+
     const { bookingId } = await req.json();
 
     if (!bookingId) {

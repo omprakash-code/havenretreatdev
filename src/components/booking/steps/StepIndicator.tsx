@@ -7,7 +7,7 @@ import {
   Sparkles,
   Gift,
   FileSignature,
-  CreditCard,
+  ClipboardCheck,
   Check,
 } from "lucide-react";
 
@@ -20,13 +20,14 @@ type Props = {
   };
 };
 
+// The journey ends at submission for admin review; no payment step is shown.
 const steps = [
   { label: "Package", icon: PackageIcon },
   { label: "Contact", icon: User },
   { label: "Occasion", icon: Sparkles },
   { label: "Add-ons", icon: Gift },
   { label: "Agreement", icon: FileSignature },
-  { label: "Payment", icon: CreditCard },
+  { label: "Review", icon: ClipboardCheck },
 ];
 
 const CIRCLE_SIZE = 26;
