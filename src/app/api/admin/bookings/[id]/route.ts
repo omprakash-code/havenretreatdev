@@ -6,6 +6,7 @@ import {
   derivePaymentLifecycle,
   getBookingStatusLabel,
   getPaymentStatusLabel,
+  isReviewWorkflowBookingStatus,
 } from "@/lib/booking-status";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
@@ -1298,8 +1299,12 @@ export async function PATCH(
         };
       }
 
+      // Recording payment never approves a booking. Legacy payment-first
+      // bookings keep auto-confirming on full payment; a review-workflow booking
+      // only changes status when an admin approves or rejects it.
       const nextBookingStatus =
-        effectivePaymentStatus === PaymentStatus.PAID
+        effectivePaymentStatus === PaymentStatus.PAID &&
+        !isReviewWorkflowBookingStatus(booking.bookingStatus)
           ? BookingStatus.CONFIRMED
           : booking.bookingStatus;
 

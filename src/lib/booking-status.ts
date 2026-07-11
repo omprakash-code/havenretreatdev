@@ -51,6 +51,22 @@ export function isCustomerEditableBookingStatus(
 }
 
 /**
+ * Statuses owned by the review workflow. Their booking status is decided by an
+ * admin approving or rejecting — never as a side effect of recording a payment.
+ * Legacy payment-first statuses are excluded so their existing auto-confirm on
+ * payment behavior is preserved.
+ */
+export function isReviewWorkflowBookingStatus(
+  status: BookingStatus | string | null | undefined
+) {
+  return (
+    status === "PENDING_REVIEW" ||
+    status === "APPROVED" ||
+    status === "REJECTED"
+  );
+}
+
+/**
  * Booking-level payment summary. Derived from amounts already stored on the
  * booking rather than a new enum: `PaymentStatus` mixes booking summary states
  * with provider-attempt states, so provider attempts stay on `Payment` rows.
