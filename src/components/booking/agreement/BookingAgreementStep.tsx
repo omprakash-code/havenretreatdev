@@ -106,6 +106,21 @@ export default function BookingAgreementStep({
   );
   const hasSignerName = Boolean(signerName.trim());
   const hasSignature = Boolean(signatureImage);
+
+  // Acknowledging every clause is still an explicit, deliberate action: the
+  // control mirrors the individual checkboxes and clears them all when undone.
+  const toggleAllAcknowledgments = () => {
+    const nextAcknowledged = !hasAllAcknowledgments;
+    setAcknowledgedClauses(
+      Object.fromEntries(
+        HAVEN_AGREEMENT_CLAUSE_NUMBERS.map((clauseNumber) => [
+          clauseNumber,
+          nextAcknowledged,
+        ])
+      )
+    );
+    setHighlightTarget(null);
+  };
   const hasMissingAgreementRequirements =
     !hasAllAcknowledgments ||
     !finalConfirmationChecked ||
@@ -398,6 +413,38 @@ export default function BookingAgreementStep({
                           <p className="mt-2 text-[11px] leading-5 text-[#475467]">
                             {HAVEN_AGREEMENT_ACKNOWLEDGMENT}
                           </p>
+
+                          <button
+                            type="button"
+                            aria-pressed={hasAllAcknowledgments}
+                            onClick={toggleAllAcknowledgments}
+                            className="mt-4 grid w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2.5 border border-[#d7e4e1] bg-[#f7f9f8] p-3 text-left transition hover:bg-[#f2f7f6]"
+                          >
+                            <span
+                              className={`flex h-4 w-4 items-center justify-center self-start border transition ${
+                                hasAllAcknowledgments
+                                  ? "border-[#347f7c] bg-[#347f7c] text-white"
+                                  : "border-gray-400 bg-white"
+                              }`}
+                            >
+                              {hasAllAcknowledgments ? (
+                                <Check size={11} strokeWidth={2.5} />
+                              ) : null}
+                            </span>
+
+                            <span className="min-w-0">
+                              <span className="block text-[13px] font-semibold text-[#1f2937]">
+                                {hasAllAcknowledgments
+                                  ? `All ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses acknowledged`
+                                  : `Acknowledge all ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses`}
+                              </span>
+                              <span className="mt-1 block text-[11px] leading-5 text-[#475467]">
+                                {hasAllAcknowledgments
+                                  ? "Select again to clear every acknowledgment."
+                                  : `I have read and accept every clause above. ${acknowledgedClauseCount} of ${HAVEN_AGREEMENT_TOTAL_CLAUSES} acknowledged so far.`}
+                              </span>
+                            </span>
+                          </button>
                         </div>
                       </div>
                     </div>
