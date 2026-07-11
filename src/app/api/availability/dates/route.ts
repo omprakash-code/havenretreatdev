@@ -3,11 +3,11 @@ import { addDays, startOfDay } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/db";
 import {
-  ACTIVE_RANGE_HOLD_STATUSES,
   BOOKING_BUFFER_MINUTES,
   BOOKING_BUSINESS_CLOSE_TIME,
   BOOKING_BUSINESS_OPEN_TIME,
   BOOKING_TIME_ZONE,
+  buildRangeConflictFilter,
 } from "@/lib/booking-policy";
 import { timeToMinutes } from "@/lib/booking-range";
 import { getOwnedBookingIdFromCookies } from "@/services/booking/range-booking-api-session";
@@ -72,14 +72,10 @@ export async function GET(req: Request) {
   const confirmedBookings = await prisma.booking.findMany({
     where: {
       venueId: { in: venueIds },
-      OR: [
-        { bookingStatus: "CONFIRMED" },
-        {
-          bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
-          holdExpiresAt: { gt: now },
-          ...(ownedBookingId ? { id: { not: ownedBookingId } } : {}),
-        },
-      ],
+      OR: buildRangeConflictFilter(
+        now,
+        ownedBookingId ? { id: { not: ownedBookingId } } : {}
+      ),
       eventDate: {
         gte: todayInVenue,
         lte: addDays(todayInVenue, AVAILABILITY_HORIZON_DAYS),

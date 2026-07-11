@@ -13,6 +13,7 @@ import {
   BOOKING_BUSINESS_CLOSE_TIME,
   BOOKING_BUSINESS_OPEN_TIME,
   BOOKING_TIME_ZONE,
+  buildRangeConflictFilter,
   getBookingHoldExpiry,
   resolveBookingHoldMinutes,
 } from "@/lib/booking-policy";
@@ -277,13 +278,7 @@ export async function createOrReplaceVenueBookingSession(
       where: {
         venueId: eventPackage.venueId,
         id: currentBookingId ? { not: currentBookingId } : undefined,
-        OR: [
-          { bookingStatus: "CONFIRMED" },
-          {
-            bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
-            holdExpiresAt: { gt: now },
-          },
-        ],
+        OR: buildRangeConflictFilter(now),
         startsAtUtc: { lt: range.occupiedUntilUtc },
         occupiedUntilUtc: { gt: range.startsAtUtc },
       },
@@ -293,7 +288,7 @@ export async function createOrReplaceVenueBookingSession(
     if (bookingConflict) {
       throw new VenueBookingSessionError(
         "BOOKING_CONFLICT",
-        "This time overlaps an existing confirmed booking."
+        "This time overlaps an existing booking."
       );
     }
 
