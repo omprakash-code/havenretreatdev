@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { Prisma, PaymentStatus, BookingStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import {
+  derivePaymentLifecycle,
+  getBookingStatusLabel,
+  getPaymentStatusLabel,
+} from "@/lib/booking-status";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
@@ -56,10 +61,13 @@ import {
   DEFAULT_MINIMUM_BOOKING_MINUTES,
 } from "@/lib/booking-policy";
 
+// PENDING_REVIEW and APPROVED bookings stay admin-editable (with conflict
+// validation); a rejected request is a closed decision.
 const NON_EDITABLE_BOOKING_STATUSES: BookingStatus[] = [
   BookingStatus.CANCELLED,
   BookingStatus.ABANDONED,
   BookingStatus.PAID_EXPIRED,
+  BookingStatus.REJECTED,
 ];
 const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
 
@@ -538,6 +546,25 @@ export async function GET(
           createdByAdminId: booking.createdByAdminId ?? null,
           paymentStatus: paymentStatusForDisplay,
           bookingStatus: booking.bookingStatus,
+          bookingStatusLabel: getBookingStatusLabel(booking.bookingStatus),
+          // Payment is shown independently of the approval decision.
+          paymentLifecycle: derivePaymentLifecycle({
+            paymentStatus: paymentStatusForDisplay,
+            advancePaid: booking.advancePaid,
+            remainingPayable: booking.remainingPayable,
+          }),
+          paymentStatusLabel: getPaymentStatusLabel({
+            paymentStatus: paymentStatusForDisplay,
+            advancePaid: booking.advancePaid,
+            remainingPayable: booking.remainingPayable,
+          }),
+          reviewSubmittedAt: booking.reviewSubmittedAt?.toISOString() ?? null,
+          reviewedAt: booking.reviewedAt?.toISOString() ?? null,
+          reviewedByAdminId: booking.reviewedByAdminId ?? null,
+          rejectionReason: booking.rejectionReason ?? null,
+          approvalNotes: booking.approvalNotes ?? null,
+          internalNotes: booking.internalNotes ?? null,
+          agreementSigned: Boolean(latestSignedAgreement),
           cancelledReason: booking.cancelledReason ?? null,
           appliedCouponCode: couponCodes[0] ?? null,
           appliedCoupons,

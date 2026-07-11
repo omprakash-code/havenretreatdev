@@ -1,6 +1,7 @@
 export const adminFeatures = {
   dashboard: true,
   bookings: true,
+  pendingReviewBookings: true,
   manualBooking: true,
   settings: true,
   couponSettings: false,
@@ -41,6 +42,13 @@ export function isAdminPageEnabled(pathname: string) {
     path.startsWith("/admin/bookings/abandoned/")
   ) {
     return adminFeatures.abandonedBookings;
+  }
+
+  if (
+    path === "/admin/bookings/pending" ||
+    path.startsWith("/admin/bookings/pending/")
+  ) {
+    return adminFeatures.pendingReviewBookings;
   }
 
   if (

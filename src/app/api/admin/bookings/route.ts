@@ -3,6 +3,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import {
+  derivePaymentLifecycle,
+  getBookingStatusLabel,
+  getPaymentStatusLabel,
+} from "@/lib/booking-status";
+import {
   Prisma,
   BookingStatus,
 } from "@prisma/client";
@@ -62,11 +67,33 @@ export async function GET(req: Request) {
       },
     };
 
+    // Booking requests waiting for an admin decision.
+    const pendingReviewWhere: Prisma.BookingWhereInput = {
+      bookingStatus: BookingStatus.PENDING_REVIEW,
+    };
+
+    // Main tab: accepted bookings (APPROVED, plus legacy CONFIRMED) and
+    // paid-expired payment incidents.
+    const decidedTabWhere: Prisma.BookingWhereInput = {
+      bookingStatus: {
+        in: [
+          BookingStatus.APPROVED,
+          BookingStatus.CONFIRMED,
+          BookingStatus.PAID_EXPIRED,
+        ],
+      },
+    };
+
     const abandonedTabWhere: Prisma.BookingWhereInput = {
       AND: [
         {
           bookingStatus: {
-            notIn: [BookingStatus.CONFIRMED, BookingStatus.PAID_EXPIRED],
+            notIn: [
+              BookingStatus.APPROVED,
+              BookingStatus.CONFIRMED,
+              BookingStatus.PAID_EXPIRED,
+              BookingStatus.PENDING_REVIEW,
+            ],
           },
         },
         {
@@ -79,15 +106,13 @@ export async function GET(req: Request) {
       type === "live"
         // LIVE bookings
         ? liveBookingWhere
-        : type === "abandoned"
-          // Abandonment tab: show everything except confirmed and live.
-          ? abandonedTabWhere
-          : {
-              // Main bookings tab: confirmed bookings and paid-expired payment incidents.
-              bookingStatus: {
-                in: [BookingStatus.CONFIRMED, BookingStatus.PAID_EXPIRED],
-              },
-            };
+        : type === "pending"
+          // Pending review tab: customer submitted, admin must decide.
+          ? pendingReviewWhere
+          : type === "abandoned"
+            // Abandonment tab: everything that is not live, decided, or pending.
+            ? abandonedTabWhere
+            : decidedTabWhere;
 
     const whereAnd: Prisma.BookingWhereInput[] = [
       baseWhere,
@@ -167,6 +192,9 @@ export async function GET(req: Request) {
       remainingPayable: true,
       paymentStatus: true,
       bookingStatus: true,
+      reviewSubmittedAt: true,
+      reviewedAt: true,
+      rejectionReason: true,
       cancelledReason: true,
       createdAt: true,
       eventDate: true,
@@ -188,6 +216,11 @@ export async function GET(req: Request) {
           id: true,
           name: true,
         },
+      },
+      // Admins must see whether the agreement is signed before approving.
+      signedAgreements: {
+        select: { id: true },
+        take: 1,
       },
     } satisfies Prisma.BookingSelect;
 
@@ -340,6 +373,22 @@ export async function GET(req: Request) {
 
         paymentStatus: b.paymentStatus,
         bookingStatus: b.bookingStatus,
+        bookingStatusLabel: getBookingStatusLabel(b.bookingStatus),
+        // Payment is reported independently of approval.
+        paymentLifecycle: derivePaymentLifecycle({
+          paymentStatus: b.paymentStatus,
+          advancePaid: b.advancePaid,
+          remainingPayable: b.remainingPayable,
+        }),
+        paymentStatusLabel: getPaymentStatusLabel({
+          paymentStatus: b.paymentStatus,
+          advancePaid: b.advancePaid,
+          remainingPayable: b.remainingPayable,
+        }),
+        reviewSubmittedAt: b.reviewSubmittedAt?.toISOString() ?? null,
+        reviewedAt: b.reviewedAt?.toISOString() ?? null,
+        rejectionReason: b.rejectionReason,
+        agreementSigned: Boolean(b.signedAgreements?.length),
         cancelledReason: b.cancelledReason,
         createdAt: b.createdAt.toISOString(),
       };

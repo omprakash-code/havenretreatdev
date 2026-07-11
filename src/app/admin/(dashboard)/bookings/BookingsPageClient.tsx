@@ -472,6 +472,11 @@ export default function BookingsPage() {
           setSelectedBooking(null);
         }}
         booking={selectedBooking}
+        onReviewed={() => {
+          // An approved booking leaves the pending tab; refresh so the list
+          // reflects the decision.
+          void fetchBookings();
+        }}
       />
 
       <AddBookingDrawer

@@ -3,6 +3,16 @@
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
+/** Destructive stays the default so existing confirmations are unchanged. */
+type ConfirmActionTone = "destructive" | "primary";
+
+const CONFIRM_TONE_CLASSES: Record<ConfirmActionTone, string> = {
+  destructive:
+    "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+  primary:
+    "border border-[#347f7c] bg-[#347f7c] text-white hover:bg-[#2f7370]",
+};
+
 type ConfirmActionModalProps = {
   open: boolean;
   title: string;
@@ -12,6 +22,7 @@ type ConfirmActionModalProps = {
   cancelLabel?: string;
   loading?: boolean;
   confirmDisabled?: boolean;
+  tone?: ConfirmActionTone;
   onClose: () => void;
   onConfirm: () => void;
   error?: ReactNode;
@@ -27,6 +38,7 @@ export default function ConfirmActionModal({
   cancelLabel = "Cancel",
   loading = false,
   confirmDisabled = false,
+  tone = "destructive",
   onClose,
   onConfirm,
   error,
@@ -86,7 +98,7 @@ export default function ConfirmActionModal({
                 type="button"
                 disabled={isConfirmDisabled}
                 onClick={onConfirm}
-                className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`rounded-md px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${CONFIRM_TONE_CLASSES[tone]}`}
               >
                 {loading ? loadingLabel : confirmLabel}
               </button>

@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatET } from "@/lib/formatters";
+import BookingReviewActions from "@/components/admin/bookings/drawer/BookingReviewActions";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 import Image from "next/image";
 import {
@@ -263,9 +264,14 @@ function ProductCard({ item }: { item: AdminBooking["items"][0] }) {
 
 type BookingDetailsProps = {
   booking: AdminBooking;
+  /** Called after an approve/reject so the drawer and list can revalidate. */
+  onReviewed?: () => void;
 };
 
-export default function BookingDetails({ booking }: BookingDetailsProps) {
+export default function BookingDetails({
+  booking,
+  onReviewed,
+}: BookingDetailsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "payment">("overview");
   const [showAgreementDetails, setShowAgreementDetails] = useState(false);
   const scheduleDateLabel =
@@ -395,6 +401,32 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
               transition={{ duration: 0.2 }}
               className="space-y-6"
             >
+              {/* Review decision (only while pending) */}
+              <BookingReviewActions booking={booking} onReviewed={onReviewed} />
+
+              {/* Review outcome */}
+              {booking.bookingStatus === "REJECTED" && booking.rejectionReason ? (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+                  <p className="text-sm font-semibold text-rose-900">
+                    Rejected
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-rose-800">
+                    {booking.rejectionReason}
+                  </p>
+                </div>
+              ) : null}
+
+              {booking.bookingStatus === "APPROVED" && booking.approvalNotes ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-sm font-semibold text-emerald-900">
+                    Approval notes
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-800">
+                    {booking.approvalNotes}
+                  </p>
+                </div>
+              ) : null}
+
               {/* Status Overview */}
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900">Status Overview</h3>

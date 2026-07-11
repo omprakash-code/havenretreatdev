@@ -1,6 +1,9 @@
 //src/components/admin/bookings/BookingStatusPill.tsx
 import { BookingStatus } from "@prisma/client";
-import { getAdminBookingStatusDisplay } from "@/lib/admin-booking-status";
+import {
+  getAdminBookingStatusDisplay,
+  getReviewStatusDisplay,
+} from "@/lib/admin-booking-status";
 
 function getCompactStatusLabel(label: string) {
   switch (label) {
@@ -10,6 +13,8 @@ function getCompactStatusLabel(label: string) {
       return "Pay Aband.";
     case "PAYMENT_PROCESSING":
       return "Processing";
+    case "PENDING REVIEW":
+      return "Pending";
     default:
       return label;
   }
@@ -26,11 +31,12 @@ export default function BookingStatusPill({
   cancelledReason?: string | null;
   isPaidExpired?: boolean;
 }) {
-  const derivedDisplay = getAdminBookingStatusDisplay({
-    bookingStatus: status,
-    paymentStatus,
-    cancelledReason,
-  });
+  const derivedDisplay =
+    getAdminBookingStatusDisplay({
+      bookingStatus: status,
+      paymentStatus,
+      cancelledReason,
+    }) ?? getReviewStatusDisplay(status);
   const baseClassName =
     "inline-flex h-6 w-[96px] items-center rounded-full px-2.5 py-1 text-xs font-medium";
 
