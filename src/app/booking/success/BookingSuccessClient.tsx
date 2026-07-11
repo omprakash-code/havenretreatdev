@@ -12,6 +12,7 @@ import AnimatedTicketCard from "@/components/booking/success/AnimatedTicketCard"
 import CelebrationBlock from "@/components/booking/success/CelebrationBlock";
 import CelebrationDetailsCard from "@/components/booking/success/CelebrationDetailsCard";
 import ExtrasShowcase from "@/components/booking/success/ExtrasShowcase";
+import ReviewStatusCard from "@/components/booking/success/ReviewStatusCard";
 import { buildCelebrationRows } from "@/components/booking/success/success-details";
 import TheatreImagePanel from "@/components/booking/success/TheatreImagePanel";
 import type { BookingSuccessData } from "@/components/booking/success/types";
@@ -195,6 +196,12 @@ export default function BookingSuccessClient() {
   }
 
   const hasCelebrationDetails = buildCelebrationRows(data).length > 0;
+  // Legacy paid bookings keep the original confirmation layout; review-workflow
+  // bookings lead with where they stand.
+  const showReviewStatus =
+    data.bookingStatus === "PENDING_REVIEW" ||
+    data.bookingStatus === "APPROVED" ||
+    data.bookingStatus === "REJECTED";
 
   return (
     <>
@@ -231,6 +238,7 @@ export default function BookingSuccessClient() {
                 </div>
 
                 <div className="space-y-4 xl:pt-0">
+                  {showReviewStatus && <ReviewStatusCard data={data} />}
                   <AnimatedTicketCard data={data} embedded />
                 </div>
               </div>

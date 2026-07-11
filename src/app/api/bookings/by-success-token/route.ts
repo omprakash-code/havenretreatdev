@@ -7,6 +7,11 @@ import { prisma } from "@/lib/db";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { verifySuccessToken } from "@/services/booking/successToken.server";
 import {
+  derivePaymentLifecycle,
+  getBookingStatusLabel,
+  getPaymentLifecycleLabel,
+} from "@/lib/booking-status";
+import {
   resolveBookingDurationPricingConfig,
 } from "@/lib/booking-duration-pricing";
 import {
@@ -229,11 +234,23 @@ export async function GET(req: Request) {
       (booking.occasionData as Record<string, unknown> | null) ?? null
     );
 
+    const paymentLifecycle = derivePaymentLifecycle({
+      paymentStatus: booking.paymentStatus,
+      advancePaid: booking.advancePaid,
+      remainingPayable: booking.remainingPayable,
+    });
+
     return Response.json({
       success: true,
       bookingRef: booking.bookingRef,
       bookingStatus: booking.bookingStatus,
+      bookingStatusLabel: getBookingStatusLabel(booking.bookingStatus),
       paymentStatus: booking.paymentStatus,
+      paymentLifecycle,
+      paymentStatusLabel: getPaymentLifecycleLabel(paymentLifecycle),
+      reviewSubmittedAt: booking.reviewSubmittedAt?.toISOString() ?? null,
+      reviewedAt: booking.reviewedAt?.toISOString() ?? null,
+      rejectionReason: booking.rejectionReason,
       createdByRole: booking.createdByRole,
       contact: {
         name: booking.contactName,

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   prismaMock,
   requireActiveRangeBookingSessionMock,
+  sendBookingSubmittedEmailsMock,
   createSuccessTokenMock,
   buildStoredSignedAgreementPdfMock,
 } = vi.hoisted(() => ({
@@ -33,6 +34,7 @@ const {
     $transaction: vi.fn(),
   },
   requireActiveRangeBookingSessionMock: vi.fn(),
+  sendBookingSubmittedEmailsMock: vi.fn(async () => undefined),
   createSuccessTokenMock: vi.fn(() => "success-token"),
   buildStoredSignedAgreementPdfMock: vi.fn(async () => ({
     filename: "agreement.pdf",
@@ -76,6 +78,10 @@ vi.mock("@/services/booking/successToken.server", () => ({
 
 vi.mock("@/lib/pdf/stored-signed-agreement", () => ({
   buildStoredSignedAgreementPdf: buildStoredSignedAgreementPdfMock,
+}));
+
+vi.mock("@/services/booking/booking-review-email.service", () => ({
+  sendBookingSubmittedEmails: sendBookingSubmittedEmailsMock,
 }));
 
 import { POST } from "@/app/api/bookings/submit/route";
@@ -164,6 +170,10 @@ describe("POST /api/bookings/submit", () => {
     expect(prismaMock.couponUsage.updateMany).not.toHaveBeenCalled();
     // Stock is only decremented on approval.
     expect(prismaMock.productVariant.updateMany).not.toHaveBeenCalled();
+
+    expect(sendBookingSubmittedEmailsMock).toHaveBeenCalledExactlyOnceWith(
+      "booking_1"
+    );
   });
 
   it("stores the signed agreement with the signer's request metadata", async () => {
@@ -191,6 +201,8 @@ describe("POST /api/bookings/submit", () => {
     expect(json.alreadySubmitted).toBe(true);
     expect(json.successToken).toBe("success-token");
     expect(prismaMock.booking.update).not.toHaveBeenCalled();
+    // A refresh must not re-notify the customer and the admin.
+    expect(sendBookingSubmittedEmailsMock).not.toHaveBeenCalled();
   });
 
   it("rejects a submission whose range was taken while the customer signed", async () => {

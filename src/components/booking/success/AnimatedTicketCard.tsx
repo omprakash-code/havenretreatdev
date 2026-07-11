@@ -76,6 +76,9 @@ export default function AnimatedTicketCard({
   const discountAmount = data.discountAmount ?? 0;
   const subtotalBeforeDiscount = data.totalAmount + discountAmount;
   const showDiscountBreakdown = discountAmount > 0;
+  // A booking under review has no payment yet: approval and payment are
+  // separate lifecycles, so show what is owed rather than a $0 "paid" row.
+  const hasCollectedPayment = data.advancePaid > 0;
   const isFullPayment =
     data.remainingPayable <= 0 || data.advancePaid >= data.totalAmount;
   const isCustomerAdvanceFlow =
@@ -390,11 +393,24 @@ ${shareUrl}`;
               bold={showDiscountBreakdown}
             />
 
-            <PriceRow
-              label={data.createdByRole === "ADMIN" ? "Amount Paid" : "Paid Online"}
-              value={formatCurrency(data.advancePaid)}
-              success
-            />
+            {hasCollectedPayment ? (
+              <PriceRow
+                label={
+                  data.createdByRole === "ADMIN" ? "Amount Paid" : "Paid Online"
+                }
+                value={formatCurrency(data.advancePaid)}
+                success
+              />
+            ) : (
+              <>
+                <PriceRow label="Payment Due Now" value={formatCurrency(0)} />
+                <PriceRow
+                  label="Payment Status"
+                  value={data.paymentStatusLabel ?? "Unpaid"}
+                />
+                <PriceRow label="Next Step" value="Admin review" />
+              </>
+            )}
             {showRemainingRow && (
               <div className="mt-2 space-y-2 border-t border-slate-200 pt-2">
                 <PriceRow

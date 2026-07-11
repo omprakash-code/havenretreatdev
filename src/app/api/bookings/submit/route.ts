@@ -17,6 +17,7 @@ import {
   type BookingReviewErrorCode,
 } from "@/services/booking/booking-review.service";
 import { RangeBookingSessionError } from "@/services/booking/range-booking-session.service";
+import { sendBookingSubmittedEmails } from "@/services/booking/booking-review-email.service";
 
 function extractRequestIp(req: Request) {
   const forwardedFor = req.headers.get("x-forwarded-for");
@@ -140,6 +141,12 @@ export async function POST(req: Request) {
         },
       },
     });
+
+    // Sent after the booking is committed, and never allowed to fail the
+    // submission: a bounced email must not cost the customer their slot.
+    if (!result.alreadySubmitted) {
+      await sendBookingSubmittedEmails(result.bookingId);
+    }
 
     return NextResponse.json({
       success: true,

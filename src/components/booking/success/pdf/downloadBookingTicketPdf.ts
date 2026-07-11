@@ -307,16 +307,29 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     tone: "strong",
   });
 
-  rows.push({
-    label:
-      showAdminPaymentMeta && adminPaymentModeLabel
-        ? `Amount Paid (${adminPaymentModeLabel})`
-        : data.createdByRole === "ADMIN"
-          ? "Amount Paid"
-          : "Paid Online",
-    value: formatCurrency(data.advancePaid),
-    tone: "success",
-  });
+  // A booking awaiting review has collected nothing: report the balance owed
+  // instead of a $0 "paid" row that would read as a failed payment.
+  if (data.advancePaid > 0) {
+    rows.push({
+      label:
+        showAdminPaymentMeta && adminPaymentModeLabel
+          ? `Amount Paid (${adminPaymentModeLabel})`
+          : data.createdByRole === "ADMIN"
+            ? "Amount Paid"
+            : "Paid Online",
+      value: formatCurrency(data.advancePaid),
+      tone: "success",
+    });
+  } else {
+    rows.push({
+      label: "Payment Due Now",
+      value: formatCurrency(0),
+    });
+    rows.push({
+      label: "Payment Status",
+      value: data.paymentStatusLabel ?? "Unpaid",
+    });
+  }
 
   const isFullPayment =
     data.remainingPayable <= 0 || data.advancePaid >= data.totalAmount;
