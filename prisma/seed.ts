@@ -16,7 +16,7 @@ import {
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcrypt";
-import { buildHavenAgreementTemplateContent } from "../src/constants/haven-agreement-content";
+import { buildHavenAgreementTemplateContent } from "../src/constants/haven-agreement-content.js";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
