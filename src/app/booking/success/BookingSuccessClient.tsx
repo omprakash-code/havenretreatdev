@@ -196,12 +196,10 @@ export default function BookingSuccessClient() {
   }
 
   const hasCelebrationDetails = buildCelebrationRows(data).length > 0;
-  // Legacy paid bookings keep the original confirmation layout; review-workflow
-  // bookings lead with where they stand.
-  const showReviewStatus =
-    data.bookingStatus === "PENDING_REVIEW" ||
-    data.bookingStatus === "APPROVED" ||
-    data.bookingStatus === "REJECTED";
+  // Submitted and approved bookings show their progress on the trail beside the
+  // booking reference. A rejection has no progress to show and carries a reason
+  // the customer must see, so it keeps the status card.
+  const showRejectionNotice = data.bookingStatus === "REJECTED";
 
   return (
     <>
@@ -238,7 +236,7 @@ export default function BookingSuccessClient() {
                 </div>
 
                 <div className="space-y-4 xl:pt-0">
-                  {showReviewStatus && <ReviewStatusCard data={data} />}
+                  {showRejectionNotice && <ReviewStatusCard data={data} />}
                   <AnimatedTicketCard data={data} embedded />
                 </div>
               </div>

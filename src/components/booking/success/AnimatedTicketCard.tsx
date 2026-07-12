@@ -23,12 +23,14 @@ import type { BookingSuccessData } from "@/components/booking/success/types";
 import { downloadBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
 import { downloadSignedAgreementPdf } from "@/components/booking/success/pdf/downloadSignedAgreementPdf";
 import { useBooking } from "@/context/BookingContext";
+import ReviewStatusTrail from "@/components/booking/success/ReviewStatusTrail";
+import {
+  buildHavenWhatsAppUrl,
+  HAVEN_WHATSAPP_DISPLAY_NUMBER,
+} from "@/constants/haven-contact";
 import {
   BOOKING_PAYMENT_APPLIED_MESSAGE,
-  BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
   BOOKING_PENDING_REVIEW_STATUS_VALUE,
-  BOOKING_REVIEW_MESSAGE,
-  BOOKING_REVIEW_TITLE,
 } from "@/constants/booking-status-copy";
 import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 
@@ -253,6 +255,11 @@ ${shareUrl}`;
       >
         <div className="space-y-3.5 px-0 pb-3 sm:space-y-4 sm:px-4 sm:pb-4 md:px-5">
           <div className="flex flex-col gap-3">
+            {/* The trail sits beside the reference and only drops beneath it
+                when the row runs out of width. Aligning the row to its end lands
+                the trail on the reference line rather than centring it against
+                the label stacked above it. */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
             <div className="min-w-0 text-center sm:text-left lg:flex lg:flex-col lg:justify-start lg:gap-[5px]">
               <div className="inline-flex max-w-full flex-nowrap items-center justify-center gap-2 sm:justify-start">
                 <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
@@ -276,6 +283,9 @@ ${shareUrl}`;
                   )}
                 </button>
               </div>
+            </div>
+
+              <ReviewStatusTrail bookingStatus={data.bookingStatus} />
             </div>
 
             <div className="hidden lg:grid lg:grid-cols-2 lg:gap-3 xl:grid-cols-[1fr_1.4fr_1.05fr_1.05fr]">
@@ -404,19 +414,14 @@ ${shareUrl}`;
                 success
               />
             ) : (
-              <>
-                <PriceRow
-                  label="Payment"
-                  value={BOOKING_PAYMENT_NOT_REQUIRED_VALUE}
-                />
-                <PriceRow
-                  label="Status"
-                  value={
-                    data.bookingStatusLabel ??
-                    BOOKING_PENDING_REVIEW_STATUS_VALUE
-                  }
-                />
-              </>
+              // Nothing is owed on a request under review, and the trail above
+              // already says where it stands, so only the status is reported.
+              <PriceRow
+                label="Status"
+                value={
+                  data.bookingStatusLabel ?? BOOKING_PENDING_REVIEW_STATUS_VALUE
+                }
+              />
             )}
             {showRemainingRow && (
               <div className="mt-2 space-y-2 border-t border-slate-200 pt-2">
@@ -451,13 +456,6 @@ ${shareUrl}`;
             )}
           </div>
 
-          <div className="border border-[#b9d8d3] bg-[#f2f8f6] p-2.5 text-[11px] leading-5 sm:p-3 sm:text-xs">
-            <p className="font-bold text-[#245e5b]">{BOOKING_REVIEW_TITLE}</p>
-            <p className="mt-0.5 text-[#347f7c]">
-              {BOOKING_REVIEW_MESSAGE}
-            </p>
-          </div>
-
           {data.signedAgreement && (
             <div className="border border-[#d7e4e1] bg-white p-2.5 text-[11px] leading-5 text-slate-600 sm:p-3 sm:text-xs">
               <div className="flex items-start gap-2">
@@ -483,7 +481,18 @@ ${shareUrl}`;
             <div className="flex items-start gap-2">
               <ShieldCheck size={15} className="mt-0.5 shrink-0 text-[#347f7c]" />
               <p>
-                Need help? Message us on WhatsApp with your booking reference.
+                Need help? Message us on WhatsApp at{" "}
+                <a
+                  href={buildHavenWhatsAppUrl(
+                    `Hi Haven Retreat, I need help with my booking ${data.bookingRef}.`
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold whitespace-nowrap text-[#245e5b] underline underline-offset-2 transition hover:text-[#347f7c]"
+                >
+                  {HAVEN_WHATSAPP_DISPLAY_NUMBER}
+                </a>
+                . Your booking reference is already included.
               </p>
             </div>
           </div>

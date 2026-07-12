@@ -6,9 +6,9 @@ import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-conte
 import {
   BOOKING_NO_PAYMENT_DUE_MESSAGE,
   BOOKING_PAYMENT_APPLIED_MESSAGE,
-  BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
   BOOKING_PENDING_REVIEW_STATUS_VALUE,
 } from "@/constants/booking-status-copy";
+import { HAVEN_WHATSAPP_DISPLAY_NUMBER } from "@/constants/haven-contact";
 
 export type PdfImage = {
   dataUrl: string;
@@ -204,8 +204,9 @@ export async function buildBookingTicketPdf(
       tone: "muted",
     },
     {
+      // The number has to be spelled out here: a printed page has no link to tap.
       label: "Support",
-      value: "For help, message us on WhatsApp with your booking reference.",
+      value: `For help, message us on WhatsApp at ${HAVEN_WHATSAPP_DISPLAY_NUMBER} with your booking reference.`,
       tone: "muted",
     },
   ]);
@@ -316,8 +317,9 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     tone: "strong",
   });
 
-  // A booking awaiting review has collected nothing: report the balance owed
-  // instead of a $0 "paid" row that would read as a failed payment.
+  // A booking awaiting review has collected nothing. Reporting a payment row
+  // there would invite a payment that is not being asked for, so only the status
+  // is listed.
   if (data.advancePaid > 0) {
     rows.push({
       label:
@@ -330,10 +332,6 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
       tone: "success",
     });
   } else {
-    rows.push({
-      label: "Payment",
-      value: BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
-    });
     rows.push({
       label: "Status",
       value: data.bookingStatusLabel ?? BOOKING_PENDING_REVIEW_STATUS_VALUE,

@@ -11,27 +11,9 @@ export default function CelebrationBlock({
   occasionLabel,
   embedded = false,
 }: CelebrationBlockProps) {
-  if (!occasionLabel) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35, duration: 0.35 }}
-        className={
-          embedded
-            ? "rounded-xl py-3 text-center"
-            : "rounded-xl border border-zinc-200 bg-white py-3 text-center"
-        }
-      >
-        <p className="text-sm font-semibold text-slate-800">
-          Booking request received
-        </p>
-        <p className="mt-1 text-xs text-slate-500 font-light">
-          Haven Retreat will review and confirm your event shortly.
-        </p>
-      </motion.div>
-    );
-  }
+  // Without an occasion there is nothing to celebrate here. The review status is
+  // reported once, on the trail beside the booking reference.
+  if (!occasionLabel) return null;
 
   return (
     <motion.div
