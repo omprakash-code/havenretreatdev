@@ -445,12 +445,13 @@ export function AdminAddBookingForm({
         // Online collection has been removed from admin; edits always collect
         // offline so Method/Reference stay available and consistent with create.
         setPaymentType("OFFLINE");
-        const mappedAmountMode: "ADVANCE" | "REMAINING" =
-          booking.pricing.remainingPayable > 0 &&
-          booking.payment.amountMode === "ADVANCE"
-            ? "ADVANCE"
-            : "REMAINING";
-        setPaymentAmountMode(mappedAmountMode);
+        // Nothing collected yet means the admin still chooses advance or full;
+        // an advance on record leaves only the balance to collect.
+        setPaymentAmountMode(
+          Math.max(Number(booking.pricing.advancePaid ?? 0), 0) > 0
+            ? "REMAINING"
+            : "ADVANCE"
+        );
         setCustomAdvanceAmount(0);
 
         const normalizedOfflineMethod = booking.payment.offlineMethod;
@@ -1203,6 +1204,13 @@ export function AdminAddBookingForm({
     return Math.max(totalAfterDiscount - editAdvancePaidAlready, 0);
   }, [isEditMode, totalAfterDiscount, editAdvancePaidAlready]);
 
+  // Once an advance is on record, the balance is the only thing left to collect,
+  // so the choice between advance and full no longer applies.
+  useEffect(() => {
+    if (!isEditMode || editAdvancePaidAlready <= 0) return;
+    setPaymentAmountMode((prev) => (prev === "REMAINING" ? prev : "REMAINING"));
+  }, [isEditMode, editAdvancePaidAlready]);
+
   const pricing = useMemo<PricingSummary | null>(() => {
     if (!selectedTheatre || !startTime || !endTime || !pricingBase) return null;
 
@@ -1213,10 +1221,12 @@ export function AdminAddBookingForm({
     let desiredAdvance: number;
 
     if (isEditMode) {
+      // FULL and REMAINING both mean "everything still outstanding"; only an
+      // advance is a partial amount the admin types in.
       const additionalToCollect =
-        paymentAmountMode === "REMAINING"
-          ? editRemainingBeforeCollection
-          : normalizedAdvanceInput;
+        paymentAmountMode === "ADVANCE"
+          ? normalizedAdvanceInput
+          : editRemainingBeforeCollection;
       desiredAdvance = Math.min(
         editAdvancePaidAlready + additionalToCollect,
         totalAfterDiscount
@@ -1633,6 +1643,7 @@ export function AdminAddBookingForm({
       return;
     }
 
+    // A typed advance starts empty; FULL is derived from the total, not typed.
     setCustomAdvanceAmount(0);
   }
 
@@ -1936,6 +1947,10 @@ export function AdminAddBookingForm({
           nextErrors.amountPayNow = "Enter a valid amount to collect.";
         } else if (amountPayNow > editRemainingBeforeCollection) {
           nextErrors.amountPayNow = "Amount to collect cannot exceed remaining amount.";
+        } else if (amountPayNow > 0 && amountPayNow < minimumAdvanceAmount) {
+          // Collecting nothing stays valid — an edit does not have to take money.
+          // An advance that is taken still has to clear the configured minimum.
+          nextErrors.amountPayNow = `Advance cannot be lower than $${minimumAdvanceAmount}.`;
         }
       } else {
         if (enforceAdvanceNumeric && (!Number.isFinite(amountPayNow) || amountPayNow <= 0)) {
@@ -2381,6 +2396,7 @@ export function AdminAddBookingForm({
           paymentType={paymentType}
           paymentAmountMode={paymentAmountMode}
           amountPayNow={amountPayNow}
+          advancePaidAlready={editAdvancePaidAlready}
           minimumAdvanceAmount={minimumAdvanceAmount}
           offlineMethod={offlineMethod}
           offlineReference={offlineReference}
