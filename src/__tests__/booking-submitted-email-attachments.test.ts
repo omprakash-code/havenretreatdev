@@ -101,11 +101,22 @@ describe("sendBookingSubmittedEmails attachments", () => {
    * their request arrived.
    */
   it("still sends the email when the booking PDF cannot be drawn", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     buildBookingRequestPdfAttachmentMock.mockRejectedValue(new Error("boom"));
 
-    await sendBookingSubmittedEmails("booking_1");
+    try {
+      await sendBookingSubmittedEmails("booking_1");
 
-    expect(sendEmailMock).toHaveBeenCalled();
-    expect(attachmentsFor("alex@example.com")).toEqual([AGREEMENT_PDF]);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "BOOKING_SUBMITTED_PDF_FAILED",
+        expect.any(Error)
+      );
+      expect(sendEmailMock).toHaveBeenCalled();
+      expect(attachmentsFor("alex@example.com")).toEqual([AGREEMENT_PDF]);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

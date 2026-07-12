@@ -19,6 +19,7 @@ const {
     signedAgreement: {
       deleteMany: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
     bookingItem: {
       findMany: vi.fn(),
@@ -120,6 +121,12 @@ function buildRequest(overrides: Record<string, unknown> = {}) {
   });
 }
 
+async function flushBackgroundTasks() {
+  for (let i = 0; i < 5; i += 1) {
+    await Promise.resolve();
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 
@@ -141,9 +148,17 @@ beforeEach(() => {
   prismaMock.bookingItem.findMany.mockResolvedValue([]);
   prismaMock.signedAgreement.deleteMany.mockResolvedValue({ count: 0 });
   prismaMock.signedAgreement.create.mockResolvedValue({ id: "agreement_1" });
+  prismaMock.signedAgreement.update.mockResolvedValue({ id: "agreement_1" });
   requireActiveRangeBookingSessionMock.mockResolvedValue({
     booking: SUBMITTABLE_BOOKING,
   });
+  buildStoredSignedAgreementPdfMock.mockResolvedValue({
+    filename: "agreement.pdf",
+    content: Buffer.from("pdf"),
+    sha256: "sha",
+    generatedAt: new Date("2026-07-12T10:00:00.000Z"),
+  });
+  sendBookingSubmittedEmailsMock.mockResolvedValue(undefined);
 });
 
 describe("POST /api/bookings/submit", () => {
@@ -171,12 +186,26 @@ describe("POST /api/bookings/submit", () => {
     // Stock is only decremented on approval.
     expect(prismaMock.productVariant.updateMany).not.toHaveBeenCalled();
 
+    await flushBackgroundTasks();
     expect(sendBookingSubmittedEmailsMock).toHaveBeenCalledExactlyOnceWith(
       "booking_1"
     );
   });
 
-  it("stores the signed agreement with the signer's request metadata", async () => {
+  it("responds before generating the signed agreement PDF", async () => {
+    buildStoredSignedAgreementPdfMock.mockReturnValue(new Promise(() => {}));
+
+    const res = await POST(buildRequest());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(prismaMock.booking.update).toHaveBeenCalled();
+    expect(prismaMock.signedAgreement.update).not.toHaveBeenCalled();
+    expect(sendBookingSubmittedEmailsMock).not.toHaveBeenCalled();
+  });
+
+  it("stores the signed agreement immediately and fills PDF metadata in the background", async () => {
     await POST(buildRequest());
 
     const created = prismaMock.signedAgreement.create.mock.calls[0]?.[0];
@@ -184,7 +213,17 @@ describe("POST /api/bookings/submit", () => {
     expect(created.data.signerName).toBe("Alex Rivera");
     expect(created.data.confirmationAccepted).toBe(true);
     expect(created.data.ipAddress).toBe("203.0.113.7");
-    expect(created.data.pdfSha256).toBe("sha");
+    expect(created.data.pdfSha256).toBeUndefined();
+
+    await flushBackgroundTasks();
+    expect(prismaMock.signedAgreement.update).toHaveBeenCalledWith({
+      where: { agreementRef: "HRA0712202600001" },
+      data: expect.objectContaining({
+        pdfFileName: "agreement.pdf",
+        pdfSha256: "sha",
+        pdfContent: Buffer.from("pdf"),
+      }),
+    });
   });
 
   it("is idempotent when the booking was already submitted", async () => {

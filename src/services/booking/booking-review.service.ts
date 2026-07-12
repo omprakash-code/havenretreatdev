@@ -46,7 +46,7 @@ export type SignedAgreementInput = {
   agreementVersion: string;
   agreementHtmlSnapshot: string;
   acknowledgedClauses: Prisma.InputJsonValue;
-  pdf: {
+  pdf?: {
     generatedAt: Date;
     filename: string;
     sha256: string;
@@ -272,10 +272,14 @@ export async function submitBookingForReview(input: {
         agreementHtmlSnapshot: agreement.agreementHtmlSnapshot,
         acknowledgedClauses: agreement.acknowledgedClauses,
         confirmationAccepted: true,
-        pdfGeneratedAt: agreement.pdf.generatedAt,
-        pdfFileName: agreement.pdf.filename,
-        pdfSha256: agreement.pdf.sha256,
-        pdfContent: agreement.pdf.content,
+        ...(agreement.pdf
+          ? {
+              pdfGeneratedAt: agreement.pdf.generatedAt,
+              pdfFileName: agreement.pdf.filename,
+              pdfSha256: agreement.pdf.sha256,
+              pdfContent: agreement.pdf.content,
+            }
+          : {}),
       },
     });
 

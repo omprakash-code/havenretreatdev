@@ -37,6 +37,64 @@ const CUSTOMER_ERROR_CODES: Partial<Record<BookingReviewErrorCode, string>> = {
   PRODUCT_UNAVAILABLE: "PRODUCT_OUT_OF_STOCK",
 };
 
+function scheduleBookingSubmissionFollowup(input: {
+  bookingId: string;
+  bookingRef: string;
+  agreementRef: string;
+  signerName: string;
+  signerEmail: string;
+  signedAt: Date;
+  signatureImage: string;
+  agreementVersion: string;
+  agreementHtmlSnapshot: string;
+  acknowledgedClauses: number[];
+}) {
+  void (async () => {
+    try {
+      try {
+        const storedPdf = await buildStoredSignedAgreementPdf({
+          bookingRef: input.bookingRef,
+          agreement: {
+            id: input.agreementRef,
+            signerName: input.signerName,
+            signerEmail: input.signerEmail,
+            signedAt: input.signedAt.toISOString(),
+            signatureImage: input.signatureImage,
+            agreementVersion: input.agreementVersion,
+            agreementHtmlSnapshot: input.agreementHtmlSnapshot,
+            acknowledgedClauses: input.acknowledgedClauses,
+            confirmationAccepted: true,
+          },
+        });
+
+        await prisma.signedAgreement.update({
+          where: { agreementRef: input.agreementRef },
+          data: {
+            pdfGeneratedAt: storedPdf.generatedAt,
+            pdfFileName: storedPdf.filename,
+            pdfSha256: storedPdf.sha256,
+            pdfContent: storedPdf.content,
+          },
+        });
+      } catch (error) {
+        console.error("BOOKING_SUBMIT_AGREEMENT_PDF_FAILED", {
+          bookingId: input.bookingId,
+          bookingRef: input.bookingRef,
+          error,
+        });
+      }
+
+      await sendBookingSubmittedEmails(input.bookingId);
+    } catch (error) {
+      console.error("BOOKING_SUBMIT_FOLLOWUP_FAILED", {
+        bookingId: input.bookingId,
+        bookingRef: input.bookingRef,
+        error,
+      });
+    }
+  })();
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as {
@@ -101,23 +159,6 @@ export async function POST(req: Request) {
       acknowledgedClauses,
     });
 
-    // Rendered before the transaction: PDF generation is slow and must not hold
-    // the booking row lock.
-    const storedPdf = await buildStoredSignedAgreementPdf({
-      bookingRef: booking.bookingRef,
-      agreement: {
-        id: agreementRef,
-        signerName,
-        signerEmail: booking.contactEmail ?? "",
-        signedAt: signedAt.toISOString(),
-        signatureImage: body.signatureImage,
-        agreementVersion,
-        agreementHtmlSnapshot,
-        acknowledgedClauses,
-        confirmationAccepted: true,
-      },
-    });
-
     const result = await submitBookingForReview({
       bookingId,
       identity: await getRangeBookingApiIdentity(bookingId),
@@ -133,19 +174,24 @@ export async function POST(req: Request) {
         agreementVersion,
         agreementHtmlSnapshot,
         acknowledgedClauses,
-        pdf: {
-          generatedAt: storedPdf.generatedAt,
-          filename: storedPdf.filename,
-          sha256: storedPdf.sha256,
-          content: storedPdf.content,
-        },
       },
     });
 
-    // Sent after the booking is committed, and never allowed to fail the
-    // submission: a bounced email must not cost the customer their slot.
+    // Slow follow-ups run after the booking is committed. The customer should
+    // see success as soon as the slot is safely submitted for review.
     if (!result.alreadySubmitted) {
-      await sendBookingSubmittedEmails(result.bookingId);
+      scheduleBookingSubmissionFollowup({
+        bookingId: result.bookingId,
+        bookingRef: result.bookingRef,
+        agreementRef,
+        signerName,
+        signerEmail: booking.contactEmail ?? "",
+        signedAt,
+        signatureImage: body.signatureImage,
+        agreementVersion,
+        agreementHtmlSnapshot,
+        acknowledgedClauses,
+      });
     }
 
     const response = NextResponse.json({
