@@ -84,7 +84,7 @@ export default function BookingReviewActions({
 
   return (
     <>
-      <section className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold text-slate-900">
             Waiting for your decision
@@ -99,7 +99,7 @@ export default function BookingReviewActions({
           <button
             type="button"
             onClick={() => setDecision("reject")}
-            className="h-9 cursor-pointer rounded-md border border-red-200 bg-red-50 px-3 text-sm font-medium text-red-700 transition hover:bg-red-100"
+            className="h-9 cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition hover:border-red-300 hover:text-red-700"
           >
             Reject
           </button>

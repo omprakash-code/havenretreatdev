@@ -47,8 +47,8 @@ export default function ReviewSlaBadge({
     <span
       className={`inline-flex h-6 items-center rounded-full px-2.5 py-1 text-xs font-medium ${
         stale
-          ? "border border-rose-300 bg-rose-50 text-rose-800"
-          : "border border-slate-300 bg-slate-50 text-slate-700"
+          ? "border border-rose-200 bg-white text-rose-700"
+          : "border border-slate-300 bg-white text-slate-600"
       } ${className}`}
       title={`Submitted ${new Date(submittedAt).toLocaleString()}`}
     >
