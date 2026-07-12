@@ -61,7 +61,7 @@ const sidebarMenuItems = [
         feature: "slots",
       },
       {
-        name: "Theatres",
+        name: "Packages",
         href: "/admin/theatres",
         icon: Monitor,
         feature: "packages",

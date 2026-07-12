@@ -165,7 +165,7 @@ export default function LocationsPageClient() {
     <>
       <PageHeader
         title="Locations"
-        description="Manage all locations used by theatres, coupons and products."
+        description="Manage all locations used by packages, coupons and products."
         inlineActions
         actions={
           <button
@@ -231,7 +231,7 @@ export default function LocationsPageClient() {
             description={
               hasActiveFilters
                 ? "Try clearing filters to view available locations."
-                : "Add your first location to map theatres, products and offers."
+                : "Add your first location to map packages, products and offers."
             }
             icon={hasActiveFilters ? <Search size={18} /> : <MapPin size={18} />}
             actionLabel={hasActiveFilters ? "Clear Filters" : "Add Location"}
@@ -282,7 +282,7 @@ export default function LocationsPageClient() {
         description={
           drawerMode === "edit"
             ? "Update location details and visibility."
-            : "Create a new location for theatres and offers."
+            : "Create a new location for packages and offers."
         }
       >
         <LocationForm

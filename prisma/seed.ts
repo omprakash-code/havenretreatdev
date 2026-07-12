@@ -16,6 +16,7 @@ import {
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcrypt";
+import { buildHavenAgreementTemplateContent } from "../src/constants/haven-agreement-content";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -83,9 +84,9 @@ const VENUE = {
   zipCode: "33101",
   country: "USA",
   images: [
-    "/media/booking/theatres/theatre-1/theatre-1-1.png",
-    "/media/booking/theatres/theatre-2/theatre-2-1.png",
-    "/media/booking/theatres/theatre-3/theatre-3-1.png",
+    "/media/booking/success/haven-retreat.avif",
+    "/media/booking/success/pool-view.avif",
+    "/media/booking/location/booking-bg-1.jpg",
   ],
   maxGuests: 50,
   cleaningFee: 95,
@@ -597,7 +598,7 @@ const PRODUCTS = [
   {
     name: "Balloon Décor Package",
     slug: "balloon-decor-package",
-    image: "/media/booking/products/add-ons/balloon-décor-package.avif",
+    image: "/media/booking/products/add-ons/balloon-decor-package.avif",
     description:
       "Balloon décor package starting at $375. Includes up to 3 balloon colors of your choice, balloon arch design, cake cylinders/pedestals, and basic setup & styling.",
     stock: null,
@@ -623,21 +624,6 @@ const APP_SETTINGS = [
 /* --------------------------------
    AGREEMENT TEMPLATE DATA
 --------------------------------- */
-const AGREEMENT_TEMPLATE_CONTENT = `
-<h1>Haven Retreat Event Rental Agreement</h1>
-<p>This agreement is between Haven Retreat and the renter for a private event booking.</p>
-<h2>Rental Period</h2>
-<p>The rental period begins and ends at the booking time selected by the renter. Setup time is included inside the booked duration.</p>
-<h2>Guest Policy</h2>
-<p>The renter agrees that guest count must not exceed the venue maximum capacity or the confirmed booking guest count.</p>
-<h2>Payment Policy</h2>
-<p>The booking is confirmed only after required payment is received and the reservation is approved by Haven Retreat.</p>
-<h2>Property Rules</h2>
-<p>Guests must respect the property, neighborhood, pool and outdoor areas. The renter is responsible for guest conduct and damages.</p>
-<h2>Cancellation And Changes</h2>
-<p>Schedule changes, cancellations and refunds are subject to Haven Retreat approval and current booking policies.</p>
-`;
-
 function featureRows(packageId: string, seed: PackageSeed) {
   let sortOrder = 1;
   const groupRows = (
@@ -979,7 +965,7 @@ async function seedAppSettings() {
 async function seedAgreementTemplate() {
   console.log("Seeding agreement template...");
 
-  const content = AGREEMENT_TEMPLATE_CONTENT.trim();
+  const content = buildHavenAgreementTemplateContent();
 
   await prisma.agreementTemplate.updateMany({
     where: { isActive: true },

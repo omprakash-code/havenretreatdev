@@ -146,7 +146,7 @@ export default function GlobalHeader({ onToggleSidebar }: GlobalHeaderProps) {
               className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
             />
             <input
-              placeholder="Search bookings, customers, theatres"
+              placeholder="Search bookings, customers, packages"
               className="h-10 w-[340px] pl-9 pr-4 rounded-full border border-neutral-200 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400"
             />
           </div>
