@@ -9,7 +9,6 @@ import AgreementSection from "@/components/booking/agreement/AgreementSection";
 import SignaturePad from "@/components/shared/SignaturePad";
 import { Check, ChevronLeft } from "@/components/icons";
 import {
-  HAVEN_AGREEMENT_ACKNOWLEDGMENT,
   HAVEN_AGREEMENT_CLAUSE_NUMBERS,
   HAVEN_AGREEMENT_DEFAULT_VERSION,
   HAVEN_AGREEMENT_INTRO,
@@ -43,7 +42,9 @@ export default function BookingAgreementStep({
   const router = useRouter();
   const { booking, hydrated, resetBooking } = useBooking();
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
-  const [signerName, setSignerName] = useState(() => booking.contact?.name ?? "");
+  // The signer types their own legal name: it is the signature on the contract,
+  // not a copy of the contact on the booking, and the two are allowed to differ.
+  const [signerName, setSignerName] = useState("");
   const [finalConfirmationChecked, setFinalConfirmationChecked] = useState(false);
   const [acknowledgedClauses, setAcknowledgedClauses] = useState<
     Record<number, boolean>
@@ -74,13 +75,6 @@ export default function BookingAgreementStep({
       router.replace(BOOKING_ROUTES.ROOT);
     }
   }, [booking.bookingId, booking.contact, booking.schedule, booking.package, hydrated, router]);
-
-  useEffect(() => {
-    if (signerName.trim()) return;
-    if (booking.contact?.name) {
-      setSignerName(booking.contact.name);
-    }
-  }, [booking.contact?.name, signerName]);
 
   useEffect(() => {
     if (!highlightTarget) return;
@@ -388,19 +382,16 @@ export default function BookingAgreementStep({
                           )
                         )}
 
+                        {/* The acknowledgment sentence is not shown here: the
+                            clause checkboxes, the signature and the final
+                            confirmation already carry it on screen. It still
+                            goes into the signed agreement itself. */}
                         <div className="border-t border-[#edf1ef] pt-4">
-                          <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[#347f7c]">
-                            Final Acknowledgment
-                          </p>
-                          <p className="mt-2 text-[11px] leading-5 text-[#475467]">
-                            {HAVEN_AGREEMENT_ACKNOWLEDGMENT}
-                          </p>
-
                           <button
                             type="button"
                             aria-pressed={hasAllAcknowledgments}
                             onClick={toggleAllAcknowledgments}
-                            className="mt-4 grid w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2.5 border border-[#d7e4e1] bg-[#f7f9f8] p-3 text-left transition hover:bg-[#f2f7f6]"
+                            className="grid w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2.5 text-left transition"
                           >
                             <span
                               className={`flex h-4 w-4 items-center justify-center self-start border transition ${
@@ -419,11 +410,6 @@ export default function BookingAgreementStep({
                                 {hasAllAcknowledgments
                                   ? `All ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses acknowledged`
                                   : `Acknowledge all ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses`}
-                              </span>
-                              <span className="mt-1 block text-[11px] leading-5 text-[#475467]">
-                                {hasAllAcknowledgments
-                                  ? "Select again to clear every acknowledgment."
-                                  : `I have read and accept every clause above. ${acknowledgedClauseCount} of ${HAVEN_AGREEMENT_TOTAL_CLAUSES} acknowledged so far.`}
                               </span>
                             </span>
                           </button>
@@ -446,11 +432,6 @@ export default function BookingAgreementStep({
                   <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#347f7c]">
                     Digital Signature
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-[#475467]">
-                    Enter your legal name and electronic signature to complete
-                    your agreement.
-                  </p>
-
                   <label
                     className={`mt-5 block ${
                       highlightTarget === "name"
@@ -459,14 +440,14 @@ export default function BookingAgreementStep({
                     }`}
                   >
                     <span className="text-sm font-medium text-[#344054]">
-                      Typed Full Legal Name
+                      Full Legal Name
                     </span>
                     <input
                       ref={signerNameInputRef}
                       value={signerName}
                       onChange={(event) => setSignerName(event.target.value)}
                       className="mt-2 w-full border border-[#d0d5dd] px-4 py-3 text-sm text-[#101828] outline-none transition focus:border-[#347f7c]"
-                      placeholder="Type the signer name exactly as it should appear on the agreement"
+                      placeholder="Enter your full legal name"
                     />
                   </label>
 
@@ -484,7 +465,7 @@ export default function BookingAgreementStep({
                       value={signatureImage}
                       onChange={setSignatureImage}
                       disabled={!hasAllAcknowledgments}
-                      disabledMessage="Complete all required acknowledgements to enable signing."
+                      disabledMessage="Complete all acknowledgements to enable signing."
                       flat
                     />
                   </div>
@@ -512,9 +493,9 @@ export default function BookingAgreementStep({
                       {finalConfirmationChecked ? <Check size={14} /> : null}
                     </button>
                     <span className="text-sm leading-6 text-[#344054]">
-                      I confirm that my typed legal name and electronic
-                      signature are mine, and I agree to the Haven Retreat
-                      Rental Agreement.
+                      I confirm that this is my legal name and electronic
+                      signature, and I agree to the Haven Retreat Rental
+                      Agreement.
                     </span>
                   </div>
 

@@ -56,7 +56,7 @@ export default function AgreementSection({
               acknowledged ? "text-[#347f7c]" : "text-[#b42318]"
             }`}
           >
-            Clause {clauseNumber}: {acknowledged ? "Acknowledged" : "Acknowledgment required"}
+            {acknowledged ? "Acknowledged" : "Acknowledgment required"}
           </span>
         </span>
       </button>
