@@ -113,9 +113,12 @@ export async function buildBookingTicketPdf(
   );
 
   const loadImage = options.loadImage ?? loadProcessedImage;
+  // The canvas follows the logo's own proportions. Fitting a wide mark into a
+  // square bakes blank rows above and below it, and the header then has to be
+  // tall enough to hold that emptiness.
   const logoPromise = loadImage("/assets/logo.png", {
-    width: 286,
-    height: 286,
+    width: 572,
+    height: 324,
     radius: 0,
     mode: "contain",
   });
@@ -368,7 +371,20 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
 
 function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage | null) {
   const { doc, marginX, contentWidth } = layout;
-  const h = 22;
+  // Drawn at the logo's own aspect, so the band is only as tall as the mark
+  // itself rather than as tall as a square containing it. The two text rows sit
+  // off the band's centre and follow it as the logo changes.
+  const logoWidth = 34;
+  const logoAspect = logo
+    ? (() => {
+        const { width, height } = doc.getImageProperties(logo.dataUrl);
+        return height > 0 && width > 0 ? width / height : 1;
+      })()
+    : 1;
+  const logoHeight = logoWidth / logoAspect;
+  const h = Math.max(logoHeight, 14) + 4;
+  const titleY = layout.y + h / 2 - 3;
+  const subtitleY = layout.y + h / 2 + 3;
 
   ensureSpace(layout, h + 2);
 
@@ -376,26 +392,25 @@ function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage 
   setDraw(doc, COLORS.border);
   doc.rect(marginX, layout.y, contentWidth, h, "FD");
 
-  const logoSize = 17;
   const innerAlignX = marginX + 2.6;
   const innerAlignRight = marginX + contentWidth - 2.6;
   const logoX = innerAlignX;
-  const logoY = layout.y + (h - logoSize) / 2;
+  const logoY = layout.y + (h - logoHeight) / 2;
 
   if (logo) {
-    doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoSize, logoSize);
+    doc.addImage(logo.dataUrl, logo.format, logoX, logoY, logoWidth, logoHeight);
   }
 
-  const textX = logoX + logoSize + 2.4;
+  const textX = logoX + logoWidth + 2.4;
   doc.setFont("helvetica", "bold");
   setText(doc, COLORS.textStrong);
   doc.setFontSize(12);
-  doc.text("HAVEN RETREAT", textX, layout.y + 9);
+  doc.text("HAVEN RETREAT", textX, titleY);
   doc.setFontSize(9);
   doc.text(
     data.advancePaid > 0 ? "Booking Receipt" : "Booking Request",
     textX,
-    layout.y + 15
+    subtitleY
   );
 
   doc.setFont("helvetica", "normal");
@@ -404,13 +419,13 @@ function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage 
   doc.text(
     `Booking ID: ${sanitizeDisplayText(data.bookingRef)}`,
     innerAlignRight,
-    layout.y + 9,
+    titleY,
     { align: "right" }
   );
   doc.text(
     `Issued: ${formatISTDateTime(new Date())}`,
     innerAlignRight,
-    layout.y + 15,
+    subtitleY,
     { align: "right" }
   );
 
@@ -992,9 +1007,13 @@ async function loadProcessedImage(
   }
 
   try {
+    // Revalidate rather than force-cache. force-cache reuses whatever is stored
+    // for this URL without ever asking the server, so a logo cached from another
+    // app on the same origin keeps getting drawn into the PDF long after the
+    // file itself has changed. A 304 costs little; a stranger's brand costs more.
     const response = await fetch(sourceUrl, {
       mode: "cors",
-      cache: "force-cache",
+      cache: "no-cache",
     });
     if (!response.ok) return null;
 

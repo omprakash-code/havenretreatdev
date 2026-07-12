@@ -495,6 +495,8 @@ export async function buildSignedAgreementPdf(
   doc.text("ELECTRONIC SIGNATURE", marginX + 10, signatureBoxY + 25);
 
   const certificateX = marginX + 90;
+  // The agreement id is already in the header and on every page footer. What
+  // belongs here is only what binds this signature to a person and a moment.
   const certificateRows = [
     ["SIGNER", normalizePdfText(agreement.signerName)],
     ["SIGNED AT", normalizePdfText(formatISTDateTime(agreement.signedAt))],
@@ -502,7 +504,6 @@ export async function buildSignedAgreementPdf(
       "CONSENT",
       agreement.confirmationAccepted ? "Electronically accepted" : "Not recorded",
     ],
-    ["AGREEMENT ID", normalizePdfText(agreement.id)],
   ];
   certificateRows.forEach(([label, value], index) => {
     const rowY = signatureBoxY + 3 + index * 6.2;

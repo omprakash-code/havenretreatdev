@@ -5,6 +5,7 @@ import BookingReviewEmail, {
 import { prisma } from "@/lib/db";
 import { resolveLocationDisplayName } from "@/lib/location-display";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
+import { buildBookingRequestPdfAttachment } from "@/lib/pdf/booking-request";
 import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
 import { sendEmail, type EmailAttachment } from "@/services/email.service";
 import { resolveAdminBookingNotificationRecipients } from "@/services/booking/booking-notification-recipients.service";
@@ -120,6 +121,20 @@ export async function sendBookingSubmittedEmails(bookingId: string) {
 
   const { booking, base, agreementAttachment, successUrl } = context;
 
+  // The booking summary is what the customer keeps; the signed agreement is what
+  // they signed. A PDF that fails to draw must not cost them the email, so the
+  // send continues with whatever attachments were produced.
+  let bookingPdfAttachment: EmailAttachment | null = null;
+  try {
+    bookingPdfAttachment = await buildBookingRequestPdfAttachment(bookingId);
+  } catch (error) {
+    console.error("BOOKING_SUBMITTED_PDF_FAILED", error);
+  }
+
+  const submissionAttachments = [bookingPdfAttachment, agreementAttachment].filter(
+    (attachment): attachment is EmailAttachment => attachment !== null
+  );
+
   if (booking.contactEmail) {
     try {
       await send(
@@ -130,7 +145,7 @@ export async function sendBookingSubmittedEmails(bookingId: string) {
         {
           actionUrl: successUrl,
           actionLabel: "View Request",
-          attachments: agreementAttachment ? [agreementAttachment] : undefined,
+          attachments: submissionAttachments,
         }
       );
     } catch (error) {
@@ -151,7 +166,7 @@ export async function sendBookingSubmittedEmails(bookingId: string) {
         {
           actionUrl: reviewUrl,
           actionLabel: "Review Request",
-          attachments: agreementAttachment ? [agreementAttachment] : undefined,
+          attachments: submissionAttachments,
         }
       );
     } catch (error) {
