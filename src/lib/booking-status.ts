@@ -87,7 +87,9 @@ export function derivePaymentLifecycle(input: {
   const collected = input.advancePaid ?? 0;
   const remaining = input.remainingPayable ?? 0;
 
-  if (input.paymentStatus === "PAID") return "PAID";
+  // PAID means money was captured, not that the booking is settled: an offline
+  // advance is captured while a balance is still owed.
+  if (input.paymentStatus === "PAID") return remaining > 0 ? "PARTIAL" : "PAID";
   // No money collected: INITIALIZED, a disabled/failed provider attempt, or a
   // freshly submitted request all read as Unpaid.
   if (collected <= 0) return "UNPAID";

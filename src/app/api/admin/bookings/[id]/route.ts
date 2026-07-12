@@ -40,6 +40,7 @@ import {
   persistAdminBookingCoupons,
 } from "@/app/api/admin/bookings/_coupon";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import { getPackageIncludedProductTotalPrice } from "@/lib/package-included-products";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
 import {
   AdminRangeBookingError,
@@ -55,6 +56,7 @@ import {
   BookingOverlapError,
 } from "@/services/booking/booking-safety.service";
 import {
+  ADMIN_SOFT_DELETE_REASON,
   BOOKING_BUFFER_MINUTES,
   BOOKING_BUSINESS_CLOSE_TIME,
   BOOKING_BUSINESS_OPEN_TIME,
@@ -70,7 +72,6 @@ const NON_EDITABLE_BOOKING_STATUSES: BookingStatus[] = [
   BookingStatus.PAID_EXPIRED,
   BookingStatus.REJECTED,
 ];
-const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
 
 function resolveDisplayPaymentStatus(
   paymentStatus: PaymentStatus | null | undefined,
@@ -789,6 +790,7 @@ export async function PATCH(
         include: {
           eventPackage: {
             select: {
+              name: true,
               eventDurationHours: true,
               guestLimit: true,
               venueId: true,
@@ -974,6 +976,15 @@ export async function PATCH(
       }
 
       const bookingItemsToCreate: Prisma.BookingItemCreateManyInput[] = [];
+      // The tables and chairs a package includes are already paid for inside the
+      // package price, so they must stay free on an edit exactly as they are on
+      // create. Re-pricing them here silently inflated the customer's total.
+      const includedProductSource = booking.eventPackage
+        ? {
+            name: booking.eventPackage.name,
+            baseGuests: booking.eventPackage.guestLimit,
+          }
+        : null;
       let productsAmount = 0;
       const ledNumbers: string[] = [];
       const bodyOccasionData =
@@ -995,7 +1006,15 @@ export async function PATCH(
         const variant = variantMap.get(item.variantId);
         if (variant && variant.productId === item.productId) {
           const unitPrice = variant.salePrice ?? variant.regularPrice;
-          const totalPrice = unitPrice * item.quantity;
+          const totalPrice = getPackageIncludedProductTotalPrice({
+            source: variant.isDefault ? includedProductSource : null,
+            product: {
+              slug: variant.product.slug,
+              name: variant.product.name,
+            },
+            quantity: item.quantity,
+            unitPrice,
+          });
           productsAmount += totalPrice;
 
           if (
@@ -1282,9 +1301,15 @@ export async function PATCH(
         additionalAmountToCollect > 0 &&
         booking.bookingStatus === BookingStatus.CONFIRMED &&
         (booking.paymentStatus ?? PaymentStatus.INITIALIZED) === PaymentStatus.PAID;
-      const effectivePaymentStatus = shouldCollectOnlineNow
-        ? PaymentStatus.PAID
-        : nextPaymentStatus;
+      // Offline money is in the admin's hand the moment they record it, exactly
+      // as it is for an offline booking created by an admin. Without this the
+      // booking keeps its old status, and the payment row below is never written.
+      const collectsOfflineNow =
+        paymentType === "OFFLINE" && additionalAmountToCollect > 0;
+      const effectivePaymentStatus =
+        shouldCollectOnlineNow || collectsOfflineNow
+          ? PaymentStatus.PAID
+          : nextPaymentStatus;
       const persistedAdvancePaid = shouldCollectOnlineNow
         ? currentAdvancePaid
         : pricing.advancePaid;

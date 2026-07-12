@@ -100,6 +100,29 @@ describe("package included products", () => {
       })
     ).toBe(30);
   });
+
+  it("keeps a Premium package's tables and chairs free, as the edit route prices them", () => {
+    // Regression: the admin edit route priced every item at unit × quantity, so
+    // saving a booking re-charged tables and chairs that the package price
+    // already covers ($156 on Premium) and inflated the customer's total.
+    const source = { name: "Premium Package", baseGuests: 40 };
+
+    const tables = getPackageIncludedProductTotalPrice({
+      source,
+      product: products[0],
+      quantity: 4,
+      unitPrice: 15,
+    });
+    const chairs = getPackageIncludedProductTotalPrice({
+      source,
+      product: products[1],
+      quantity: 32,
+      unitPrice: 3,
+    });
+
+    expect(tables).toBe(0);
+    expect(chairs).toBe(0);
+  });
 });
 
 describe("package extra-hour pricing", () => {

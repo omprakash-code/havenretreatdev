@@ -155,4 +155,17 @@ describe("admin manual payment display", () => {
     expect(display.lifecycle).toBe("UNPAID");
     expect(display.label).toBe("Unpaid");
   });
+
+  it("does not call a captured advance fully paid while a balance is owed", () => {
+    // Admin collection marks the booking PAID the moment money is in hand, so
+    // PAID on its own cannot mean the booking is settled.
+    const booking = {
+      paymentStatus: PaymentStatus.PAID,
+      advancePaid: 750,
+      remainingPayable: 1650,
+    };
+
+    expect(derivePaymentLifecycle(booking)).toBe("PARTIAL");
+    expect(getPaymentStatusLabel(booking)).toBe("Partial");
+  });
 });
