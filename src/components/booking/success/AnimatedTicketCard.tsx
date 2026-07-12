@@ -169,6 +169,11 @@ ${shareUrl}`;
     if (isStartingAnotherBooking) return;
 
     setIsStartingAnotherBooking(true);
+
+    // Opened blank on the click itself. Opening it after the reset resolves puts
+    // it outside the user gesture, which is what popup blockers stop.
+    const newTab = window.open("about:blank", "_blank");
+
     try {
       const response = await fetch("/api/session/reset", {
         method: "POST",
@@ -178,17 +183,29 @@ ${shareUrl}`;
         throw new Error("SESSION_RESET_FAILED");
       }
     } catch {
+      newTab?.close();
       toast.error("Unable to start a new booking. Please try again.");
       setIsStartingAnotherBooking(false);
       return;
     }
 
+    // A tab opened from this one inherits a copy of its sessionStorage, so the
+    // stale package has to be cleared before the new tab navigates.
     sessionStorage.removeItem("hr_pending_package_id");
     sessionStorage.removeItem("hr_pending_package_name");
     sessionStorage.removeItem("hr_pending_package_rate");
     sessionStorage.removeItem("hr_pending_package_base_price");
     resetBooking();
-    router.push("/booking");
+
+    if (newTab) {
+      newTab.opener = null;
+      newTab.location.href = "/booking";
+    } else {
+      // Blocked. Better to lose the new tab than the booking.
+      router.push("/booking");
+    }
+
+    setIsStartingAnotherBooking(false);
   };
 
   useEffect(() => {
