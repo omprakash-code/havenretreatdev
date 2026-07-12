@@ -5,13 +5,19 @@ import PageHeader from "@/components/admin/page/PageHeader";
 import BookingsFilters from "@/components/admin/bookings/BookingFilters";
 import BookingsTable from "@/components/admin/bookings/BookingTable";
 import BookingDrawer from "@/components/admin/bookings/drawer/BookingDrawer";
+import AddBookingDrawer from "@/components/admin/bookings/drawer/AddBookingDrawer";
+import BookingDeleteModal from "@/components/admin/bookings/BookingDeleteModal";
+import useAdminBookingActions from "@/components/admin/bookings/useAdminBookingActions";
 import AdminEmptyState from "@/components/admin/shared/AdminEmptyState";
 import { ClipboardCheck, Search } from "@/components/icons";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 
 /**
  * Booking requests waiting for an admin decision. Reuses the standard booking
- * table and drawer; the approve/reject actions live in the drawer.
+ * table, its row actions, and the drawer; approve/reject live in the drawer.
+ *
+ * A request is editable before it is decided: approval often depends on moving
+ * the date or time first.
  *
  * Oldest submission first: the longest-waiting customer is decided first.
  */
@@ -34,11 +40,33 @@ export default function PendingReviewBookingsPage() {
         cache: "no-store",
       });
       const json = await res.json();
-      if (json?.success) setData(json.data);
+      const rows: AdminBooking[] =
+        json?.success && Array.isArray(json.data) ? json.data : [];
+      if (json?.success) setData(rows);
+      return rows;
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const {
+    tableActionProps,
+    formDrawerProps,
+    deleteModalProps,
+    deleteTarget,
+  } = useAdminBookingActions({
+    refresh: fetchPending,
+    // An edited request is still pending, so reopen it: the admin came here to
+    // decide, and the edit was only what stood in the way.
+    onBookingSaved: (booking) => {
+      setSelectedBooking(booking);
+      setDrawerOpen(true);
+    },
+    onBookingDeleted: () => {
+      setSelectedBooking(null);
+      setDrawerOpen(false);
+    },
+  });
 
   useEffect(() => {
     void fetchPending();
@@ -203,6 +231,7 @@ export default function PendingReviewBookingsPage() {
               setSelectedBooking(booking);
               setDrawerOpen(true);
             }}
+            {...tableActionProps}
           />
         </div>
       )}
@@ -221,6 +250,10 @@ export default function PendingReviewBookingsPage() {
           setSelectedBooking(null);
         }}
       />
+
+      <AddBookingDrawer {...formDrawerProps} />
+
+      <BookingDeleteModal booking={deleteTarget} {...deleteModalProps} />
     </>
   );
 }
