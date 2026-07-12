@@ -50,11 +50,17 @@ export default function ReviewDecisionModal({
       tone={isReject ? "destructive" : "primary"}
       title={isReject ? "Reject booking request" : "Approve booking request"}
       description={
-        isReject
-          ? `Reject ${bookingRef}. This releases the reserved date and any applied coupons.`
-          : `Approve ${bookingRef}. The date stays reserved and the customer is notified.`
+        isReject ? (
+          `Reject ${bookingRef}. This will release the reserved date.`
+        ) : (
+          <>
+            Approve booking <span className="font-semibold">{bookingRef}</span>.
+            The reservation will be confirmed and the customer will be notified
+            automatically.
+          </>
+        )
       }
-      confirmLabel={isReject ? "Reject request" : "Approve request"}
+      confirmLabel={isReject ? "Reject request" : "Approve Booking"}
       loadingLabel={isReject ? "Rejecting..." : "Approving..."}
       cancelLabel="Keep pending"
       loading={loading}
@@ -90,10 +96,7 @@ export default function ReviewDecisionModal({
             id="reject-reason-help"
             className="mt-1.5 flex items-center justify-between gap-2 text-xs text-slate-500"
           >
-            <span>
-              This reason may be shared with the customer. Keep it clear and
-              professional.
-            </span>
+            <span>This reason will be shared with the customer.</span>
             <span className="shrink-0 tabular-nums">
               {trimmedReason.length}/{REJECTION_REASON_MAX_LENGTH}
             </span>
@@ -105,7 +108,7 @@ export default function ReviewDecisionModal({
             htmlFor="approval-notes"
             className="block text-sm font-medium text-slate-700"
           >
-            Notes <span className="text-slate-400">(optional)</span>
+            Internal Notes <span className="text-slate-400">(Optional)</span>
           </label>
           <textarea
             id="approval-notes"
@@ -114,15 +117,18 @@ export default function ReviewDecisionModal({
             rows={3}
             disabled={loading}
             className="mt-1.5 w-full rounded-md border border-neutral-200 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#347f7c] focus:ring-1 focus:ring-[#347f7c] disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="Internal context for this approval."
+            placeholder="Add internal notes (not shared with the customer)."
           />
 
           {isUnpaid && (
-            <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-              Approval does not record payment. This booking stays{" "}
-              <span className="font-semibold">Unpaid</span> until you record a
-              payment separately.
-            </p>
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              <p className="font-semibold">
+                Approving this booking does not record a payment.
+              </p>
+              <p className="mt-0.5">
+                Payment is collected separately, after the booking is approved.
+              </p>
+            </div>
           )}
         </div>
       )}

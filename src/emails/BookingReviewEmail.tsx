@@ -66,13 +66,12 @@ function resolveVariantCopy(props: BookingReviewEmailProps) {
         note: null,
       };
     case "REJECTED":
+      // The reason gets its own section below, so it is not repeated here.
       return {
         eyebrow: "Booking Update",
         title: "About your booking request",
         message: BOOKING_REJECTED_MESSAGE,
-        note: props.rejectionReason
-          ? `Reason: ${props.rejectionReason}`
-          : null,
+        note: null,
       };
     case "ADMIN_SUBMITTED":
       return {
@@ -98,6 +97,8 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
   const copy = resolveVariantCopy(props);
   const isAdmin = props.variant === "ADMIN_SUBMITTED";
   const amountLabel = isAdmin ? "Total Estimate" : "Estimated Total";
+  const rejectionReason =
+    props.variant === "REJECTED" ? props.rejectionReason?.trim() : null;
 
   return (
     <div
@@ -172,6 +173,43 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                 >
                   {copy.note}
                 </p>
+              )}
+
+              {rejectionReason && (
+                <>
+                  <table
+                    role="presentation"
+                    cellPadding={0}
+                    cellSpacing={0}
+                    style={{ width: "100%", marginTop: 6 }}
+                  >
+                    <tbody>
+                      <BookingEmailSectionLabel textColor={color.textMuted}>
+                        Reason
+                      </BookingEmailSectionLabel>
+                    </tbody>
+                  </table>
+
+                  <BookingEmailSummaryPanel
+                    palette={{
+                      textSecondary: color.textSecondary,
+                      borderLine: color.borderLine,
+                      cardBg: color.panelBg,
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        lineHeight: "20px",
+                        color: color.textSecondary,
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {rejectionReason}
+                    </p>
+                  </BookingEmailSummaryPanel>
+                </>
               )}
 
               <table

@@ -100,7 +100,19 @@ describe("BookingReviewEmail template", () => {
       })
     );
 
-    expect(html).toContain("Reason:");
+    expect(html).toContain("Reason");
     expect(html).toContain("closed for maintenance");
+  });
+
+  it("omits the reason section when a rejection has no reason", async () => {
+    const html = await render(
+      BookingReviewEmail({
+        ...baseProps,
+        variant: "REJECTED",
+        rejectionReason: null,
+      })
+    );
+
+    expect(html).not.toContain("Reason");
   });
 });
