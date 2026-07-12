@@ -7,7 +7,7 @@ import StepIndicator from "@/components/booking/steps/StepIndicator";
 import MobileStickyAction from "@/components/booking/global/MobileStickyAction";
 import AgreementSection from "@/components/booking/agreement/AgreementSection";
 import SignaturePad from "@/components/shared/SignaturePad";
-import { Check, ChevronLeft, ShieldCheck } from "@/components/icons";
+import { Check, ChevronLeft } from "@/components/icons";
 import {
   HAVEN_AGREEMENT_ACKNOWLEDGMENT,
   HAVEN_AGREEMENT_CLAUSE_NUMBERS,
@@ -17,10 +17,6 @@ import {
   HAVEN_AGREEMENT_SECTIONS,
   HAVEN_AGREEMENT_TOTAL_CLAUSES,
 } from "@/constants/haven-agreement-content";
-import {
-  BOOKING_NO_PAYMENT_DUE_MESSAGE,
-  BOOKING_SUBMIT_HELPER_MESSAGE,
-} from "@/constants/booking-status-copy";
 import { BOOKING_ROUTES } from "@/constants/routes";
 import { useBooking } from "@/context/BookingContext";
 import { handleBookingError } from "@/utils/handleBookingError";
@@ -277,20 +273,6 @@ export default function BookingAgreementStep({
                 Review the agreement, confirm the required acknowledgments, and sign to submit your booking request.
               </p>
 
-              <div className="mb-5 flex items-start gap-2 border border-[#2f7e7a]/25 bg-[#f2f7f6] px-3 py-2.5">
-                <ShieldCheck
-                  size={16}
-                  className="mt-0.5 shrink-0 text-[#2f7e7a]"
-                  aria-hidden="true"
-                />
-                <p className="text-xs leading-5 text-[#245e5b]">
-                  <span className="font-semibold">
-                    {BOOKING_SUBMIT_HELPER_MESSAGE}
-                  </span>{" "}
-                  {BOOKING_NO_PAYMENT_DUE_MESSAGE}
-                </p>
-              </div>
-
               <div className="space-y-4">
                 <div
                   ref={agreementPanelRef}
@@ -302,7 +284,7 @@ export default function BookingAgreementStep({
                     <div
                       ref={scrollRootRef}
                       tabIndex={-1}
-                      className="h-[24rem] overflow-y-auto px-4 pb-4 md:h-[29rem] xl:h-[33rem]"
+                      className="h-[37.75rem] overflow-y-auto px-4 pb-4 md:h-[42.75rem] xl:h-[46.75rem]"
                     >
                       <div className="mx-auto max-w-3xl space-y-3">
                         <div className="sticky top-0 z-10 bg-white pt-4 pr-2 pb-5">
@@ -465,7 +447,8 @@ export default function BookingAgreementStep({
                     Digital Signature
                   </p>
                   <p className="mt-2 text-sm leading-6 text-[#475467]">
-                    Sign as the responsible renter after reviewing the agreement.
+                    Enter your legal name and electronic signature to complete
+                    your agreement.
                   </p>
 
                   <label
@@ -501,7 +484,7 @@ export default function BookingAgreementStep({
                       value={signatureImage}
                       onChange={setSignatureImage}
                       disabled={!hasAllAcknowledgments}
-                      disabledMessage={`Acknowledge all ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses to unlock signing.`}
+                      disabledMessage="Complete all required acknowledgements to enable signing."
                       flat
                     />
                   </div>
@@ -529,7 +512,9 @@ export default function BookingAgreementStep({
                       {finalConfirmationChecked ? <Check size={14} /> : null}
                     </button>
                     <span className="text-sm leading-6 text-[#344054]">
-                      I confirm that this electronic signature and typed legal name are mine, and that I agree to the Haven Retreat event rental terms.
+                      I confirm that my typed legal name and electronic
+                      signature are mine, and I agree to the Haven Retreat
+                      Rental Agreement.
                     </span>
                   </div>
 

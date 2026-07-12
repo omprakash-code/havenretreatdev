@@ -9,8 +9,9 @@ import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
 import {
   BOOKING_APPROVED_MESSAGE,
   BOOKING_NO_PAYMENT_DUE_MESSAGE,
+  BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
   BOOKING_REJECTED_MESSAGE,
-  BOOKING_REVIEW_MESSAGE,
+  BOOKING_REVIEW_TITLE,
 } from "@/constants/booking-status-copy";
 
 /**
@@ -75,18 +76,19 @@ function resolveVariantCopy(props: BookingReviewEmailProps) {
       };
     case "ADMIN_SUBMITTED":
       return {
-        eyebrow: "Pending Review",
+        eyebrow: "Review Required",
         title: "New booking request",
         message:
-          "A customer submitted a signed booking request. Review the details and approve or reject it.",
+          "A new booking request has been submitted and is awaiting review. Review the details in the admin panel and approve or reject it.",
         note: null,
       };
     case "SUBMITTED":
     default:
       return {
         eyebrow: "Request Received",
-        title: "Booking request received",
-        message: BOOKING_REVIEW_MESSAGE,
+        title: BOOKING_REVIEW_TITLE,
+        message:
+          "Thank you for choosing Haven Retreat. We've received your booking request.",
         note: BOOKING_NO_PAYMENT_DUE_MESSAGE,
       };
   }
@@ -259,8 +261,8 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                     {/* Approval and payment are separate lifecycles: nothing is
                         owed until Haven Retreat records a payment. */}
                     <BookingEmailDataRow
-                      label="Payment Due Now"
-                      value={formatMoney(0)}
+                      label="Payment"
+                      value={BOOKING_PAYMENT_NOT_REQUIRED_VALUE}
                       labelColor={color.textSecondary}
                       valueColor={color.textPrimary}
                       last
@@ -269,8 +271,9 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                 </table>
               </BookingEmailSummaryPanel>
 
-              {isAdmin && (
-                <BookingEmailSummaryPanel
+              {/* The customer sees the contact details their request was filed
+                  under, so a typo is caught before Haven Retreat calls. */}
+              <BookingEmailSummaryPanel
                   palette={{
                     textSecondary: color.textSecondary,
                     borderLine: color.borderLine,
@@ -310,8 +313,7 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                       )}
                     </tbody>
                   </table>
-                </BookingEmailSummaryPanel>
-              )}
+              </BookingEmailSummaryPanel>
 
               {props.actionUrl && (
                 <BookingEmailCenteredActionButton

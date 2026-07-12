@@ -55,15 +55,15 @@ export default function BookingSuccessClient() {
         if (!res.ok) {
           if (json?.code === "TOKEN_EXPIRED") {
             setErrorState({
-              title: "Confirmation link expired",
+              title: "Booking link expired",
               message:
-                "This confirmation link has expired. Please check your email for the latest confirmation.",
+                "This booking link has expired. Please check your email for the latest link to your booking request.",
             });
           } else {
             setErrorState({
-              title: "Unable to open confirmation",
+              title: "Unable to open booking request",
               message:
-                "This confirmation link is invalid. Please use the latest booking confirmation link.",
+                "This booking link is invalid. Please use the latest link from your booking request email.",
             });
           }
           return;
@@ -71,9 +71,9 @@ export default function BookingSuccessClient() {
 
         if (!json || !json.bookingRef) {
           setErrorState({
-            title: "Unable to open confirmation",
+            title: "Unable to open booking request",
             message:
-              "This confirmation link is invalid. Please use the latest booking confirmation link.",
+              "This booking link is invalid. Please use the latest link from your booking request email.",
           });
           return;
         }
@@ -82,7 +82,7 @@ export default function BookingSuccessClient() {
         setErrorState({
           title: "Unable to load booking",
           message:
-            "We could not load your booking confirmation right now. Please try again.",
+            "We could not load your booking request right now. Please try again.",
         });
       } finally {
         setLoading(false);
@@ -178,7 +178,7 @@ export default function BookingSuccessClient() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">
-            {errorState?.title ?? "Unable to open confirmation"}
+            {errorState?.title ?? "Unable to open booking request"}
           </h2>
           <p className="text-slate-600 mb-6">
             {errorState?.message ??

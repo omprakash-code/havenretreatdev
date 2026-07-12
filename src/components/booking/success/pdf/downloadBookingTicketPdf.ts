@@ -3,6 +3,12 @@ import { buildCelebrationRows } from "@/components/booking/success/success-detai
 import { formatISTDateTime, formatSlotTime } from "@/lib/formatters";
 import { SUCCESS_VENUE_IMAGE } from "@/components/booking/success/assets";
 import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
+import {
+  BOOKING_NO_PAYMENT_DUE_MESSAGE,
+  BOOKING_PAYMENT_APPLIED_MESSAGE,
+  BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
+  BOOKING_PENDING_REVIEW_STATUS_VALUE,
+} from "@/constants/booking-status-copy";
 
 export type PdfImage = {
   dataUrl: string;
@@ -181,17 +187,20 @@ export async function buildBookingTicketPdf(
   drawSectionCard(layout, "Important", [
     {
       label: "Status",
-      value: "Date reserved, final review pending.",
+      value: data.bookingStatusLabel ?? BOOKING_PENDING_REVIEW_STATUS_VALUE,
       tone: "strong",
     },
     {
       label: "Payment",
-      value: "Payment applied, balance due one week before the event.",
+      value:
+        data.advancePaid > 0
+          ? BOOKING_PAYMENT_APPLIED_MESSAGE
+          : BOOKING_NO_PAYMENT_DUE_MESSAGE,
       tone: "normal",
     },
     {
       label: "Entry",
-      value: "Please show this receipt at the venue on arrival.",
+      value: "Please show this booking summary at the venue on arrival.",
       tone: "muted",
     },
     {
@@ -322,12 +331,12 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     });
   } else {
     rows.push({
-      label: "Payment Due Now",
-      value: formatCurrency(0),
+      label: "Payment",
+      value: BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
     });
     rows.push({
-      label: "Payment Status",
-      value: data.paymentStatusLabel ?? "Unpaid",
+      label: "Status",
+      value: data.bookingStatusLabel ?? BOOKING_PENDING_REVIEW_STATUS_VALUE,
     });
   }
 
@@ -385,7 +394,11 @@ function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage 
   doc.setFontSize(12);
   doc.text("HAVEN RETREAT", textX, layout.y + 9);
   doc.setFontSize(9);
-  doc.text("Booking Receipt", textX, layout.y + 15);
+  doc.text(
+    data.advancePaid > 0 ? "Booking Receipt" : "Booking Request",
+    textX,
+    layout.y + 15
+  );
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);

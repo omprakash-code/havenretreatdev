@@ -28,11 +28,30 @@ describe("BookingReviewEmail template", () => {
       BookingReviewEmail({ ...baseProps, variant: "SUBMITTED" })
     );
 
-    expect(html).toContain("Booking request received");
-    expect(html).toContain("Payment Due Now");
-    expect(html).toContain("No payment is due now");
+    expect(html).toContain("Booking Request Received");
+    expect(html).toContain("Not required today");
+    expect(html).toContain("No payment is required today");
     expect(html).toContain("Alex Rivera");
     expect(html).toContain("Signature Package");
+  });
+
+  it("confirms the contact details the customer will be reached on", async () => {
+    const html = await render(
+      BookingReviewEmail({ ...baseProps, variant: "SUBMITTED" })
+    );
+
+    expect(html).toContain("3055550123");
+    expect(html).toContain("alex@example.com");
+  });
+
+  it("never quotes a payment due amount to a submitting customer", async () => {
+    const html = await render(
+      BookingReviewEmail({ ...baseProps, variant: "SUBMITTED" })
+    );
+
+    expect(html).not.toContain("Payment Due Now");
+    expect(html.toLowerCase()).not.toContain("deposit");
+    expect(html.toLowerCase()).not.toContain("balance");
   });
 
   it("never asks any variant for money", async () => {
@@ -69,7 +88,7 @@ describe("BookingReviewEmail template", () => {
     );
 
     expect(html).toContain("approved");
-    expect(html).toContain("contact you with payment options");
+    expect(html).toContain("contact you with the next steps");
   });
 
   it("includes the rejection reason for the customer", async () => {

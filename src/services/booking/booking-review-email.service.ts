@@ -125,7 +125,7 @@ export async function sendBookingSubmittedEmails(bookingId: string) {
       await send(
         "SUBMITTED",
         booking.contactEmail,
-        `Booking request received - ${booking.bookingRef}`,
+        `Booking Request Received - ${booking.bookingRef}`,
         base,
         {
           actionUrl: successUrl,
@@ -146,7 +146,7 @@ export async function sendBookingSubmittedEmails(bookingId: string) {
       await send(
         "ADMIN_SUBMITTED",
         recipient,
-        `New booking request pending review - ${booking.bookingRef}`,
+        `New Booking Request - Review Required - ${booking.bookingRef}`,
         base,
         {
           actionUrl: reviewUrl,

@@ -199,7 +199,7 @@ export default function ExtrasCategoryPage() {
   const isLastCategory = !nextCategory;
   const submitLabel = nextCategory
     ? `Continue to ${nextCategory.label}`
-    : "Continue to Payment";
+    : "Continue to Agreement";
 
   const handleContinue = async () => {
     if (!booking.bookingId) return;

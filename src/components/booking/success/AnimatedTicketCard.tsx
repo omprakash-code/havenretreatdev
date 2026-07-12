@@ -25,6 +25,8 @@ import { downloadSignedAgreementPdf } from "@/components/booking/success/pdf/dow
 import { useBooking } from "@/context/BookingContext";
 import {
   BOOKING_PAYMENT_APPLIED_MESSAGE,
+  BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
+  BOOKING_PENDING_REVIEW_STATUS_VALUE,
   BOOKING_REVIEW_MESSAGE,
   BOOKING_REVIEW_TITLE,
 } from "@/constants/booking-status-copy";
@@ -403,12 +405,17 @@ ${shareUrl}`;
               />
             ) : (
               <>
-                <PriceRow label="Payment Due Now" value={formatCurrency(0)} />
                 <PriceRow
-                  label="Payment Status"
-                  value={data.paymentStatusLabel ?? "Unpaid"}
+                  label="Payment"
+                  value={BOOKING_PAYMENT_NOT_REQUIRED_VALUE}
                 />
-                <PriceRow label="Next Step" value="Admin review" />
+                <PriceRow
+                  label="Status"
+                  value={
+                    data.bookingStatusLabel ??
+                    BOOKING_PENDING_REVIEW_STATUS_VALUE
+                  }
+                />
               </>
             )}
             {showRemainingRow && (
