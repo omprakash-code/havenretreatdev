@@ -99,6 +99,25 @@ describe("GET /api/availability/time-ranges", () => {
     expect(range.reason).toBe("BOOKED");
   });
 
+  it("asks the database to skip bookings an admin deleted", async () => {
+    await GET(makeRequest({ locationId: LOCATION_ID, date: DATE }));
+
+    const { where } = prismaMock.booking.findMany.mock.calls[0][0];
+    const notSoftDeleted = {
+      OR: [
+        { cancelledReason: null },
+        { cancelledReason: { not: "ADMIN_SOFT_DELETED" } },
+      ],
+    };
+
+    // A deleted pending request keeps its PENDING_REVIEW status, so without this
+    // clause its date would stay blocked for every customer.
+    expect(where.OR).toHaveLength(2);
+    for (const branch of where.OR) {
+      expect(branch.AND).toEqual([notSoftDeleted]);
+    }
+  });
+
   it("caps blocked range end time at business close (23:00)", async () => {
     prismaMock.booking.findMany.mockResolvedValue([
       {

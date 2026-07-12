@@ -14,7 +14,7 @@ import {
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 
-const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
+import { ADMIN_SOFT_DELETE_REASON } from "@/lib/booking-policy";
 const DEFAULT_PAGE_SIZE = 40;
 const MAX_PAGE_SIZE = 200;
 

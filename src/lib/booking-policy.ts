@@ -39,6 +39,22 @@ export function isReservedRangeStatus(status: string | null | undefined) {
   );
 }
 
+/** Marks a booking an admin deleted. The row is kept; the booking is not. */
+export const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
+
+/**
+ * A deleted booking holds nothing. Deletion keeps `bookingStatus` as it was, so
+ * every conflict branch has to say this itself — otherwise a deleted request
+ * would sit on its date forever. `not` alone skips NULL rows in Prisma, hence
+ * the explicit null branch.
+ */
+const NOT_SOFT_DELETED: Prisma.BookingWhereInput = {
+  OR: [
+    { cancelledReason: null },
+    { cancelledReason: { not: ADMIN_SOFT_DELETE_REASON } },
+  ],
+};
+
 /**
  * The `OR` clause every range-conflict query must use: a range is taken when it
  * is reserved for review/approval, or held by another live draft session.
@@ -51,10 +67,14 @@ export function buildRangeConflictFilter(
   holdScope: Prisma.BookingWhereInput = {}
 ): Prisma.BookingWhereInput[] {
   return [
-    { bookingStatus: { in: [...RESERVED_RANGE_STATUSES] } },
+    {
+      bookingStatus: { in: [...RESERVED_RANGE_STATUSES] },
+      AND: [NOT_SOFT_DELETED],
+    },
     {
       bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
       holdExpiresAt: { gt: now },
+      AND: [NOT_SOFT_DELETED],
       ...holdScope,
     },
   ];

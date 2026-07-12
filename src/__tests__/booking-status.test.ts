@@ -118,7 +118,7 @@ describe("range conflict policy", () => {
     const now = new Date("2026-07-12T12:00:00.000Z");
     const [reserved, held] = buildRangeConflictFilter(now);
 
-    expect(reserved).toEqual({
+    expect(reserved).toMatchObject({
       bookingStatus: { in: ["PENDING_REVIEW", "APPROVED", "CONFIRMED"] },
     });
     expect(reserved).not.toHaveProperty("holdExpiresAt");
