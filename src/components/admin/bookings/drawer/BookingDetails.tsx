@@ -23,7 +23,10 @@ import {
   humanizePaymentCaptureFailureReason,
   isPaymentCapturedBookingFailure,
 } from "@/lib/payment-capture-failure";
-import { getAdminBookingStatusDisplay } from "@/lib/admin-booking-status";
+import {
+  getAdminBookingStatusDisplay,
+  getReviewStatusDisplay,
+} from "@/lib/admin-booking-status";
 import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 
 function formatOccasionFieldLabel(key: string) {
@@ -111,31 +114,89 @@ function MonoValue({ children }: { children: React.ReactNode }) {
   );
 }
 
+function toTitleCase(label: string) {
+  return label
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
+/**
+ * How much money has actually been collected. PAID means captured, and
+ * `advancePaid` then holds what was taken — on an uncaptured booking the same
+ * field only holds what is *payable*, so it cannot be read on its own. A capture
+ * that still leaves a balance is Partial, not Paid.
+ */
+function resolveCollectedPaymentDisplay(input: {
+  paymentStatus?: string | null;
+  advancePaid?: number | null;
+  remainingPayable?: number | null;
+}) {
+  const captured = input.paymentStatus === "PAID";
+  const collected = captured ? Math.max(Number(input.advancePaid ?? 0), 0) : 0;
+  const remaining = Math.max(Number(input.remainingPayable ?? 0), 0);
+
+  if (collected <= 0) {
+    return { label: "Pending", className: "bg-amber-50 text-amber-800" };
+  }
+  if (remaining > 0) {
+    return { label: "Partial", className: "bg-blue-50 text-blue-800" };
+  }
+  return { label: "Paid", className: "bg-emerald-50 text-emerald-800" };
+}
+
+/** Provider outcomes that describe an attempt, not a collected balance. */
+const PAYMENT_ATTEMPT_STATUSES = ["FAILED", "REFUNDED", "EXPIRED", "CANCELLED"];
+
 // Status Badge Component
 function StatusBadge({
   status,
   cancelledReason,
   paymentStatus,
+  advancePaid,
+  remainingPayable,
   type = "booking"
 }: {
   status: string;
   cancelledReason?: string | null;
   paymentStatus?: string | null;
+  advancePaid?: number | null;
+  remainingPayable?: number | null;
   type?: "booking" | "payment";
 }) {
+  if (type === "payment" && !PAYMENT_ATTEMPT_STATUSES.includes(status)) {
+    const collectedDisplay = resolveCollectedPaymentDisplay({
+      paymentStatus: status,
+      advancePaid,
+      remainingPayable,
+    });
+
+    return (
+      <span
+        className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${collectedDisplay.className}`}
+      >
+        {collectedDisplay.label}
+      </span>
+    );
+  }
+
   const derivedBookingDisplay =
     type === "booking"
       ? getAdminBookingStatusDisplay({
           bookingStatus: status,
           paymentStatus,
           cancelledReason,
-        })
+        }) ?? getReviewStatusDisplay(status)
       : null;
 
   if (derivedBookingDisplay) {
     return (
-      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${derivedBookingDisplay.className}`}>
-        {derivedBookingDisplay.label}
+      <span
+        className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${derivedBookingDisplay.className}`}
+        title={derivedBookingDisplay.title}
+      >
+        {/* The list pill shouts its status; inside the drawer every other badge
+            is title case, so the shared label is softened here. */}
+        {toTitleCase(derivedBookingDisplay.label)}
       </span>
     );
   }
@@ -151,7 +212,8 @@ function StatusBadge({
   };
 
   const paymentConfig: Record<string, { label: string; className: string }> = {
-    INITIALIZED: { label: "Payment Not Started", className: "text-slate-700" },
+    // No payment is taken during booking any more; it is collected after review.
+    INITIALIZED: { label: "Pending", className: "bg-amber-50 text-amber-800" },
     AWAITING_PAYMENT: { label: "Awaiting Payment", className: "bg-amber-50 text-amber-800" },
     PENDING: { label: "Pending", className: "bg-amber-50 text-amber-800" },
     PAID: { label: "Paid", className: "bg-emerald-50 text-emerald-800" },
@@ -167,6 +229,42 @@ function StatusBadge({
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${className}`}>
       {label}
+    </span>
+  );
+}
+
+/**
+ * Whether an email in the booking's lifecycle has gone out. `pending` marks a
+ * send that is not due yet, so a not-yet-sent email never reads as a failure.
+ */
+function EmailStatus({
+  sent = false,
+  pending = false,
+}: {
+  sent?: boolean;
+  pending?: boolean;
+}) {
+  if (sent) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-800">
+        <CheckCircle size={12} />
+        Yes
+      </span>
+    );
+  }
+
+  if (pending) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-800">
+        Pending
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
+      <X size={12} />
+      No
     </span>
   );
 }
@@ -292,6 +390,47 @@ export default function BookingDetails({
     booking.bookingStatus === "PAYMENT_PROCESSING" ||
     booking.paymentStatus === "AWAITING_PAYMENT" ||
     booking.paymentStatus === "INITIALIZED";
+  const balanceDueAmount = Math.max(booking.pricing.remainingPayable, 0);
+  // Until money is captured, `advancePaid` holds the advance a customer still
+  // owes; after capture it holds what was taken. The card says which one it is,
+  // and a zero on either side is left out rather than shown as an empty $0.
+  const paymentSummaryCards = [
+    ...(hasCapturedAdvance
+      ? totalPaid > 0
+        ? [{
+            key: "advance-paid",
+            label: "Advance Paid",
+            amount: totalPaid,
+            className: "border-emerald-200 bg-emerald-50",
+            labelClassName: "text-emerald-700",
+            valueClassName: "text-emerald-800",
+          }]
+        : []
+      : lockedAdvanceAmount > 0
+      ? [{
+          key: "advance-due",
+          label: "Advance Due",
+          amount: lockedAdvanceAmount,
+          className: isPaymentInProgress
+            ? "border-sky-200 bg-sky-50"
+            : "border-slate-200 bg-slate-100",
+          labelClassName: isPaymentInProgress ? "text-sky-700" : "text-slate-700",
+          valueClassName: isPaymentInProgress ? "text-sky-800" : "text-slate-900",
+        }]
+      : []),
+    ...(balanceDueAmount > 0
+      ? [{
+          key: "balance-due",
+          label: "Balance Due",
+          amount: balanceDueAmount,
+          className: isPaymentInProgress
+            ? "border-orange-200 bg-orange-50"
+            : "border-amber-200 bg-amber-50",
+          labelClassName: isPaymentInProgress ? "text-orange-700" : "text-amber-700",
+          valueClassName: isPaymentInProgress ? "text-orange-800" : "text-amber-800",
+        }]
+      : []),
+  ];
   const isPaymentCapturedFailure = isPaymentCapturedBookingFailure({
     bookingStatus: booking.bookingStatus,
     paymentStatus: booking.paymentStatus,
@@ -300,6 +439,7 @@ export default function BookingDetails({
   const paymentCapturedFailureReason = humanizePaymentCaptureFailureReason(
     booking.cancelledReason
   );
+  const isReviewBooking = Boolean(booking.reviewSubmittedAt);
   const statusOverviewItems = [
     {
       key: "booking",
@@ -323,43 +463,59 @@ export default function BookingDetails({
       content: (
         <StatusBadge
           status={booking.paymentStatus ?? "INITIALIZED"}
+          advancePaid={booking.pricing.advancePaid}
+          remainingPayable={booking.pricing.remainingPayable}
           type="payment"
         />
       ),
     },
-    ...(booking.bookingStatus !== "ABANDONED"
+    // A booking that reached review was emailed to the customer and the admin on
+    // submission, and is emailed again once a decision is made. The confirmation
+    // email is a later, separate send, so it only appears once it has gone out.
+    ...(isReviewBooking && booking.bookingStatus !== "ABANDONED"
+      ? [
+          {
+            key: "submission-email",
+            label: "Submission Email",
+            content: <EmailStatus sent />,
+          },
+          {
+            key: "decision-email",
+            label: "Decision Email",
+            content: booking.reviewedAt ? (
+              <EmailStatus sent />
+            ) : (
+              <EmailStatus pending />
+            ),
+          },
+          ...(booking.confirmationEmailSent
+            ? [{
+                key: "confirmation-email",
+                label: "Confirmation Email",
+                content: <EmailStatus sent />,
+              }]
+            : []),
+        ]
+      : []),
+    ...(!isReviewBooking && booking.bookingStatus !== "ABANDONED"
       ? [{
           key: "confirmation-email",
           label: "Confirmation Email",
-          content: booking.confirmationEmailSent ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-800">
-              <CheckCircle size={12} />
-              Yes
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
-              <X size={12} />
-              No
-            </span>
-          ),
+          content: <EmailStatus sent={booking.confirmationEmailSent} />,
         }]
       : []),
     ...(booking.bookingStatus === "ABANDONED"
       ? [{
           key: "abandonment-email",
           label: "Abandonment Email",
-          content:
-            booking.abandonmentCustomerEmailSentAt || booking.abandonmentAdminEmailSentAt ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-800">
-                <CheckCircle size={12} />
-                Yes
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
-                <X size={12} />
-                No
-              </span>
-            ),
+          content: (
+            <EmailStatus
+              sent={Boolean(
+                booking.abandonmentCustomerEmailSentAt ||
+                  booking.abandonmentAdminEmailSentAt
+              )}
+            />
+          ),
         }]
       : []),
   ];
@@ -416,17 +572,6 @@ export default function BookingDetails({
                 </div>
               ) : null}
 
-              {booking.bookingStatus === "APPROVED" && booking.approvalNotes ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-sm font-semibold text-emerald-900">
-                    Approval notes
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-emerald-800">
-                    {booking.approvalNotes}
-                  </p>
-                </div>
-              ) : null}
-
               {/* Status Overview */}
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900">Status Overview</h3>
@@ -442,7 +587,7 @@ export default function BookingDetails({
                     </p>
                   </div>
                 ) : null}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
                   {statusOverviewItems.map((item, index) => (
                     <div key={item.key} className="contents">
                       {index > 0 ? <div className="h-8 w-px bg-slate-200" /> : null}
@@ -453,6 +598,15 @@ export default function BookingDetails({
                     </div>
                   ))}
                 </div>
+
+                {booking.bookingStatus === "APPROVED" && booking.approvalNotes ? (
+                  <div className="border-t border-slate-200 pt-3">
+                    <p className="text-xs text-slate-500 mb-1">Approval notes</p>
+                    <p className="text-xs leading-5 text-slate-700">
+                      {booking.approvalNotes}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               {/* Customer Details */}
@@ -946,73 +1100,41 @@ export default function BookingDetails({
                 <h3 className="text-sm font-semibold text-slate-900">Payment Summary</h3>
 
                 {isFullyPaid ? (
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                      <p className="mb-1 text-xs text-emerald-700">Fully Paid</p>
-                      <p className="text-lg font-semibold text-emerald-800">
-                        ${totalPaid.toLocaleString()}
-                      </p>
-                    </div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800">
+                      <CheckCircle size={14} />
+                      Fully Paid
+                    </p>
+                    <p className="mt-1 text-xs text-emerald-700">
+                      ${totalPaid.toLocaleString()} has been collected for this
+                      booking.
+                    </p>
+                  </div>
+                ) : paymentSummaryCards.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs text-slate-600">
+                      No payment has been recorded for this booking.
+                    </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div
-                      className={`rounded-xl p-3 ${
-                        hasCapturedAdvance
-                          ? "border border-emerald-200 bg-emerald-50"
-                          : isPaymentInProgress
-                          ? "border border-sky-200 bg-sky-50"
-                          : "border border-slate-200 bg-slate-100"
-                      }`}
-                    >
-                      <p
-                        className={`mb-1 text-xs ${
-                          hasCapturedAdvance
-                            ? "text-emerald-700"
-                            : isPaymentInProgress
-                            ? "text-sky-700"
-                            : "text-slate-700"
-                        }`}
+                  <div
+                    className={`grid gap-3 ${
+                      paymentSummaryCards.length > 1 ? "grid-cols-2" : "grid-cols-1"
+                    }`}
+                  >
+                    {paymentSummaryCards.map((card) => (
+                      <div
+                        key={card.key}
+                        className={`rounded-xl border p-3 ${card.className}`}
                       >
-                        {hasCapturedAdvance ? "Advance Paid" : "Advance Payable"}
-                      </p>
-                      <p
-                        className={`text-lg font-semibold ${
-                          hasCapturedAdvance
-                            ? "text-emerald-800"
-                            : isPaymentInProgress
-                            ? "text-sky-800"
-                            : "text-slate-900"
-                        }`}
-                      >
-                        ${(hasCapturedAdvance ? totalPaid : lockedAdvanceAmount).toLocaleString()}
-                      </p>
-                    </div>
-
-                    <div
-                      className={`rounded-xl p-3 ${
-                        hasCapturedAdvance
-                          ? "border border-amber-200 bg-amber-50"
-                          : isPaymentInProgress
-                          ? "border border-orange-200 bg-orange-50"
-                          : "border border-amber-200 bg-amber-50"
-                      }`}
-                    >
-                      <p
-                        className={`mb-1 text-xs ${
-                          isPaymentInProgress ? "text-orange-700" : "text-amber-700"
-                        }`}
-                      >
-                        Balance Due
-                      </p>
-                      <p
-                        className={`text-lg font-semibold ${
-                          isPaymentInProgress ? "text-orange-800" : "text-amber-800"
-                        }`}
-                      >
-                        ${booking.pricing.remainingPayable.toLocaleString()}
-                      </p>
-                    </div>
+                        <p className={`mb-1 text-xs ${card.labelClassName}`}>
+                          {card.label}
+                        </p>
+                        <p className={`text-lg font-semibold ${card.valueClassName}`}>
+                          ${card.amount.toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
