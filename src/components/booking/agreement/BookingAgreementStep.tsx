@@ -140,10 +140,17 @@ export default function BookingAgreementStep({
     hasSignature &&
     !isSubmitting;
 
+  // Attention reads as a tint against an accent rail, the same language the
+  // clauses use. The rail is always laid out and only takes colour when active,
+  // so highlighting a field cannot reflow the form around it.
+  const ATTENTION_IDLE =
+    "border-l-2 border-l-transparent transition-all duration-500 ease-out";
+  const ATTENTION_ACTIVE = "border-l-[#347f7c] bg-[#f4f9f8] pl-3.5";
+
   const getHighlightClass = (target: Exclude<HighlightTarget, null>) =>
     highlightTarget === target
-      ? "agreement-attention transition"
-      : "transition";
+      ? `${ATTENTION_IDLE} ${ATTENTION_ACTIVE}`
+      : ATTENTION_IDLE;
 
   if (!hydrated || !booking.bookingId || !booking.package || !booking.schedule || !booking.contact) {
     return null;
@@ -270,9 +277,7 @@ export default function BookingAgreementStep({
               <div className="space-y-4">
                 <div
                   ref={agreementPanelRef}
-                  className={`bg-[#f7f9f8] p-2 md:p-3 ${getHighlightClass(
-                    "agreement"
-                  )}`}
+                  className="bg-[#f7f9f8] p-2 transition md:p-3"
                 >
                   <div className="border border-[#d7e4e1] bg-white">
                     <div
@@ -419,26 +424,18 @@ export default function BookingAgreementStep({
                   </div>
                 </div>
 
+                {/* The section is only the scroll anchor. Highlighting it as
+                    well as the field inside would light up everything the signer
+                    already completed, so the glow stays on the one thing that
+                    needs attention. */}
                 <div
                   ref={signatureSectionRef}
-                  className={`border border-[#d7e4e1] bg-white p-4 md:p-5 ${
-                    highlightTarget === "signature" ||
-                    highlightTarget === "name" ||
-                    highlightTarget === "confirmation"
-                      ? getHighlightClass(highlightTarget)
-                      : "transition"
-                  }`}
+                  className="border border-[#d7e4e1] bg-white p-4 transition md:p-5"
                 >
                   <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#347f7c]">
                     Digital Signature
                   </p>
-                  <label
-                    className={`mt-5 block ${
-                      highlightTarget === "name"
-                        ? "agreement-attention"
-                        : ""
-                    }`}
-                  >
+                  <label className={`mt-5 block ${getHighlightClass("name")}`}>
                     <span className="text-sm font-medium text-[#344054]">
                       Full Legal Name
                     </span>
@@ -451,13 +448,7 @@ export default function BookingAgreementStep({
                     />
                   </label>
 
-                  <div
-                    className={`mt-5 ${
-                      highlightTarget === "signature"
-                        ? "agreement-attention"
-                        : ""
-                    }`}
-                  >
+                  <div className={`mt-5 ${getHighlightClass("signature")}`}>
                     <p className="mb-2 text-sm font-medium text-[#344054]">
                       Signature
                     </p>
@@ -470,11 +461,14 @@ export default function BookingAgreementStep({
                     />
                   </div>
 
+                  {/* This card already carries a border, so its left edge is the
+                      rail: it only changes colour. Using the shared idle classes
+                      would leave the border open on that side. */}
                   <div
-                    className={`mt-5 flex items-start gap-3 border border-[#d0d5dd] p-4 ${
+                    className={`mt-5 flex items-start gap-3 border border-[#d0d5dd] p-4 transition-all duration-500 ease-out ${
                       highlightTarget === "confirmation"
-                        ? "agreement-attention"
-                        : ""
+                        ? "border-l-[#347f7c] bg-[#f4f9f8]"
+                        : "border-l-[#d0d5dd]"
                     }`}
                   >
                     <button
@@ -539,35 +533,6 @@ export default function BookingAgreementStep({
         totalPrice={booking.pricing?.total ?? booking.schedule?.basePrice ?? null}
         advancePay={booking.pricing?.advancePay ?? null}
       />
-      <style jsx>{`
-        .agreement-attention {
-          animation: agreementAttentionGlow 1.6s ease-out;
-        }
-
-        @keyframes agreementAttentionGlow {
-          0% {
-            background-color: rgba(52, 127, 124, 0);
-            box-shadow: 0 0 0 0 rgba(52, 127, 124, 0);
-          }
-          18% {
-            background-color: rgba(52, 127, 124, 0.08);
-            box-shadow:
-              0 0 0 1px rgba(52, 127, 124, 0.22),
-              0 14px 36px rgba(52, 127, 124, 0.18),
-              0 0 42px rgba(52, 127, 124, 0.2);
-          }
-          62% {
-            background-color: rgba(52, 127, 124, 0.04);
-            box-shadow:
-              0 0 0 1px rgba(52, 127, 124, 0.12),
-              0 10px 28px rgba(52, 127, 124, 0.1);
-          }
-          100% {
-            background-color: rgba(52, 127, 124, 0);
-            box-shadow: 0 0 0 0 rgba(52, 127, 124, 0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

@@ -20,9 +20,11 @@ export default function AgreementSection({
   onToggle: () => void;
 }) {
   return (
+    // The accent rail is always laid out, transparent when idle, so drawing
+    // attention to a clause slides it aside instead of reflowing the column.
     <section
-      className={`border-b border-[#edf1ef] py-4 transition last:border-b-0 ${
-        highlighted ? "agreement-attention px-3" : ""
+      className={`border-b border-l-2 border-[#edf1ef] border-l-transparent py-4 pl-0 transition-all duration-500 ease-out last:border-b-0 ${
+        highlighted ? "border-l-[#347f7c] bg-[#f4f9f8] pl-3.5" : ""
       }`}
     >
       <button
