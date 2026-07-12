@@ -27,7 +27,7 @@ const steps = [
   { label: "Occasion", icon: Sparkles },
   { label: "Add-ons", icon: Gift },
   { label: "Agreement", icon: FileSignature },
-  { label: "Review", icon: ClipboardCheck },
+  { label: "Complete", icon: ClipboardCheck },
 ];
 
 const CIRCLE_SIZE = 26;
