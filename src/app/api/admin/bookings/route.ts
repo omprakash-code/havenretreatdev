@@ -72,34 +72,23 @@ export async function GET(req: Request) {
       bookingStatus: BookingStatus.PENDING_REVIEW,
     };
 
-    // Main tab: accepted bookings (APPROVED, plus legacy CONFIRMED) and
-    // paid-expired payment incidents.
-    const decidedTabWhere: Prisma.BookingWhereInput = {
+    // Main tab: final/decided booking records only. Pending review has its own
+    // page, and incomplete/payment-in-progress rows belong to the paused
+    // abandonment/recovery workflow now that customer-side payment is removed.
+    const mainBookingsWhere: Prisma.BookingWhereInput = {
       bookingStatus: {
         in: [
           BookingStatus.APPROVED,
           BookingStatus.CONFIRMED,
+          BookingStatus.REJECTED,
+          BookingStatus.CANCELLED,
           BookingStatus.PAID_EXPIRED,
         ],
       },
     };
 
     const abandonedTabWhere: Prisma.BookingWhereInput = {
-      AND: [
-        {
-          bookingStatus: {
-            notIn: [
-              BookingStatus.APPROVED,
-              BookingStatus.CONFIRMED,
-              BookingStatus.PAID_EXPIRED,
-              BookingStatus.PENDING_REVIEW,
-            ],
-          },
-        },
-        {
-          NOT: liveBookingWhere,
-        },
-      ],
+      bookingStatus: BookingStatus.ABANDONED,
     };
 
     const baseWhere: Prisma.BookingWhereInput =
@@ -110,9 +99,9 @@ export async function GET(req: Request) {
           // Pending review tab: customer submitted, admin must decide.
           ? pendingReviewWhere
           : type === "abandoned"
-            // Abandonment tab: everything that is not live, decided, or pending.
+            // Abandonment tab: kept isolated for the future recovery workflow.
             ? abandonedTabWhere
-            : decidedTabWhere;
+            : mainBookingsWhere;
 
     const whereAnd: Prisma.BookingWhereInput[] = [
       baseWhere,

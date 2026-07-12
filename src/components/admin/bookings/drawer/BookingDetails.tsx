@@ -382,7 +382,6 @@ export default function BookingDetails({
   onReviewed,
 }: BookingDetailsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "payment">("overview");
-  const [showAgreementDetails, setShowAgreementDetails] = useState(false);
   const scheduleDateLabel =
     booking.schedule?.dateLabel || formatET(booking.slot.date).split(",")[0];
   const scheduleTimeLabel =
@@ -528,18 +527,6 @@ export default function BookingDetails({
               {/* Review decision (only while pending) */}
               <BookingReviewActions booking={booking} onReviewed={onReviewed} />
 
-              {/* Review outcome */}
-              {booking.bookingStatus === "REJECTED" && booking.rejectionReason ? (
-                <div className="rounded-lg border border-rose-200 bg-rose-50 p-4">
-                  <p className="text-sm font-semibold text-rose-900">
-                    Rejected
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-rose-800">
-                    {booking.rejectionReason}
-                  </p>
-                </div>
-              ) : null}
-
               {/* Status Overview */}
               <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900">Status Overview</h3>
@@ -572,6 +559,15 @@ export default function BookingDetails({
                     <p className="text-xs text-slate-500 mb-1">Approval notes</p>
                     <p className="text-xs leading-5 text-slate-700">
                       {booking.approvalNotes}
+                    </p>
+                  </div>
+                ) : null}
+
+                {booking.bookingStatus === "REJECTED" && booking.rejectionReason ? (
+                  <div className="border-t border-slate-200 pt-3">
+                    <p className="text-xs text-slate-500 mb-1">Rejection note</p>
+                    <p className="text-xs leading-5 text-slate-700">
+                      {booking.rejectionReason}
                     </p>
                   </div>
                 ) : null}
@@ -612,7 +608,7 @@ export default function BookingDetails({
                   <div className="pt-3 border-t border-slate-200 flex gap-2">
                     <a
                       href={`tel:${booking.customer.phone}`}
-                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100"
+                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -763,10 +759,23 @@ export default function BookingDetails({
 
               {/* Agreement & Signature */}
               <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                  <FileText size={16} />
-                  Agreement & Signature
-                </h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <FileText size={16} />
+                    Agreement & Signature
+                  </h3>
+                  {booking.signedAgreement?.pdfFileName ? (
+                    <a
+                      href={`/api/admin/bookings/${encodeURIComponent(
+                        booking.id
+                      )}/agreement/download`}
+                      className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
+                    >
+                      <Download size={14} aria-hidden="true" />
+                      Download
+                    </a>
+                  ) : null}
+                </div>
 
                 <div className="flex items-start justify-between gap-4">
                   <span className="text-xs text-slate-500">Status</span>
@@ -794,28 +803,26 @@ export default function BookingDetails({
 
                 {booking.signedAgreement ? (
                   <div className="space-y-3 border-t border-slate-200 pt-3">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <p className="mb-1 text-xs text-slate-500">Signer Name</p>
-                        <p className="text-sm font-semibold text-slate-900">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-xs text-slate-500">Signer Name</span>
+                        <span className="text-sm font-medium text-slate-900 text-right">
                           {booking.signedAgreement.signerName}
-                        </p>
+                        </span>
                       </div>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <p className="mb-1 text-xs text-slate-500">Signed At</p>
-                        <p className="text-sm font-semibold text-slate-900">
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-xs text-slate-500">Signed At</span>
+                        <span className="text-sm font-medium text-slate-900 text-right">
                           {formatET(booking.signedAgreement.signedAt)}
-                        </p>
+                        </span>
                       </div>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <p className="mb-1 text-xs text-slate-500">
-                          Clauses Acknowledged
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-xs text-slate-500">Clauses Acknowledged</span>
+                        <span className="text-sm font-medium text-slate-900 text-right">
                           {booking.signedAgreement.acknowledgedClauses?.length ??
                             0}{" "}
                           of {HAVEN_AGREEMENT_TOTAL_CLAUSES}
-                        </p>
+                        </span>
                       </div>
                     </div>
 
@@ -835,63 +842,6 @@ export default function BookingDetails({
                       </div>
                     </div>
 
-                    {booking.signedAgreement.pdfFileName && (
-                      <a
-                        href={`/api/admin/bookings/${encodeURIComponent(
-                          booking.id
-                        )}/agreement/download`}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-700 bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-800"
-                      >
-                        <Download size={16} aria-hidden="true" />
-                        Download Signed Agreement
-                      </a>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setShowAgreementDetails((v) => !v)}
-                      className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2 transition-colors"
-                    >
-                      {showAgreementDetails ? "Hide technical details" : "Show technical details"}
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {showAgreementDetails && (
-                        <motion.div
-                          key="agreement-details"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.22, ease: "easeInOut" }}
-                          style={{ overflow: "hidden" }}
-                        >
-                          <div className="space-y-2 pt-1">
-                            <FieldRow label="Agreement ID">
-                              <MonoValue>{booking.signedAgreement.id}</MonoValue>
-                            </FieldRow>
-                            <FieldRow label="Stored PDF">
-                              <MonoValue>
-                                {booking.signedAgreement.pdfFileName ?? "—"}
-                              </MonoValue>
-                            </FieldRow>
-                            <FieldRow label="PDF SHA-256">
-                              <MonoValue>
-                                {booking.signedAgreement.pdfSha256 ?? "—"}
-                              </MonoValue>
-                            </FieldRow>
-                            <FieldRow label="Agreement Version">
-                              {booking.signedAgreement.agreementVersion ?? "—"}
-                            </FieldRow>
-                            <FieldRow label="Confirmation Checkbox">
-                              {booking.signedAgreement.confirmationAccepted ? "Accepted" : "Not Accepted"}
-                            </FieldRow>
-                            <FieldRow label="IP Address">
-                              {booking.signedAgreement.ipAddress ?? "—"}
-                            </FieldRow>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
