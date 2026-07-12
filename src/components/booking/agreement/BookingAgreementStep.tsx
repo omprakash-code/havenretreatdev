@@ -235,9 +235,9 @@ export default function BookingAgreementStep({
         return;
       }
 
-      // The booking is submitted and no longer editable; clear the local draft so
-      // the back button cannot resume it.
-      resetBooking();
+      // Do not clear the local draft here: this page redirects to the booking
+      // root whenever the draft goes empty, and that guard would beat the
+      // navigation below. The success page clears the draft once it has loaded.
       router.replace(BOOKING_ROUTES.SUCCESS(json.successToken));
     } finally {
       setIsSubmitting(false);

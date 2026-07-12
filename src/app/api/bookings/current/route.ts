@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { verifyBookingSessionToken } from "@/services/booking/bookingSession.server";
 import { RESERVATION_TIMED_OUT_MESSAGE } from "@/lib/booking-session-expiry";
+import { isReviewWorkflowBookingStatus } from "@/lib/booking-status";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
 import {
     RangeBookingSessionError,
@@ -80,6 +81,18 @@ export async function GET() {
         } catch (error) {
             if (error instanceof RangeBookingSessionError) {
                 clearBookingSessionCookie(cookieStore);
+
+                // A booking that was submitted for review is finished, not expired.
+                // Reporting SESSION_EXPIRED here would show the customer a
+                // "reservation timed out" modal on their next visit; instead the
+                // stale cookie is dropped and a fresh booking starts silently.
+                if (error.code === "BOOKING_SUBMITTED") {
+                    return NextResponse.json(
+                        { success: false, code: "BOOKING_SUBMITTED" },
+                        { status: 409 }
+                    );
+                }
+
                 return NextResponse.json(
                     {
                         success: false,
@@ -126,6 +139,16 @@ export async function GET() {
             alreadyConfirmed: true,
             bookingRef: booking.bookingRef,
         }, { status: 409 });
+    }
+
+    // A submitted booking is not an editable draft; drop the stale session so a
+    // new booking starts cleanly.
+    if (isReviewWorkflowBookingStatus(booking.bookingStatus)) {
+        clearBookingSessionCookie(cookieStore);
+        return NextResponse.json(
+            { success: false, code: "BOOKING_SUBMITTED" },
+            { status: 409 }
+        );
     }
 
     const items = booking.items.map((item) => ({

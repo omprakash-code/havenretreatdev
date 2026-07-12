@@ -10,6 +10,7 @@ import {
   derivePaymentLifecycle,
   getBookingStatusLabel,
   getPaymentLifecycleLabel,
+  isReviewWorkflowBookingStatus,
 } from "@/lib/booking-status";
 import {
   resolveBookingDurationPricingConfig,
@@ -78,7 +79,10 @@ export async function GET(req: Request) {
           },
         },
         couponUsages: {
-          where: { status: "CONFIRMED" },
+          // A submitted booking still holds its coupons as RESERVED (they are
+          // confirmed on approval), so both states must be listed or the summary
+          // would show a discount with no coupon behind it.
+          where: { status: { in: ["RESERVED", "CONFIRMED"] } },
           include: {
             coupon: {
               select: {
@@ -87,7 +91,7 @@ export async function GET(req: Request) {
               },
             },
           },
-          orderBy: { confirmedAt: "asc" },
+          orderBy: { reservedAt: "asc" },
         },
         signedAgreements: {
           orderBy: { signedAt: "desc" },
@@ -109,11 +113,13 @@ export async function GET(req: Request) {
       },
     });
 
-    if (
-      !booking ||
-      booking.bookingStatus !== "CONFIRMED" ||
-      booking.bookingRef !== bookingRef
-    ) {
+    // Statuses a success link may show: a submitted request and its outcome,
+    // plus legacy CONFIRMED bookings. A draft has no success link.
+    const isViewableBooking =
+      isReviewWorkflowBookingStatus(booking?.bookingStatus) ||
+      booking?.bookingStatus === "CONFIRMED";
+
+    if (!booking || !isViewableBooking || booking.bookingRef !== bookingRef) {
       return bookingErrorResponse(
         404,
         "INVALID_TOKEN",

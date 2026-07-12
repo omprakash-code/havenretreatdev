@@ -148,7 +148,7 @@ export async function POST(req: Request) {
       await sendBookingSubmittedEmails(result.bookingId);
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       bookingRef: result.bookingRef,
       bookingStatus: "PENDING_REVIEW",
@@ -158,6 +158,17 @@ export async function POST(req: Request) {
       successToken: result.successToken,
       alreadySubmitted: result.alreadySubmitted,
     });
+
+    // The booking session is over. Dropping the cookie here stops a later visit
+    // from resuming a submitted booking (and being told its session expired).
+    response.cookies.set("ds_booking_session", "", {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+
+    return response;
   } catch (error) {
     if (error instanceof BookingReviewError) {
       return bookingErrorResponse(

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { ACTIVE_RANGE_HOLD_STATUSES } from "@/lib/booking-policy";
+import { isReviewWorkflowBookingStatus } from "@/lib/booking-status";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -15,6 +16,7 @@ export class RangeBookingSessionError extends Error {
   constructor(
     public readonly code:
       | "SESSION_EXPIRED"
+      | "BOOKING_SUBMITTED"
       | "LOCK_VERSION_MISMATCH"
       | "BOOKING_NOT_FOUND",
     message: string
@@ -52,6 +54,15 @@ export async function requireActiveRangeBookingSession(
   }
   if (booking.bookingStatus === "CONFIRMED") {
     return { booking };
+  }
+  // A submitted or decided booking is finished, not expired. Callers must be
+  // able to tell the difference: an expired hold warrants a "session expired"
+  // notice, whereas a submitted booking should simply start a new session.
+  if (isReviewWorkflowBookingStatus(booking.bookingStatus)) {
+    throw new RangeBookingSessionError(
+      "BOOKING_SUBMITTED",
+      "This booking has already been submitted for review."
+    );
   }
   if (
     !ACTIVE_RANGE_HOLD_STATUSES.includes(
