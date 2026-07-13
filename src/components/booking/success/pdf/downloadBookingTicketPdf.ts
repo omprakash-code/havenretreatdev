@@ -1130,8 +1130,7 @@ function sanitizeDisplayText(value: string): string {
 
 function sanitizeFilename(value: string): string {
   return value
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]+/g, "-")
+    .replace(/[^a-z0-9-_]+/gi, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 }

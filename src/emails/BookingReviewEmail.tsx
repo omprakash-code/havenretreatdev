@@ -8,7 +8,6 @@ import {
 import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import {
   BOOKING_APPROVED_MESSAGE,
-  BOOKING_NO_PAYMENT_DUE_MESSAGE,
   BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
   BOOKING_REJECTED_MESSAGE,
   BOOKING_REVIEW_TITLE,
@@ -88,7 +87,7 @@ function resolveVariantCopy(props: BookingReviewEmailProps) {
         title: BOOKING_REVIEW_TITLE,
         message:
           "Thank you for choosing Haven Retreat. We've received your booking request.",
-        note: BOOKING_NO_PAYMENT_DUE_MESSAGE,
+        note: "Haven Retreat will review your request and reach out to confirm your event.",
       };
   }
 }

@@ -30,7 +30,6 @@ describe("BookingReviewEmail template", () => {
 
     expect(html).toContain("Booking Request Received");
     expect(html).toContain("Not required today");
-    expect(html).toContain("No payment is required today");
     expect(html).toContain("Alex Rivera");
     expect(html).toContain("Signature Package");
   });

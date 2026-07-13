@@ -51,24 +51,19 @@ export default function BookingEmailHeader({
                   {eyebrow}
                 </p>
                 {referenceTitle ? (
-                  <h1 style={{ margin: "8px 0 0", fontSize: 0, lineHeight: 1 }}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        backgroundColor: "#f8fbfa",
-                        border: "1px solid #d7e4e1",
-                        padding: "5px 10px",
-                        fontSize: 15,
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        lineHeight: 1.2,
-                        color: "#18181b",
-                        fontFamily: bookingEmailFonts.mono,
-                        whiteSpace: "nowrap" as const,
-                      }}
-                    >
-                      {title}
-                    </span>
+                  <h1
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: 16,
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      lineHeight: 1.2,
+                      color: textColor,
+                      fontFamily: bookingEmailFonts.mono,
+                      whiteSpace: "nowrap" as const,
+                    }}
+                  >
+                    {title}
                   </h1>
                 ) : (
                   <h1
