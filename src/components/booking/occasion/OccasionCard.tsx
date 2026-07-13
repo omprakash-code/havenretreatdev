@@ -27,7 +27,6 @@ export default function OccasionCard({
   icon,
   subtext,
   selected,
-  dimmed = false,
   expanded = false,
   submitted = false,
   personalizedMessage,
@@ -43,11 +42,11 @@ export default function OccasionCard({
 
   return (
     <div
-      className={`relative w-full overflow-visible border transition-all duration-300 ease-out ${
+      className={`relative w-full overflow-visible transition-all duration-300 ease-out ${
         selected
-          ? "border-[#347f7c] bg-[#f8fbfa] shadow-sm"
-          : "border-[#2f7e7a]/25 bg-white hover:border-[#347f7c]/50 hover:bg-[#fcfdfd]"
-      } ${dimmed ? "opacity-60 hover:opacity-100" : "opacity-100"}`}
+          ? "bg-[#347f7c]/[0.08] ring-1 ring-gray-300"
+          : "bg-gray-50 ring-1 ring-gray-900/[0.04] hover:shadow-[0_2px_16px_rgba(0,0,0,0.06)]"
+      }`}
     >
       <motion.div
         role="button"
@@ -63,22 +62,18 @@ export default function OccasionCard({
         className="relative flex min-h-[150px] md:min-h-[160px] w-full cursor-pointer flex-col items-center gap-2.5 p-3 text-center"
       >
         <div
-          className={`absolute right-3 top-3 flex h-5 w-5 items-center justify-center border transition
+          className={`absolute right-3 top-3 flex h-5 w-5 items-center justify-center transition
           ${
             selected
-              ? "border-[#347f7c] bg-[#347f7c] text-white"
-              : "border-[#d7e4e1] bg-white"
+              ? "bg-[#347f7c] text-white"
+              : "bg-white ring-1 ring-gray-300"
           }
         `}
         >
           {selected && <Check size={12} strokeWidth={3} />}
         </div>
 
-        <div
-          className={`relative flex h-11 w-11 items-center justify-center border transition ${
-            selected ? "border-[#2f7e7a]/25 bg-[#edf3f1]" : "border-[#d7e4e1] bg-[#f8fbfa]"
-            }`}
-        >
+        <div className="relative flex h-11 w-11 items-center justify-center">
           <Image
             src={icon || "/icons/placeholder.png"}
             alt={label}
@@ -110,7 +105,7 @@ export default function OccasionCard({
                   event.stopPropagation();
                   onEdit();
                 }}
-                className="mt-auto self-end border border-[#2f7e7a]/30 bg-[#edf3f1] px-2.5 py-1 text-xs font-semibold text-[#245e5b] transition hover:bg-[#e3efec] cursor-pointer"
+                className="mt-auto self-end bg-[#347f7c]/10 px-2.5 py-1 text-xs font-semibold text-[#245e5b] transition hover:bg-[#347f7c]/15 cursor-pointer"
               >
                 Edit
               </button>
@@ -118,25 +113,17 @@ export default function OccasionCard({
           </motion.div>
         ) : (
           <div className="flex w-full flex-1 flex-col items-center">
-            <p
-              className={`text-sm font-semibold tracking-tight ${
-                selected ? "text-[#1f2937]" : "text-gray-800"
-                }`}
-            >
+            <p className="text-sm font-semibold tracking-tight text-gray-900">
               {label}
             </p>
 
             {subtext && (
-              <p
-                className={`mt-1 text-xs leading-snug ${
-                  selected ? "text-gray-700" : "text-gray-500"
-                  }`}
-              >
+              <p className="mt-1 text-xs leading-snug text-gray-600">
                 {subtext}
               </p>
             )}
 
-            {!selected && <span className="mt-auto text-[11px] text-gray-400">Select</span>}
+            {!selected && <span className="mt-auto text-[11px] font-medium text-gray-500">Select</span>}
           </div>
         )}
       </motion.div>
@@ -148,13 +135,13 @@ export default function OccasionCard({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className={`absolute top-[calc(100%+0.5rem)] z-30 w-[300px] max-w-[calc(100vw-1rem)] overflow-hidden border border-[#2f7e7a]/30 bg-white shadow-lg ${overlayMobileAlign === "right" ? "right-0" : "left-0"
+            className={`absolute top-[calc(100%+0.5rem)] z-30 w-[300px] max-w-[calc(100vw-1rem)] overflow-hidden bg-white shadow-xl ring-1 ring-gray-900/[0.08] ${overlayMobileAlign === "right" ? "right-0" : "left-0"
               } sm:left-1/2 sm:right-auto sm:w-full sm:min-w-[300px] sm:-translate-x-1/2 ${overlayDesktopAlign === "left"
                 ? "lg:left-0 lg:right-auto lg:translate-x-0"
                 : "lg:left-1/2 lg:right-auto lg:-translate-x-1/2"
               }`}
           >
-            <div className="relative border-b border-[#d7e4e1] px-4 pb-2 pt-3">
+            <div className="relative border-b border-gray-100 px-4 pb-2 pt-3">
               <p className="inline-flex w-full items-center justify-center gap-1.5 text-base font-semibold text-[#1f2937] text-center">
                 <Sparkles size={15} className="text-[#347f7c]" />
                 {label} Details
@@ -163,7 +150,7 @@ export default function OccasionCard({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="absolute right-3 top-2 inline-flex h-7 w-7 items-center justify-center border border-[#d7e4e1] bg-white text-gray-600 transition hover:bg-[#f8fbfa] hover:text-[#245e5b] cursor-pointer"
+                  className="absolute right-3 top-2 inline-flex h-7 w-7 items-center justify-center text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 cursor-pointer"
                   title="Close details"
                   aria-label="Close details"
                 >
