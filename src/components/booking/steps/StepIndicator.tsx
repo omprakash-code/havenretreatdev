@@ -7,7 +7,6 @@ import {
   Sparkles,
   Gift,
   FileSignature,
-  ClipboardCheck,
   Check,
 } from "lucide-react";
 
@@ -27,7 +26,6 @@ const steps = [
   { label: "Occasion", icon: Sparkles },
   { label: "Add-ons", icon: Gift },
   { label: "Agreement", icon: FileSignature },
-  { label: "Complete", icon: ClipboardCheck },
 ];
 
 const CIRCLE_SIZE = 26;
@@ -52,7 +50,7 @@ export default function StepIndicator({
 
   return (
     <div className={`w-full max-w-6xl mx-auto px-2 py-2 ${className}`}>
-      <div className="relative grid grid-cols-6 items-start">
+      <div className="relative grid grid-cols-5 items-start">
         {steps.map((step, index) => {
           const stepNo = index + 1;
           const isCompleted = stepNo < clampedStep;
