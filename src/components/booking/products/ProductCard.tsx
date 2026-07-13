@@ -28,18 +28,44 @@ type Props = {
 
 const PACKAGE_DETAILS: Record<
   string,
-  {
+  (variantLabel: string) => {
+    introBefore: string;
+    introAfter: string;
     includedItems: string[];
   }
 > = {
-  "balloon-decor-package": {
+  "balloon-decor-package": () => ({
+    introBefore: "Our balloon décor packages start at ",
+    introAfter: " and include:",
     includedItems: [
       "Up to 3 balloon colors of your choice",
       "Balloon arch design",
       "Cake cylinders/pedestals",
       "Basic setup and styling",
     ],
-  },
+  }),
+  "photo-booth": (variantLabel) => ({
+    introBefore: `The ${variantLabel} package is `,
+    introAfter: " per setup and includes:",
+    includedItems:
+      variantLabel === "Classic"
+        ? [
+            "Digital Sharing",
+            "Fun Props",
+            "Online Gallery",
+            "Setup & Takedown",
+            "No Attendant Present",
+          ]
+        : [
+            "Digital Sharing",
+            "Fun Props",
+            "Online Gallery",
+            "Setup & Takedown",
+            "Small Garland Included",
+            "Custom Design on Backdrop",
+            "Pictures Throughout the Event (at least the first 3 hours)",
+          ],
+  }),
 };
 
 function formatCurrency(amount: number) {
@@ -78,7 +104,10 @@ export default function ProductCard({
   const [showLedPrompt, setShowLedPrompt] = useState(false);
   const [showPackageDetails, setShowPackageDetails] = useState(false);
   const [draftLedNumber, setDraftLedNumber] = useState("");
-  const packageDetails = product.slug ? PACKAGE_DETAILS[product.slug] : undefined;
+  const packageDetails =
+    product.slug && activeVariant
+      ? PACKAGE_DETAILS[product.slug]?.(activeVariant.label)
+      : undefined;
 
   useEffect(() => {
     if (!showPackageDetails) return;
@@ -237,7 +266,9 @@ export default function ProductCard({
           onClick={() => setShowPackageDetails(true)}
           className="mt-1.5 w-fit cursor-pointer text-left text-[11px] font-semibold text-[#347f7c] underline decoration-[#347f7c]/40 underline-offset-2 transition hover:text-[#245e5b] sm:text-xs"
         >
-          View package details
+          {variants.length > 1
+            ? `View ${activeVariant.label} package details`
+            : "View package details"}
         </button>
       )}
 
@@ -324,7 +355,6 @@ export default function ProductCard({
                 transition={{ duration: 0.12, ease: "easeOut" }}
                 className="absolute inset-0 flex h-full w-full items-center justify-center gap-0.5 border border-[#2f7e7a]/25 bg-[#edf3f1] text-xs font-semibold text-[#245e5b] cursor-pointer select-none transition-colors hover:bg-[#e3efec] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
               >
-                <CheckCircle2 size={12} className="text-[#347f7c]" />
                 {isPackageIncluded ? "Included" : "Added"}
               </motion.button>
             ) : (
@@ -401,11 +431,11 @@ export default function ProductCard({
                     {product.name}
                   </h3>
                   <p className="mt-1 text-sm text-gray-600">
-                    Our balloon décor packages start at{" "}
+                    {packageDetails.introBefore}
                     <span className="font-semibold text-gray-900">
                       {formatCurrency(priceMeta.displayPrice)}
-                    </span>{" "}
-                    and include:
+                    </span>
+                    {packageDetails.introAfter}
                   </p>
                 </div>
 
@@ -529,10 +559,19 @@ function upsertItem({
   minimumQuantity?: number;
   selectedPackage?: { name?: string | null; capacity?: number | null } | null;
 }): BookingItemSnapshot[] {
-  const items = [...prev];
   const priceMeta = getVariantPriceMeta(variant);
   const unitPrice = priceMeta.displayPrice;
   const resolvedQuantity = Math.max(quantity, minimumQuantity);
+
+  // Single-select variants are exclusive package choices (e.g. Photo Booth
+  // Premium vs Classic): adding one replaces any other variant of the product.
+  const items =
+    resolvedQuantity > 0 && getVariantMaxAllowed(variant) === 1
+      ? prev.filter(
+          (item) =>
+            item.productId !== product.id || item.variantId === variant.id
+        )
+      : [...prev];
 
   const index = items.findIndex(
     (i) =>

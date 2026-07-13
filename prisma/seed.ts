@@ -494,6 +494,7 @@ const OCCASIONS = [
 // Add-ons are daily-repeat event services, not tracked inventory:
 //   stock: null         -> unlimited / untracked (sells any number of times)
 //   maxPerBooking: N     -> max quantity a single booking may add
+//   variants: first entry is the default selection
 const PRODUCTS = [
   {
     name: "Tables",
@@ -503,7 +504,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 6,
     sortOrder: 1,
-    variant: { label: "Per Table", regularPrice: 15 },
+    variants: [{ label: "Per Table", regularPrice: 15 }],
   },
   {
     name: "Chairs",
@@ -513,7 +514,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 48,
     sortOrder: 2,
-    variant: { label: "Per Chair", regularPrice: 3 },
+    variants: [{ label: "Per Chair", regularPrice: 3 }],
   },
   {
     name: "Bartender",
@@ -523,7 +524,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 3,
-    variant: { label: "Per Booking", regularPrice: 200 },
+    variants: [{ label: "Per Booking", regularPrice: 200 }],
   },
   {
     name: "Pool Heater",
@@ -533,7 +534,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 4,
-    variant: { label: "Per Booking", regularPrice: 150 },
+    variants: [{ label: "Per Booking", regularPrice: 150 }],
   },
   {
     name: "Pool Slide",
@@ -543,7 +544,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 5,
-    variant: { label: "Per Booking", regularPrice: 300 },
+    variants: [{ label: "Per Booking", regularPrice: 300 }],
   },
   {
     name: "Balloon Arch",
@@ -553,7 +554,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 10,
     sortOrder: 6,
-    variant: { label: "Per Setup", regularPrice: 300 },
+    variants: [{ label: "Per Setup", regularPrice: 300 }],
   },
   {
     name: "Backdrop Balloons",
@@ -563,7 +564,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 7,
-    variant: { label: "Per Setup", regularPrice: 350 },
+    variants: [{ label: "Per Setup", regularPrice: 350 }],
   },
   {
     name: "BABY Marquee + Balloon",
@@ -573,7 +574,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 8,
-    variant: { label: "Per Setup", regularPrice: 500 },
+    variants: [{ label: "Per Setup", regularPrice: 500 }],
   },
   {
     name: "Tent 10x10",
@@ -583,7 +584,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 9,
-    variant: { label: "Per Tent", regularPrice: 45 },
+    variants: [{ label: "Per Tent", regularPrice: 45 }],
   },
   {
     name: "Hot Tub",
@@ -593,7 +594,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 10,
-    variant: { label: "Per Booking", regularPrice: 50 },
+    variants: [{ label: "Per Booking", regularPrice: 50 }],
   },
   {
     name: "Balloon Décor Package",
@@ -604,7 +605,41 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 11,
-    variant: { label: "Per Setup", regularPrice: 375 },
+    variants: [{ label: "Per Setup", regularPrice: 375 }],
+  },
+  {
+    name: "U Shape Entrance Arch",
+    slug: "u-shape-entrance-arch",
+    image: "/media/booking/products/add-ons/u-shape-entrance-arch.avif",
+    description: "Statement U-shaped arch to frame your event entrance.",
+    stock: null,
+    maxPerBooking: 1,
+    sortOrder: 12,
+    variants: [{ label: "Per Setup", regularPrice: 400 }],
+  },
+  {
+    name: "Shimmer Wall",
+    slug: "shimmer-wall",
+    image: "/media/booking/products/add-ons/shimmer-wall.avif",
+    description: "Sparkling shimmer wall backdrop for photos and event styling.",
+    stock: null,
+    maxPerBooking: 1,
+    sortOrder: 13,
+    variants: [{ label: "Per Setup", regularPrice: 95 }],
+  },
+  {
+    name: "Photo Booth",
+    slug: "photo-booth",
+    image: "/media/booking/products/add-ons/photobooth-and-props.avif",
+    description:
+      "Photo booth setup with fun props, digital sharing, and an online gallery. Choose the Premium or Classic package.",
+    stock: null,
+    maxPerBooking: 1,
+    sortOrder: 14,
+    variants: [
+      { label: "Premium", regularPrice: 315 },
+      { label: "Classic", regularPrice: 250 },
+    ],
   },
 ] as const;
 
@@ -910,39 +945,44 @@ async function seedProducts() {
       },
     });
 
-    await prisma.productVariant.upsert({
-      where: {
-        productId_label: {
-          productId: product.id,
-          label: seed.variant.label,
+    for (const [index, variant] of seed.variants.entries()) {
+      await prisma.productVariant.upsert({
+        where: {
+          productId_label: {
+            productId: product.id,
+            label: variant.label,
+          },
         },
-      },
-      update: {
-        regularPrice: seed.variant.regularPrice,
-        salePrice: null,
-        stock: seed.stock,
-        maxPerBooking: seed.maxPerBooking,
-        isDefault: true,
-        isActive: true,
-        sortOrder: 1,
-      },
-      create: {
-        productId: product.id,
-        label: seed.variant.label,
-        regularPrice: seed.variant.regularPrice,
-        salePrice: null,
-        stock: seed.stock,
-        maxPerBooking: seed.maxPerBooking,
-        isDefault: true,
-        isActive: true,
-        sortOrder: 1,
-      },
-    });
+        update: {
+          regularPrice: variant.regularPrice,
+          salePrice: null,
+          stock: seed.stock,
+          maxPerBooking: seed.maxPerBooking,
+          isDefault: index === 0,
+          isActive: true,
+          sortOrder: index + 1,
+        },
+        create: {
+          productId: product.id,
+          label: variant.label,
+          regularPrice: variant.regularPrice,
+          salePrice: null,
+          stock: seed.stock,
+          maxPerBooking: seed.maxPerBooking,
+          isDefault: index === 0,
+          isActive: true,
+          sortOrder: index + 1,
+        },
+      });
+    }
   }
 
   console.log("Products seeded", {
     products: PRODUCTS.length,
-    productVariants: PRODUCTS.length,
+    productVariants: PRODUCTS.reduce(
+      (total, seed) => total + seed.variants.length,
+      0
+    ),
   });
 }
 
@@ -1024,7 +1064,10 @@ async function main() {
       0
     ),
     products: PRODUCTS.length,
-    productVariants: PRODUCTS.length,
+    productVariants: PRODUCTS.reduce(
+      (total, seed) => total + seed.variants.length,
+      0
+    ),
     appSettings: APP_SETTINGS.length,
     agreementTemplates: 1,
   });
