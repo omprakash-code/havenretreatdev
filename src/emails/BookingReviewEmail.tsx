@@ -5,7 +5,7 @@ import {
   BookingEmailSectionLabel,
   BookingEmailSummaryPanel,
 } from "@/emails/components/BookingEmailContent";
-import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
+import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import {
   BOOKING_APPROVED_MESSAGE,
   BOOKING_NO_PAYMENT_DUE_MESSAGE,
@@ -106,7 +106,7 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
         margin: 0,
         padding: "5px",
         backgroundColor: color.pageBg,
-        fontFamily: "'Courier New', Courier, monospace",
+        fontFamily: bookingEmailFonts.body,
       }}
     >
       <table

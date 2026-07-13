@@ -8,7 +8,7 @@ import type {
   BookingConfirmationAddonItem,
   BookingConfirmationDetail,
 } from "@/emails/BookingConfirmationEmail";
-import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
+import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import { resolveBookingEmailTheme } from "@/emails/theme/booking-email-theme";
 
 export type AdminPaymentReceivedBookingFailedEmailProps = {
@@ -74,7 +74,7 @@ export default function AdminPaymentReceivedBookingFailedEmail({
         margin: 0,
         padding: "12px",
         backgroundColor: color.pageBg,
-        fontFamily: "'Courier New', Courier, monospace",
+        fontFamily: bookingEmailFonts.body,
       }}
     >
       <table

@@ -1,5 +1,6 @@
 import { BOOKING_EMAIL_BRAND_LOGO_URL } from "@/emails/theme/booking-email-branding";
-import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
+import BookingEmailFontStyles from "@/emails/components/BookingEmailFontStyles";
+import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 
 type BookingEmailHeaderProps = {
   title: string;
@@ -23,6 +24,7 @@ export default function BookingEmailHeader({
   return (
     <tr>
       <td style={{ backgroundColor, padding: "14px 12px 12px" }}>
+        <BookingEmailFontStyles />
         <table
           role="presentation"
           cellPadding={0}
@@ -53,7 +55,7 @@ export default function BookingEmailHeader({
                     color: textColor,
                     letterSpacing: "-0.02em",
                     lineHeight: 1.05,
-                    fontFamily: "Georgia, 'Times New Roman', serif",
+                    fontFamily: bookingEmailFonts.heading,
                     wordBreak: "break-word",
                   }}
                 >

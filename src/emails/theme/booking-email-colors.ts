@@ -1,3 +1,8 @@
+export const bookingEmailFonts = {
+  heading: "'Playfair Display', Georgia, serif",
+  body: "Inter, sans-serif",
+} as const;
+
 export const bookingEmailColors = {
   brandAccent: "#347f7c",
   success: "#22c55e",
@@ -7,11 +12,11 @@ export const bookingEmailColors = {
     panelBg: "#0a0f1a",
     referenceBg: "#1a2332",
     textPrimary: "#f9fafb",
-    textSecondary: "#6b7280",
-    textMuted: "#9ca3af",
+    textSecondary: "#9ca3af",
+    textMuted: "#b3bac4",
     textSubtle: "#d1d5db",
     textStrong: "#111827",
-    tableHeader: "#4b5563",
+    tableHeader: "#9ca3af",
     border: "#1f2937",
     borderStrong: "#374151",
     logoBorder: "#1f29371e",
@@ -26,8 +31,8 @@ export const bookingEmailColors = {
     cardBg: "#ffffff",
     panelBg: "#f8fafc",
     textPrimary: "#111827",
-    textSecondary: "#6b7280",
-    textMuted: "#9ca3af",
+    textSecondary: "#4b5563",
+    textMuted: "#6b7280",
     textStrong: "#1f2937",
     tableHeader: "#4b5563",
     border: "#d1d5db",
@@ -43,7 +48,7 @@ export const bookingEmailColors = {
     pageBg: "#0d1117",
     cardBg: "#111827",
     textPrimary: "#d1d5db",
-    textSecondary: "#6b7280",
+    textSecondary: "#9ca3af",
     textStrong: "#111827",
     border: "#1f2937",
     borderStrong: "#374151",
