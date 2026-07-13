@@ -34,7 +34,14 @@ export type BookingSuccessSignedAgreement = {
 export type BookingSuccessData = {
   bookingRef: string;
   bookingStatus?: string | null;
+  bookingStatusLabel?: string | null;
   paymentStatus?: string | null;
+  /** Booking-level payment summary, independent of approval. */
+  paymentLifecycle?: "UNPAID" | "PARTIAL" | "PAID" | null;
+  paymentStatusLabel?: string | null;
+  reviewSubmittedAt?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
   createdByRole?: string | null;
   payment?: {
     provider?: string | null;

@@ -9,6 +9,8 @@ type PaymentModeSectionProps = {
   paymentType: "OFFLINE" | "ONLINE";
   paymentAmountMode: "ADVANCE" | "FULL" | "REMAINING";
   amountPayNow: number;
+  /** Advance already collected on this booking. Drives what is collectable now. */
+  advancePaidAlready?: number;
   minimumAdvanceAmount: number;
   offlineMethod: "CASH" | "BANK";
   offlineReference: string;
@@ -45,6 +47,7 @@ export function PaymentModeSection({
   mode = "create",
   paymentAmountMode,
   amountPayNow,
+  advancePaidAlready = 0,
   minimumAdvanceAmount,
   offlineMethod,
   offlineReference,
@@ -56,11 +59,12 @@ export function PaymentModeSection({
   onOfflineMethodChange,
   onOfflineReferenceChange,
 }: PaymentModeSectionProps) {
-  const isEditMode = mode === "edit";
-  const isRemainingMode = paymentAmountMode === "REMAINING";
-  const amountInputDisabled = isEditMode
-    ? isRemainingMode
-    : paymentAmountMode === "FULL";
+  // The customer pays nothing during booking, so the first payment an admin
+  // records is the choice: an advance, or the full amount. Once an advance
+  // exists, the only thing left to collect is the balance.
+  const hasAdvancePaid = advancePaidAlready > 0;
+  const isAdvanceEntryMode = !hasAdvancePaid && paymentAmountMode === "ADVANCE";
+  const amountInputDisabled = !isAdvanceEntryMode;
   const amountInputValue = amountPayNow <= 0 ? "" : amountPayNow;
 
   return (
@@ -81,7 +85,7 @@ export function PaymentModeSection({
             <label className="mb-1 block text-xs font-medium text-slate-700">Amount Type</label>
             <select
               value={paymentAmountMode}
-              disabled={disablePaymentAmountMode}
+              disabled={disablePaymentAmountMode || hasAdvancePaid}
               onChange={(event) =>
                 onPaymentAmountModeChange(
                   event.target.value as "ADVANCE" | "FULL" | "REMAINING"
@@ -89,11 +93,21 @@ export function PaymentModeSection({
               }
               className={selectableInputClass}
             >
-              <option value="ADVANCE">Advance</option>
-              <option value={isEditMode ? "REMAINING" : "FULL"}>
-                {isEditMode ? "Remaining" : "Full"}
-              </option>
+              {hasAdvancePaid ? (
+                <option value="REMAINING">Remaining</option>
+              ) : (
+                <>
+                  <option value="ADVANCE">Advance</option>
+                  <option value="FULL">Full</option>
+                </>
+              )}
             </select>
+            {hasAdvancePaid ? (
+              <p className="mt-1 text-xs text-slate-500">
+                An advance is already recorded, so only the balance is left to
+                collect.
+              </p>
+            ) : null}
             {errors.paymentAmountMode && (
               <p className="mt-1 text-xs text-red-600">{errors.paymentAmountMode}</p>
             )}
@@ -102,7 +116,7 @@ export function PaymentModeSection({
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">
               Amount to Collect Now
-              {!isEditMode && paymentAmountMode === "ADVANCE" ? (
+              {isAdvanceEntryMode ? (
                 <span className="ml-1 font-normal text-slate-500">
                   (Min ${minimumAdvanceAmount})
                 </span>
@@ -110,7 +124,9 @@ export function PaymentModeSection({
             </label>
             <input
               type="number"
-              min={isEditMode ? 0 : minimumAdvanceAmount}
+              // An edit may collect nothing at all, so the browser must not block
+              // an empty amount there; the form validates a typed advance itself.
+              min={mode === "create" && isAdvanceEntryMode ? minimumAdvanceAmount : 0}
               placeholder="Enter amount to collect"
               value={amountInputValue}
               disabled={amountInputDisabled}

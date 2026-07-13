@@ -316,6 +316,15 @@ model Booking {
 
   termsAcceptedAt DateTime?
 
+  // Admin review workflow. Rejection is a review decision and is deliberately
+  // kept separate from cancelledAt/cancelledReason, which stay operational.
+  reviewSubmittedAt DateTime?
+  reviewedAt        DateTime?
+  reviewedByAdminId String?
+  rejectionReason   String?
+  approvalNotes     String?
+  internalNotes     String?
+
   cancelledAt     DateTime?
   cancelledReason String?
 
@@ -349,6 +358,8 @@ model Booking {
   @@index([venueId, packageId, eventDate])
   @@index([venueId, bookingStatus, holdExpiresAt])
   @@index([venueId, startsAtUtc, occupiedUntilUtc])
+  @@index([bookingStatus, reviewSubmittedAt])
+  @@index([reviewedByAdminId, reviewedAt])
 }
 
 model BookingReferenceCounter {
@@ -359,6 +370,15 @@ model BookingReferenceCounter {
 }
 
 
+// Values are appended, never reordered or removed: PostgreSQL enum values are
+// positional and existing rows depend on them.
+//
+// Active workflow: INCOMPLETE (draft) -> PENDING_REVIEW -> APPROVED | REJECTED,
+// with CANCELLED reachable from PENDING_REVIEW/APPROVED.
+//
+// Legacy (payment-first) values retained so historic rows stay readable:
+// AWAITING_PAYMENT, PAYMENT_PROCESSING, CONFIRMED (displayed as Approved),
+// PAID_EXPIRED. The public flow must not write these.
 enum BookingStatus {
   INCOMPLETE
   AWAITING_PAYMENT
@@ -367,6 +387,9 @@ enum BookingStatus {
   CANCELLED
   ABANDONED
   PAID_EXPIRED
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
 }
 
 enum PaymentStatus {

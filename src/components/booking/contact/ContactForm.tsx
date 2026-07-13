@@ -245,7 +245,7 @@ export default function ContactForm({
     >
       <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="flex min-w-0 items-center gap-2 text-1xl font-bold text-[#1f2937]">
-          <span className="shrink-0 border border-[#2f7e7a]/35 bg-[#edf3f1] p-1.5 text-[#347f7c]">
+          <span className="shrink-0 p-1.5 text-gray-600 ring-1 ring-gray-200">
             <User size={16} />
           </span>
           <span className="truncate">Contact Information</span>
@@ -254,7 +254,7 @@ export default function ContactForm({
         <button
           type="button"
           onClick={() => router.push(BOOKING_ROUTES.SCHEDULE)}
-          className="inline-flex shrink-0 cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
+          className="inline-flex shrink-0 cursor-pointer items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-gray-900"
         >
           <ChevronLeft size={14} />
           Back

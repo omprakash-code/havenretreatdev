@@ -8,7 +8,7 @@ import type {
   BookingConfirmationAddonItem,
   BookingConfirmationDetail,
 } from "@/emails/BookingConfirmationEmail";
-import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
+import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import { resolveBookingEmailTheme } from "@/emails/theme/booking-email-theme";
 
 export type AdminBookingAbandonmentEmailProps = {
@@ -77,9 +77,9 @@ export default function AdminBookingAbandonmentEmail({
     <div
       style={{
         margin: 0,
-        padding: "12px",
+        padding: "32px 12px",
         backgroundColor: color.pageBg,
-        fontFamily: "'Courier New', Courier, monospace",
+        fontFamily: bookingEmailFonts.body,
       }}
     >
       <table

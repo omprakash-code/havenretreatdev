@@ -64,16 +64,27 @@ Guests book via a range-based system — they choose any start and end time on a
 
 There are **two paths** depending on whether the guest opts into decoration.
 
+No payment is collected during booking. The guest submits a signed request, Haven
+Retreat reviews it, and an admin approves or rejects it.
+
 ### Path A — With Decoration
 
 ```
-Package → Date & Time → Contact (decoration = Yes) → Occasion & Details → Extras → Agreement → Payment → Confirmed
+Package → Date & Time → Contact (decoration = Yes) → Occasion & Details → Extras → Agreement → Submit Request → Pending Review
 ```
 
 ### Path B — Without Decoration
 
 ```
-Package → Date & Time → Contact (decoration = No) → Agreement → Payment → Confirmed
+Package → Date & Time → Contact (decoration = No) → Agreement → Submit Request → Pending Review
+```
+
+### Admin decision
+
+```
+Pending Review → Approve → Approved
+Pending Review → Reject (reason required) → Rejected
+Pending Review → Cancel → Cancelled
 ```
 
 ---
@@ -125,20 +136,32 @@ Key policy highlights:
 - Cleaning fee applies; excessive damage incurs additional charges
 - Governed by Florida and Miami-Dade County law
 
-### Step 7 — Payment (`/booking/payment`)
+### Step 7 — Submit Request (`/booking/agreement`)
 
-A **$150 non-refundable deposit** is charged via Square to secure the date. The payment page shows a full breakdown:
+Signing the agreement submits the booking. **No payment is collected.** The booking
+moves to `PENDING_REVIEW`, which reserves the date until an admin decides, and the
+request summary shows the full breakdown:
 - Package base price
 - Extra hours (billed at the package's hourly rate)
 - Extra guests
 - Product add-ons
-- Total due
+- Estimated total, with **$0 due now**
 
-The remaining balance is due by Monday of the event week.
+`/booking/payment` is legacy. It is not part of the journey and shows a "no payment
+due" notice unless `PUBLIC_BOOKING_PAYMENTS_ENABLED=true`.
 
-### Step 8 — Confirmed (`/booking/success`)
+### Step 8 — Pending Review (`/booking/success`)
 
-On successful payment the booking is confirmed. The guest receives an email with a booking summary and a downloadable PDF ticket. Haven Retreat admin receives a notification email in parallel.
+The guest sees a Booking Submitted → Under Review timeline and receives a request
+summary email. Haven Retreat admin receives a "pending review" notification with the
+signed agreement attached.
+
+An admin then approves or rejects the request from the **Pending Review** page.
+Approval reserves the date and notifies the guest; rejection requires a reason,
+releases the date and any coupons, and emails the guest.
+
+Payment is tracked separately from approval: a booking can be Approved and Unpaid.
+Payment is recorded by an admin (advance, full, or offline) whenever it is collected.
 
 ---
 
@@ -147,6 +170,7 @@ On successful payment the booking is confirmed. The guest receives an email with
 The admin panel at `/admin` covers:
 
 - **Bookings** — full list with status filters; booking drawer with payment history, agreement view, and manual payment recording
+- **Pending Review** — signed booking requests awaiting a decision; approve or reject with a required reason
 - **Availability Blocks** — block specific dates or time windows to prevent new bookings
 - **Products** — manage cakes, decorations, and gifts with variants and pricing
 - **Settings** — configure minimum booking duration, extra hourly rate, and deposit amount
@@ -234,6 +258,27 @@ ADMIN_EMAIL=                     # Recipient for admin notification emails
 NEXT_PUBLIC_BASE_URL=            # Public site URL (used in emails and PDF links)
 ADMIN_RANGE_BOOKING_ENABLED=true # Enables the range-based booking flow
 ```
+
+### Booking Workflow Flags
+
+The public booking flow submits a signed request for admin review and collects no
+payment. Square remains in the codebase, disabled, so a future provider rollout is
+a flag change rather than a rewrite.
+
+```env
+BOOKING_REVIEW_WORKFLOW_ENABLED=true  # Admin approve/reject workflow (default: true)
+PUBLIC_BOOKING_PAYMENTS_ENABLED=false # Customer-facing payment collection (default: false)
+SQUARE_PAYMENTS_ENABLED=false         # Square as a payment provider (default: false)
+PAYMENT_LINKS_ENABLED=false           # Admin-issued payment links (reserved; default: false)
+```
+
+While payments are disabled:
+
+- `POST /api/bookings/submit` moves the booking to `PENDING_REVIEW` and creates no `Payment` row.
+- `POST /api/payments/square/create-checkout` and `POST /api/bookings/prepare-payment` return `503 PAYMENTS_DISABLED`.
+- `/booking/payment` shows a "no payment due" notice instead of checkout.
+- The Square webhook stays enabled so any legacy in-flight payment can still finalize.
+- Admin manual payment recording (advance, full, offline) is unaffected — approval and payment are independent lifecycles.
 
 ---
 

@@ -27,6 +27,7 @@ import {
   BOOKING_SESSION_EXPIRED_MODAL_MESSAGE,
   emitBookingSessionExpired,
 } from "@/lib/booking-session-expiry";
+import { repriceDurationPricedItems } from "@/lib/product-duration-pricing";
 
 /* -----------------------------
  Types
@@ -79,6 +80,9 @@ export type BookingItemSnapshot = {
   variantId: string;
   category: string;
   unitPrice: number;
+  // Live variant price without any duration overage — what duration-priced
+  // items are repriced from when the booked hours change.
+  baseUnitPrice?: number;
   quantity: number;
   totalPrice: number;
   productImage?: string;
@@ -119,6 +123,7 @@ type ServerBookingItem = {
   variantId: string;
   category: string;
   unitPrice: number;
+  baseUnitPrice?: number | null;
   quantity: number;
   totalPrice: number;
   ledNumber?: string | null;
@@ -143,6 +148,8 @@ function normalizeBookingItems(
     variantId: item.variantId,
     category: item.category,
     unitPrice: Number(item.unitPrice) || 0,
+    baseUnitPrice:
+      typeof item.baseUnitPrice === "number" ? item.baseUnitPrice : undefined,
     quantity: Number(item.quantity) || 0,
     totalPrice: Number(item.totalPrice) || 0,
     ledNumber:
@@ -542,6 +549,21 @@ const loadBooking = async () => {
   useEffect(() => {
     loadBooking();
   }, []);
+
+  // Duration-priced add-ons (e.g. Bartender) must track the booked hours, so
+  // going back and changing the time range immediately updates their totals
+  // to the amount the server will save on the next commit.
+  useEffect(() => {
+    setBooking((p) => {
+      const repriced = repriceDurationPricedItems(
+        p.bookingItems,
+        p.durationHours
+      );
+      return repriced === p.bookingItems
+        ? p
+        : { ...p, bookingItems: repriced };
+    });
+  }, [booking.durationHours]);
 
   /* -----------------------------
    Pricing

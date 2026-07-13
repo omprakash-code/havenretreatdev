@@ -5,6 +5,12 @@ import {
 } from "@/lib/advance-payment";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import {
+  PAYMENTS_DISABLED_CODE,
+  PAYMENTS_DISABLED_MESSAGE,
+  isPublicBookingPaymentsEnabled,
+  isSquarePaymentsEnabled,
+} from "@/lib/booking-feature-flags";
+import {
   createSquarePaymentLink,
   getSquareCurrency,
   SquareServerError,
@@ -131,6 +137,14 @@ async function createRangeSquareCheckout(
 
 export async function POST(req: Request) {
   try {
+    // Public booking does not collect payment. Refuse before touching the
+    // database or Square, so no Payment row or checkout is ever created while
+    // payments are disabled. The Square code below stays intact for the day
+    // PUBLIC_BOOKING_PAYMENTS_ENABLED and SQUARE_PAYMENTS_ENABLED are turned on.
+    if (!isPublicBookingPaymentsEnabled() || !isSquarePaymentsEnabled()) {
+      return jsonError(503, PAYMENTS_DISABLED_CODE, PAYMENTS_DISABLED_MESSAGE);
+    }
+
     const body = (await req.json().catch(() => null)) as { bookingId?: string } | null;
     const bookingId = body?.bookingId;
 

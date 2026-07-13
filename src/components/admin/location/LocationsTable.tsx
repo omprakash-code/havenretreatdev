@@ -37,7 +37,7 @@ export default function LocationsTable({
             <th className="px-4">City</th>
             <th className="px-4">Status</th>
             <th className="px-4">Sort</th>
-            <th className="px-4">Theatres</th>
+            <th className="px-4">Packages</th>
             <th className="px-4">Products</th>
             <th className="px-4">Coupons</th>
             <th className="px-4">Updated</th>

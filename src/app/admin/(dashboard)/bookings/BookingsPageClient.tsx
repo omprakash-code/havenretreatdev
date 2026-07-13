@@ -1,19 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 import PageHeader from "@/components/admin/page/PageHeader";
 import BookingsFilters from "@/components/admin/bookings/BookingFilters";
 import BookingsTable from "@/components/admin/bookings/BookingTable";
 import BookingTableSkeleton from "@/components/admin/bookings/BookingTableSkeleton";
 import BookingDrawer from "@/components/admin/bookings/drawer/BookingDrawer";
 import AddBookingDrawer from "@/components/admin/bookings/drawer/AddBookingDrawer";
-import ConfirmActionModal from "@/components/admin/drawer/ConfirmActionModal";
+import BookingDeleteModal from "@/components/admin/bookings/BookingDeleteModal";
+import useAdminBookingActions from "@/components/admin/bookings/useAdminBookingActions";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 import type { DatePreset } from "@/types/admin/filters";
 import { CalendarCheck, Plus, Search } from "@/components/icons";
-import { downloadBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
-import { mapAdminBookingToSuccessData } from "@/components/booking/success/mapAdminBookingToSuccessData";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import AdminEmptyState from "@/components/admin/shared/AdminEmptyState";
@@ -100,13 +98,9 @@ type BookingsListResponse = {
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [downloadingBookingId, setDownloadingBookingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const [addBookingDrawerOpen, setAddBookingDrawerOpen] = useState(false);
-  const [bookingFormMode, setBookingFormMode] = useState<"create" | "edit">("create");
-  const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
 
   const [preset, setPreset] = useState<DatePreset | null>(null);
   const [customDate, setCustomDate] = useState("");
@@ -123,79 +117,9 @@ export default function BookingsPage() {
   const bookingRefFromUrl = searchParams.get("ref");
   const openAddBookingFromUrl = searchParams.get("openAddBooking");
 
-  useEffect(() => {
-    if (openAddBookingFromUrl !== "1") return;
-
-    setBookingFormMode("create");
-    setEditingBookingId(null);
-    setAddBookingDrawerOpen(true);
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("openAddBooking");
-    const nextQuery = params.toString();
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
-      scroll: false,
-    });
-  }, [openAddBookingFromUrl, pathname, router, searchParams]);
-
-  useEffect(() => {
-    if (!bookingRefFromUrl || bookings.length === 0) return;
-
-    const match = bookings.find(
-      (b) => b.bookingRef === bookingRefFromUrl
-    );
-
-    if (match) {
-      setSelectedBooking(match);
-      setDrawerOpen(true);
-    }
-  }, [bookingRefFromUrl, bookings]);
-
-
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<AdminBooking | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const handleDownloadBookingPdf = useCallback(async (booking: AdminBooking) => {
-    if (downloadingBookingId) return;
-
-    setDownloadingBookingId(booking.id);
-    try {
-      const res = await fetch(`/api/admin/bookings/${booking.id}?view=drawer`, {
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => null)) as
-        | {
-            success?: boolean;
-            data?: (AdminBooking & {
-              locationName: string;
-              theatreImage?: string | null;
-              decorationRequired?: boolean;
-            }) | null;
-          }
-        | null;
-
-      if (!res.ok || !json?.success || !json.data) {
-        throw new Error("Failed to load booking PDF data.");
-      }
-
-      await downloadBookingTicketPdf(mapAdminBookingToSuccessData(json.data));
-      toast.success("Booking PDF downloaded.");
-    } catch {
-      toast.error("Unable to download booking PDF right now.");
-    } finally {
-      setDownloadingBookingId(null);
-    }
-  }, [downloadingBookingId]);
-
-  function closeBookingFormDrawer() {
-    setAddBookingDrawerOpen(false);
-    setBookingFormMode("create");
-    setEditingBookingId(null);
-  }
 
   /* -----------------------------
      Fetch admin bookings
@@ -258,6 +182,59 @@ export default function BookingsPage() {
     }
   }, [customDate, debouncedSearch, packageName, page, preset, timeRange]);
 
+  const refresh = useCallback(
+    (options?: { resetToFirstPage?: boolean }) => {
+      if (options?.resetToFirstPage) {
+        setPage(1);
+        return fetchBookings({ pageOverride: 1 });
+      }
+      return fetchBookings();
+    },
+    [fetchBookings]
+  );
+
+  const {
+    tableActionProps,
+    formDrawerProps,
+    deleteModalProps,
+    deleteTarget,
+    openCreateForm,
+  } = useAdminBookingActions({
+    refresh,
+    onBookingSaved: (booking) => {
+      setSelectedBooking(booking);
+      setDrawerOpen(true);
+    },
+    onBookingDeleted: () => {
+      setSelectedBooking(null);
+      setDrawerOpen(false);
+    },
+  });
+
+  useEffect(() => {
+    if (openAddBookingFromUrl !== "1") return;
+
+    openCreateForm();
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("openAddBooking");
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  }, [openAddBookingFromUrl, openCreateForm, pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (!bookingRefFromUrl || bookings.length === 0) return;
+
+    const match = bookings.find((b) => b.bookingRef === bookingRefFromUrl);
+
+    if (match) {
+      setSelectedBooking(match);
+      setDrawerOpen(true);
+    }
+  }, [bookingRefFromUrl, bookings]);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setDebouncedSearch(search);
@@ -275,79 +252,6 @@ export default function BookingsPage() {
     setSelectedBooking(booking);
     setDrawerOpen(true);
   };
-
-  function handleEditBooking(booking: AdminBooking) {
-    setBookingFormMode("edit");
-    setEditingBookingId(booking.id);
-    setAddBookingDrawerOpen(true);
-  }
-
-  function openDeleteModal(booking: AdminBooking) {
-    setDeleteError(null);
-    setDeleteTarget(booking);
-  }
-
-  function closeDeleteModal() {
-    if (deleting) return;
-    setDeleteError(null);
-    setDeleteTarget(null);
-  }
-
-  async function handleDeleteBooking() {
-    if (!deleteTarget) return;
-
-    try {
-      setDeleting(true);
-      setDeleteError(null);
-
-      const res = await fetch(`/api/admin/bookings/${deleteTarget.id}`, {
-        method: "DELETE",
-      });
-      const json = (await res.json().catch(() => null)) as
-        | { success?: boolean; message?: string }
-        | null;
-
-      if (!res.ok || !json?.success) {
-        setDeleteError(json?.message ?? "Failed to delete booking.");
-        return;
-      }
-
-      toast.success("Booking deleted.");
-      await fetchBookings();
-      setSelectedBooking(null);
-      setDrawerOpen(false);
-      setDeleteTarget(null);
-    } catch (deleteRequestError) {
-      setDeleteError(
-        deleteRequestError instanceof Error
-          ? deleteRequestError.message
-          : "Failed to delete booking."
-      );
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  async function handleBookingCreated(bookingRef: string) {
-    closeBookingFormDrawer();
-    setPage(1);
-    const refreshed = await fetchBookings({ pageOverride: 1 });
-    const createdBooking = refreshed.find((booking) => booking.bookingRef === bookingRef) ?? null;
-    if (createdBooking) {
-      setSelectedBooking(createdBooking);
-      setDrawerOpen(true);
-    }
-  }
-
-  async function handleBookingUpdated(updatedBookingId: string) {
-    closeBookingFormDrawer();
-    const refreshed = await fetchBookings();
-    const updatedBooking = refreshed.find((booking) => booking.id === updatedBookingId) ?? null;
-    if (updatedBooking) {
-      setSelectedBooking(updatedBooking);
-      setDrawerOpen(true);
-    }
-  }
 
   function clearAllFilters() {
     setPage(1);
@@ -374,11 +278,7 @@ export default function BookingsPage() {
         actions={
           <button
             type="button"
-            onClick={() => {
-              setBookingFormMode("create");
-              setEditingBookingId(null);
-              setAddBookingDrawerOpen(true);
-            }}
+            onClick={openCreateForm}
             className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-neutral-800 active:scale-[0.98]"
           >
             <Plus size={16} />
@@ -437,24 +337,13 @@ export default function BookingsPage() {
             hasActiveFilters ? <Search size={18} /> : <CalendarCheck size={18} />
           }
           actionLabel={hasActiveFilters ? "Clear Filters" : "Add Booking"}
-          onAction={
-            hasActiveFilters
-              ? clearAllFilters
-              : () => {
-                  setBookingFormMode("create");
-                  setEditingBookingId(null);
-                  setAddBookingDrawerOpen(true);
-                }
-          }
+          onAction={hasActiveFilters ? clearAllFilters : openCreateForm}
         />
       ) : (
         <BookingsTable
           data={bookings}
           onView={handleViewBooking}
-          onEdit={handleEditBooking}
-          onDelete={openDeleteModal}
-          onDownloadPdf={handleDownloadBookingPdf}
-          downloadingBookingId={downloadingBookingId}
+          {...tableActionProps}
           serverPagination={{
             page,
             totalPages,
@@ -472,34 +361,16 @@ export default function BookingsPage() {
           setSelectedBooking(null);
         }}
         booking={selectedBooking}
+        onReviewed={() => {
+          // An approved booking leaves the pending tab; refresh so the list
+          // reflects the decision.
+          void fetchBookings();
+        }}
       />
 
-      <AddBookingDrawer
-        open={addBookingDrawerOpen}
-        onClose={closeBookingFormDrawer}
-        mode={bookingFormMode}
-        bookingId={editingBookingId}
-        onCreated={handleBookingCreated}
-        onUpdated={handleBookingUpdated}
-      />
+      <AddBookingDrawer {...formDrawerProps} />
 
-      <ConfirmActionModal
-        open={Boolean(deleteTarget)}
-        title="Delete Booking"
-        description={
-          <>
-            You are about to delete booking{" "}
-            <strong>{deleteTarget?.bookingRef ?? "this booking"}</strong>. This action
-            cannot be undone.
-          </>
-        }
-        confirmLabel="Yes, Delete Booking"
-        loadingLabel="Deleting..."
-        loading={deleting}
-        error={deleteError}
-        onClose={closeDeleteModal}
-        onConfirm={() => void handleDeleteBooking()}
-      />
+      <BookingDeleteModal booking={deleteTarget} {...deleteModalProps} />
     </>
   );
 }

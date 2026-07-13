@@ -34,6 +34,8 @@ import {
   resolveBookingDurationPricingConfig,
   resolveSlotDurationHours,
 } from "@/lib/booking-duration-pricing";
+import { getDurationAdjustedUnitPrice } from "@/lib/product-duration-pricing";
+import { resolveVariantBaseUnitPrice } from "@/lib/variant-price";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
   maxGuestsForIncluded,
@@ -58,17 +60,6 @@ function isEditableBookingStatus(status: string) {
     status === "AWAITING_PAYMENT" ||
     status === "PAYMENT_PROCESSING"
   );
-}
-
-function getVariantUnitPrice(variant: {
-  regularPrice: number;
-  salePrice: number | null;
-}) {
-  return variant.salePrice !== null &&
-    variant.salePrice !== undefined &&
-    variant.salePrice > 0
-    ? variant.salePrice
-    : variant.regularPrice;
 }
 
 export async function POST(req: Request) {
@@ -193,6 +184,11 @@ export async function POST(req: Request) {
         finalPrice: booking.baseAmount,
         decorationMandatory: false,
       };
+      const durationHours = resolveSlotDurationHours({
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        durationMin: schedule.durationMin,
+      });
       const effectiveItemsMap = new Map(normalizedItemsMap);
       const includedProductSource = { capacity: resolveRangePackageGuestLimit(booking.packageSnapshot) };
       const packageIncludedProducts = resolvePackageIncludedProducts(includedProductSource);
@@ -281,7 +277,14 @@ export async function POST(req: Request) {
           );
         }
 
-        const unitPrice = getVariantUnitPrice(variant);
+        const unitPrice = getDurationAdjustedUnitPrice({
+          product: {
+            slug: variant.product.slug,
+            name: variant.product.name,
+          },
+          baseUnitPrice: resolveVariantBaseUnitPrice(variant),
+          durationHours,
+        });
         const totalPrice = getPackageIncludedProductTotalPrice({
           source: includedProductSource,
           product: {
@@ -383,11 +386,6 @@ export async function POST(req: Request) {
         (booking.packageSnapshot as { hourlyRate?: number } | null)?.hourlyRate;
       const effectiveExtraHourlyRate =
         packageHourlyRate || durationPricing.extraHourlyRate;
-      const durationHours = resolveSlotDurationHours({
-        startTime: schedule.startTime,
-        endTime: schedule.endTime,
-        durationMin: schedule.durationMin,
-      });
 
       const rangePricing = buildRangePricingSnapshot({
         packageSnapshot: booking.packageSnapshot,

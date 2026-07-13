@@ -7,7 +7,6 @@ import {
   Sparkles,
   Gift,
   FileSignature,
-  CreditCard,
   Check,
 } from "lucide-react";
 
@@ -20,13 +19,13 @@ type Props = {
   };
 };
 
+// The journey ends at submission for admin review; no payment step is shown.
 const steps = [
   { label: "Package", icon: PackageIcon },
   { label: "Contact", icon: User },
   { label: "Occasion", icon: Sparkles },
   { label: "Add-ons", icon: Gift },
   { label: "Agreement", icon: FileSignature },
-  { label: "Payment", icon: CreditCard },
 ];
 
 const CIRCLE_SIZE = 26;
@@ -51,7 +50,7 @@ export default function StepIndicator({
 
   return (
     <div className={`w-full max-w-6xl mx-auto px-2 py-2 ${className}`}>
-      <div className="relative grid grid-cols-6 items-start">
+      <div className="relative grid grid-cols-5 items-start">
         {steps.map((step, index) => {
           const stepNo = index + 1;
           const isCompleted = stepNo < clampedStep;

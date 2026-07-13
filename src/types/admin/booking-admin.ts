@@ -128,6 +128,20 @@ export type AdminBooking = {
 
   paymentStatus: PaymentStatus;
   bookingStatus: BookingStatus;
+  bookingStatusLabel?: string;
+  /** Payment summary derived from collected amounts, independent of approval. */
+  paymentLifecycle?: "UNPAID" | "PARTIAL" | "PAID";
+  paymentStatusLabel?: string;
+
+  // Admin review workflow.
+  reviewSubmittedAt?: string | null;
+  reviewedAt?: string | null;
+  reviewedByAdminId?: string | null;
+  rejectionReason?: string | null;
+  approvalNotes?: string | null;
+  internalNotes?: string | null;
+  agreementSigned?: boolean;
+
   cancelledReason: string | null;
   appliedCouponCode?: string | null;
   appliedCoupons?: Array<{

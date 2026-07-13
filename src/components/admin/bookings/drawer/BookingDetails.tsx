@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatET } from "@/lib/formatters";
+import BookingReviewActions from "@/components/admin/bookings/drawer/BookingReviewActions";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 import Image from "next/image";
 import {
@@ -22,7 +23,10 @@ import {
   humanizePaymentCaptureFailureReason,
   isPaymentCapturedBookingFailure,
 } from "@/lib/payment-capture-failure";
-import { getAdminBookingStatusDisplay } from "@/lib/admin-booking-status";
+import {
+  getAdminBookingStatusDisplay,
+  getReviewStatusDisplay,
+} from "@/lib/admin-booking-status";
 import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 
 function formatOccasionFieldLabel(key: string) {
@@ -110,62 +114,168 @@ function MonoValue({ children }: { children: React.ReactNode }) {
   );
 }
 
+function toTitleCase(label: string) {
+  return label
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+}
+
+/**
+ * How much money has actually been collected. PAID means captured, and
+ * `advancePaid` then holds what was taken — on an uncaptured booking the same
+ * field only holds what is *payable*, so it cannot be read on its own. A capture
+ * that still leaves a balance is Partial, not Paid.
+ */
+function resolveCollectedPaymentDisplay(input: {
+  paymentStatus?: string | null;
+  advancePaid?: number | null;
+  remainingPayable?: number | null;
+}) {
+  const captured = input.paymentStatus === "PAID";
+  const collected = captured ? Math.max(Number(input.advancePaid ?? 0), 0) : 0;
+  const remaining = Math.max(Number(input.remainingPayable ?? 0), 0);
+
+  if (collected <= 0) {
+    return { label: "Pending", className: "border border-amber-200 bg-white text-amber-700" };
+  }
+  if (remaining > 0) {
+    return { label: "Partially Paid", className: "border border-blue-200 bg-white text-blue-700" };
+  }
+  return { label: "Fully Paid", className: "border border-emerald-200 bg-white text-emerald-700" };
+}
+
+/** Provider outcomes that describe an attempt, not a collected balance. */
+const PAYMENT_ATTEMPT_STATUSES = ["FAILED", "REFUNDED", "EXPIRED", "CANCELLED"];
+
+function getDrawerBookingStatusClassName(status: string) {
+  const classNames: Record<string, string> = {
+    PENDING_REVIEW: "border border-amber-200 bg-white text-amber-700",
+    APPROVED: "border border-emerald-200 bg-white text-emerald-700",
+    REJECTED: "border border-rose-200 bg-white text-rose-700",
+    PAID_EXPIRED: "border border-amber-200 bg-white text-amber-800",
+  };
+
+  return classNames[status] ?? "border border-slate-200 bg-white text-slate-700";
+}
+
 // Status Badge Component
 function StatusBadge({
   status,
   cancelledReason,
   paymentStatus,
+  advancePaid,
+  remainingPayable,
   type = "booking"
 }: {
   status: string;
   cancelledReason?: string | null;
   paymentStatus?: string | null;
+  advancePaid?: number | null;
+  remainingPayable?: number | null;
   type?: "booking" | "payment";
 }) {
+  if (type === "payment" && !PAYMENT_ATTEMPT_STATUSES.includes(status)) {
+    const collectedDisplay = resolveCollectedPaymentDisplay({
+      paymentStatus: status,
+      advancePaid,
+      remainingPayable,
+    });
+
+    return (
+      <span
+        className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${collectedDisplay.className}`}
+      >
+        {collectedDisplay.label}
+      </span>
+    );
+  }
+
   const derivedBookingDisplay =
     type === "booking"
       ? getAdminBookingStatusDisplay({
           bookingStatus: status,
           paymentStatus,
           cancelledReason,
-        })
+        }) ?? getReviewStatusDisplay(status)
       : null;
 
   if (derivedBookingDisplay) {
     return (
-      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${derivedBookingDisplay.className}`}>
-        {derivedBookingDisplay.label}
+      <span
+        className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${getDrawerBookingStatusClassName(status)}`}
+        title={derivedBookingDisplay.title}
+      >
+        {/* The list pill shouts its status; inside the drawer every other badge
+            is title case, so the shared label is softened here. */}
+        {toTitleCase(derivedBookingDisplay.label)}
       </span>
     );
   }
 
   const bookingConfig: Record<string, { label: string; className: string }> = {
-    INCOMPLETE: { label: "Incomplete", className: "bg-slate-100 text-slate-700" },
-    AWAITING_PAYMENT: { label: "Awaiting Payment", className: "bg-amber-50 text-amber-800" },
-    PAYMENT_PROCESSING: { label: "Payment Processing", className: "bg-sky-50 text-sky-800" },
-    CONFIRMED: { label: "Confirmed", className: "bg-emerald-50 text-emerald-800" },
-    CANCELLED: { label: "Cancelled", className: "bg-red-50 text-red-800" },
-    ABANDONED: { label: "Abandoned", className: "bg-slate-100 text-slate-600" },
-    PAID_EXPIRED: { label: "PAID - EXPIRED", className: "bg-amber-50 text-amber-900" },
+    INCOMPLETE: { label: "Incomplete", className: "border border-slate-200 bg-white text-slate-700" },
+    AWAITING_PAYMENT: { label: "Awaiting Payment", className: "border border-amber-200 bg-white text-amber-700" },
+    PAYMENT_PROCESSING: { label: "Payment Processing", className: "border border-sky-200 bg-white text-sky-700" },
+    CONFIRMED: { label: "Confirmed", className: "border border-emerald-200 bg-white text-emerald-700" },
+    CANCELLED: { label: "Cancelled", className: "border border-red-200 bg-white text-red-700" },
+    ABANDONED: { label: "Abandoned", className: "border border-slate-200 bg-white text-slate-600" },
+    PAID_EXPIRED: { label: "PAID - EXPIRED", className: "border border-amber-200 bg-white text-amber-800" },
   };
 
   const paymentConfig: Record<string, { label: string; className: string }> = {
-    INITIALIZED: { label: "Payment Not Started", className: "text-slate-700" },
-    AWAITING_PAYMENT: { label: "Awaiting Payment", className: "bg-amber-50 text-amber-800" },
-    PENDING: { label: "Pending", className: "bg-amber-50 text-amber-800" },
-    PAID: { label: "Paid", className: "bg-emerald-50 text-emerald-800" },
-    FAILED: { label: "Failed", className: "bg-red-50 text-red-800" },
-    PARTIAL: { label: "Partial", className: "bg-blue-50 text-blue-800" },
-    REFUNDED: { label: "Refunded", className: "bg-slate-100 text-slate-700" },
-    EXPIRED: { label: "Expired", className: "bg-slate-100 text-slate-600" },
+    // No payment is taken during booking any more; it is collected after review.
+    INITIALIZED: { label: "Pending", className: "border border-amber-200 bg-white text-amber-700" },
+    AWAITING_PAYMENT: { label: "Awaiting Payment", className: "border border-amber-200 bg-white text-amber-700" },
+    PENDING: { label: "Pending", className: "border border-amber-200 bg-white text-amber-700" },
+    PAID: { label: "Paid", className: "border border-emerald-200 bg-white text-emerald-700" },
+    FAILED: { label: "Failed", className: "border border-red-200 bg-white text-red-700" },
+    PARTIAL: { label: "Partial", className: "border border-blue-200 bg-white text-blue-700" },
+    REFUNDED: { label: "Refunded", className: "border border-slate-200 bg-white text-slate-700" },
+    EXPIRED: { label: "Expired", className: "border border-slate-200 bg-white text-slate-600" },
   };
 
   const config = type === "booking" ? bookingConfig : paymentConfig;
-  const { label, className } = config[status] || { label: status, className: "bg-slate-100 text-slate-700" };
+  const { label, className } = config[status] || { label: status, className: "border border-slate-200 bg-white text-slate-700" };
 
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${className}`}>
       {label}
+    </span>
+  );
+}
+
+/**
+ * Whether an email in the booking's lifecycle has gone out. `pending` marks a
+ * send that is not due yet, so a not-yet-sent email never reads as a failure.
+ */
+function EmailStatus({
+  sent = false,
+  pending = false,
+}: {
+  sent?: boolean;
+  pending?: boolean;
+}) {
+  if (sent) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-700">
+        <CheckCircle size={12} />
+        Yes
+      </span>
+    );
+  }
+
+  if (pending) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md border border-amber-200 bg-white text-xs font-medium text-amber-700">
+        Pending
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
+      <X size={12} />
+      No
     </span>
   );
 }
@@ -263,11 +373,15 @@ function ProductCard({ item }: { item: AdminBooking["items"][0] }) {
 
 type BookingDetailsProps = {
   booking: AdminBooking;
+  /** Called after an approve/reject so the drawer and list can revalidate. */
+  onReviewed?: () => void;
 };
 
-export default function BookingDetails({ booking }: BookingDetailsProps) {
+export default function BookingDetails({
+  booking,
+  onReviewed,
+}: BookingDetailsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "payment">("overview");
-  const [showAgreementDetails, setShowAgreementDetails] = useState(false);
   const scheduleDateLabel =
     booking.schedule?.dateLabel || formatET(booking.slot.date).split(",")[0];
   const scheduleTimeLabel =
@@ -282,10 +396,8 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
   const isFullyPaid =
     hasCapturedAdvance &&
     totalPaid >= Math.max(booking.pricing.total, 0);
-  const isPaymentInProgress =
-    booking.bookingStatus === "PAYMENT_PROCESSING" ||
-    booking.paymentStatus === "AWAITING_PAYMENT" ||
-    booking.paymentStatus === "INITIALIZED";
+  const balanceDueAmount = Math.max(booking.pricing.remainingPayable, 0);
+  const paymentSummaryStatus = booking.paymentStatus ?? "INITIALIZED";
   const isPaymentCapturedFailure = isPaymentCapturedBookingFailure({
     bookingStatus: booking.bookingStatus,
     paymentStatus: booking.paymentStatus,
@@ -294,6 +406,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
   const paymentCapturedFailureReason = humanizePaymentCaptureFailureReason(
     booking.cancelledReason
   );
+  const isReviewBooking = Boolean(booking.reviewSubmittedAt);
   const statusOverviewItems = [
     {
       key: "booking",
@@ -317,43 +430,59 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
       content: (
         <StatusBadge
           status={booking.paymentStatus ?? "INITIALIZED"}
+          advancePaid={booking.pricing.advancePaid}
+          remainingPayable={booking.pricing.remainingPayable}
           type="payment"
         />
       ),
     },
-    ...(booking.bookingStatus !== "ABANDONED"
+    // A booking that reached review was emailed to the customer and the admin on
+    // submission, and is emailed again once a decision is made. The confirmation
+    // email is a later, separate send, so it only appears once it has gone out.
+    ...(isReviewBooking && booking.bookingStatus !== "ABANDONED"
+      ? [
+          {
+            key: "submission-email",
+            label: "Submission Email",
+            content: <EmailStatus sent />,
+          },
+          {
+            key: "decision-email",
+            label: "Decision Email",
+            content: booking.reviewedAt ? (
+              <EmailStatus sent />
+            ) : (
+              <EmailStatus pending />
+            ),
+          },
+          ...(booking.confirmationEmailSent
+            ? [{
+                key: "confirmation-email",
+                label: "Confirmation Email",
+                content: <EmailStatus sent />,
+              }]
+            : []),
+        ]
+      : []),
+    ...(!isReviewBooking && booking.bookingStatus !== "ABANDONED"
       ? [{
           key: "confirmation-email",
           label: "Confirmation Email",
-          content: booking.confirmationEmailSent ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-800">
-              <CheckCircle size={12} />
-              Yes
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
-              <X size={12} />
-              No
-            </span>
-          ),
+          content: <EmailStatus sent={booking.confirmationEmailSent} />,
         }]
       : []),
     ...(booking.bookingStatus === "ABANDONED"
       ? [{
           key: "abandonment-email",
           label: "Abandonment Email",
-          content:
-            booking.abandonmentCustomerEmailSentAt || booking.abandonmentAdminEmailSentAt ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-800">
-                <CheckCircle size={12} />
-                Yes
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-600">
-                <X size={12} />
-                No
-              </span>
-            ),
+          content: (
+            <EmailStatus
+              sent={Boolean(
+                booking.abandonmentCustomerEmailSentAt ||
+                  booking.abandonmentAdminEmailSentAt
+              )}
+            />
+          ),
         }]
       : []),
   ];
@@ -395,8 +524,11 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
               transition={{ duration: 0.2 }}
               className="space-y-6"
             >
+              {/* Review decision (only while pending) */}
+              <BookingReviewActions booking={booking} onReviewed={onReviewed} />
+
               {/* Status Overview */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+              <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-900">Status Overview</h3>
                 {isPaymentCapturedFailure ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
@@ -410,7 +542,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     </p>
                   </div>
                 ) : null}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
                   {statusOverviewItems.map((item, index) => (
                     <div key={item.key} className="contents">
                       {index > 0 ? <div className="h-8 w-px bg-slate-200" /> : null}
@@ -421,6 +553,24 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                     </div>
                   ))}
                 </div>
+
+                {booking.bookingStatus === "APPROVED" && booking.approvalNotes ? (
+                  <div className="border-t border-slate-200 pt-3">
+                    <p className="text-xs text-slate-500 mb-1">Approval notes</p>
+                    <p className="text-xs leading-5 text-slate-700">
+                      {booking.approvalNotes}
+                    </p>
+                  </div>
+                ) : null}
+
+                {booking.bookingStatus === "REJECTED" && booking.rejectionReason ? (
+                  <div className="border-t border-slate-200 pt-3">
+                    <p className="text-xs text-slate-500 mb-1">Rejection note</p>
+                    <p className="text-xs leading-5 text-slate-700">
+                      {booking.rejectionReason}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               {/* Customer Details */}
@@ -458,7 +608,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   <div className="pt-3 border-t border-slate-200 flex gap-2">
                     <a
                       href={`tel:${booking.customer.phone}`}
-                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100"
+                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -469,7 +619,7 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       href={`https://wa.me/1${booking.customer.phone}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+                      className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-emerald-300 hover:text-emerald-700"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
@@ -609,10 +759,23 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
 
               {/* Agreement & Signature */}
               <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                  <FileText size={16} />
-                  Agreement & Signature
-                </h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <FileText size={16} />
+                    Agreement & Signature
+                  </h3>
+                  {booking.signedAgreement?.pdfFileName ? (
+                    <a
+                      href={`/api/admin/bookings/${encodeURIComponent(
+                        booking.id
+                      )}/agreement/download`}
+                      className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
+                    >
+                      <Download size={14} aria-hidden="true" />
+                      Download
+                    </a>
+                  ) : null}
+                </div>
 
                 <div className="flex items-start justify-between gap-4">
                   <span className="text-xs text-slate-500">Status</span>
@@ -640,28 +803,26 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
 
                 {booking.signedAgreement ? (
                   <div className="space-y-3 border-t border-slate-200 pt-3">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <p className="mb-1 text-xs text-slate-500">Signer Name</p>
-                        <p className="text-sm font-semibold text-slate-900">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-xs text-slate-500">Signer Name</span>
+                        <span className="text-sm font-medium text-slate-900 text-right">
                           {booking.signedAgreement.signerName}
-                        </p>
+                        </span>
                       </div>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <p className="mb-1 text-xs text-slate-500">Signed At</p>
-                        <p className="text-sm font-semibold text-slate-900">
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-xs text-slate-500">Signed At</span>
+                        <span className="text-sm font-medium text-slate-900 text-right">
                           {formatET(booking.signedAgreement.signedAt)}
-                        </p>
+                        </span>
                       </div>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                        <p className="mb-1 text-xs text-slate-500">
-                          Clauses Acknowledged
-                        </p>
-                        <p className="text-sm font-semibold text-slate-900">
+                      <div className="flex items-start justify-between gap-4">
+                        <span className="text-xs text-slate-500">Clauses Acknowledged</span>
+                        <span className="text-sm font-medium text-slate-900 text-right">
                           {booking.signedAgreement.acknowledgedClauses?.length ??
                             0}{" "}
                           of {HAVEN_AGREEMENT_TOTAL_CLAUSES}
-                        </p>
+                        </span>
                       </div>
                     </div>
 
@@ -681,63 +842,6 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                       </div>
                     </div>
 
-                    {booking.signedAgreement.pdfFileName && (
-                      <a
-                        href={`/api/admin/bookings/${encodeURIComponent(
-                          booking.id
-                        )}/agreement/download`}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-700 bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-800"
-                      >
-                        <Download size={16} aria-hidden="true" />
-                        Download Signed Agreement
-                      </a>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setShowAgreementDetails((v) => !v)}
-                      className="text-xs text-slate-500 hover:text-slate-700 underline underline-offset-2 transition-colors"
-                    >
-                      {showAgreementDetails ? "Hide technical details" : "Show technical details"}
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {showAgreementDetails && (
-                        <motion.div
-                          key="agreement-details"
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.22, ease: "easeInOut" }}
-                          style={{ overflow: "hidden" }}
-                        >
-                          <div className="space-y-2 pt-1">
-                            <FieldRow label="Agreement ID">
-                              <MonoValue>{booking.signedAgreement.id}</MonoValue>
-                            </FieldRow>
-                            <FieldRow label="Stored PDF">
-                              <MonoValue>
-                                {booking.signedAgreement.pdfFileName ?? "—"}
-                              </MonoValue>
-                            </FieldRow>
-                            <FieldRow label="PDF SHA-256">
-                              <MonoValue>
-                                {booking.signedAgreement.pdfSha256 ?? "—"}
-                              </MonoValue>
-                            </FieldRow>
-                            <FieldRow label="Agreement Version">
-                              {booking.signedAgreement.agreementVersion ?? "—"}
-                            </FieldRow>
-                            <FieldRow label="Confirmation Checkbox">
-                              {booking.signedAgreement.confirmationAccepted ? "Accepted" : "Not Accepted"}
-                            </FieldRow>
-                            <FieldRow label="IP Address">
-                              {booking.signedAgreement.ipAddress ?? "—"}
-                            </FieldRow>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
@@ -806,7 +910,17 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
               ) : null}
               {/* Pricing Breakdown */}
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-slate-900">Pricing Breakdown</h3>
+                <div className="flex items-center justify-between gap-4">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Pricing Breakdown
+                  </h3>
+                  <StatusBadge
+                    status={paymentSummaryStatus}
+                    advancePaid={booking.pricing.advancePaid}
+                    remainingPayable={booking.pricing.remainingPayable}
+                    type="payment"
+                  />
+                </div>
 
                 <div className="bg-slate-50 rounded-xl p-4 space-y-2.5">
                   {booking.pricing.packageAmount != null ? (
@@ -899,90 +1013,53 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   )}
 
                   <div className="border-t border-slate-200 pt-2.5 mt-2.5">
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-slate-900">Total Amount</span>
                       <span className="text-lg font-bold text-slate-900">
                         ${booking.pricing.total.toLocaleString()}
                       </span>
                     </div>
+
+                    {!isFullyPaid && (
+                      <div className="mt-3 space-y-2.5 border-t border-slate-200 pt-2.5">
+                        {totalPaid > 0 ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-slate-600">Amount Paid</span>
+                            <span className="text-sm font-medium text-slate-900">
+                              ${totalPaid.toLocaleString()}
+                            </span>
+                          </div>
+                        ) : null}
+
+                        {balanceDueAmount > 0 ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-slate-600">Balance Due</span>
+                            <span className="text-sm font-medium text-slate-900">
+                              ${balanceDueAmount.toLocaleString()}
+                            </span>
+                          </div>
+                        ) : null}
+
+                        {!hasCapturedAdvance &&
+                        lockedAdvanceAmount > 0 &&
+                        lockedAdvanceAmount !== balanceDueAmount ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-sm text-slate-600">Advance Due</span>
+                            <span className="text-sm font-medium text-slate-900">
+                              ${lockedAdvanceAmount.toLocaleString()}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {totalPaid <= 0 && balanceDueAmount <= 0 && lockedAdvanceAmount <= 0 ? (
+                      <p className="mt-3 border-t border-slate-200 pt-2.5 text-xs text-slate-500">
+                        No payment has been recorded for this booking.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
-              </div>
-
-              {/* Payment Summary */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-slate-900">Payment Summary</h3>
-
-                {isFullyPaid ? (
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                      <p className="mb-1 text-xs text-emerald-700">Fully Paid</p>
-                      <p className="text-lg font-semibold text-emerald-800">
-                        ${totalPaid.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div
-                      className={`rounded-xl p-3 ${
-                        hasCapturedAdvance
-                          ? "border border-emerald-200 bg-emerald-50"
-                          : isPaymentInProgress
-                          ? "border border-sky-200 bg-sky-50"
-                          : "border border-slate-200 bg-slate-100"
-                      }`}
-                    >
-                      <p
-                        className={`mb-1 text-xs ${
-                          hasCapturedAdvance
-                            ? "text-emerald-700"
-                            : isPaymentInProgress
-                            ? "text-sky-700"
-                            : "text-slate-700"
-                        }`}
-                      >
-                        {hasCapturedAdvance ? "Advance Paid" : "Advance Payable"}
-                      </p>
-                      <p
-                        className={`text-lg font-semibold ${
-                          hasCapturedAdvance
-                            ? "text-emerald-800"
-                            : isPaymentInProgress
-                            ? "text-sky-800"
-                            : "text-slate-900"
-                        }`}
-                      >
-                        ${(hasCapturedAdvance ? totalPaid : lockedAdvanceAmount).toLocaleString()}
-                      </p>
-                    </div>
-
-                    <div
-                      className={`rounded-xl p-3 ${
-                        hasCapturedAdvance
-                          ? "border border-amber-200 bg-amber-50"
-                          : isPaymentInProgress
-                          ? "border border-orange-200 bg-orange-50"
-                          : "border border-amber-200 bg-amber-50"
-                      }`}
-                    >
-                      <p
-                        className={`mb-1 text-xs ${
-                          isPaymentInProgress ? "text-orange-700" : "text-amber-700"
-                        }`}
-                      >
-                        Balance Due
-                      </p>
-                      <p
-                        className={`text-lg font-semibold ${
-                          isPaymentInProgress ? "text-orange-800" : "text-amber-800"
-                        }`}
-                      >
-                        ${booking.pricing.remainingPayable.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Payment Details */}
@@ -992,61 +1069,57 @@ export default function BookingDetails({ booking }: BookingDetailsProps) {
                   booking.paymentDetails.method
                 );
                 return (
-                  <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="space-y-3 border-t border-slate-200 pt-5">
                     <h3 className="text-sm font-semibold text-slate-900">Payment Details</h3>
 
-                    {/* Payment method badge */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">Payment Method</span>
-                      <span
-                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                          resolved.isOffline
-                            ? "bg-slate-100 text-slate-700"
-                            : "bg-sky-50 text-sky-700"
-                        }`}
-                      >
-                        {resolved.label}
-                      </span>
-                    </div>
-
-                    {/* Provider — only shown for online payments */}
-                    {!resolved.isOffline && (
+                    <div className="space-y-3">
                       <div className="flex items-start justify-between gap-4">
-                        <span className="text-xs text-slate-500">Provider</span>
-                        <span className="text-sm font-medium text-slate-900">
-                          {resolvePaymentProvider(booking.paymentDetails.provider)}
+                        <span className="text-xs text-slate-500">Payment Method</span>
+                        <span className="text-sm font-medium text-slate-900 text-right">
+                          {resolved.label}
                         </span>
                       </div>
-                    )}
 
-                    {booking.paymentDetails.transactionId && (
+                      {!resolved.isOffline && (
+                        <div className="flex items-start justify-between gap-4">
+                          <span className="text-xs text-slate-500">Provider</span>
+                          <span className="text-sm font-medium text-slate-900">
+                            {resolvePaymentProvider(booking.paymentDetails.provider)}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex items-start justify-between gap-4">
-                        <span className="text-xs text-slate-500">Transaction ID</span>
-                        <MonoValue>{booking.paymentDetails.transactionId}</MonoValue>
+                        <span className="text-xs text-slate-500">Recorded On</span>
+                        <span className="text-sm font-medium text-slate-900">
+                          {formatET(booking.paymentDetails.createdAt)}
+                        </span>
                       </div>
-                    )}
 
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-xs text-slate-500">Recorded At</span>
-                      <span className="text-sm font-medium text-slate-900">
-                        {formatET(booking.paymentDetails.createdAt)}
-                      </span>
+                      {booking.paymentDetails.transactionId && (
+                        <div className="flex items-start justify-between gap-4">
+                          <span className="text-xs text-slate-500">Reference</span>
+                          <MonoValue>{booking.paymentDetails.transactionId}</MonoValue>
+                        </div>
+                      )}
+
+                      {booking.paymentDetails.recordedByAdminId && (
+                        <div className="flex items-start justify-between gap-4">
+                          <span className="text-xs text-slate-500">Recorded By</span>
+                          <span className="text-sm font-medium text-slate-900">
+                            Admin
+                          </span>
+                        </div>
+                      )}
                     </div>
-
-                    {booking.paymentDetails.recordedByAdminId && (
-                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                        Recorded manually by admin
-                      </div>
-                    )}
                   </div>
                 );
               })()}
 
               {/* Payment Gateway Details */}
               {(booking.paymentOrderId || booking.paymentTransactionId) && (
-                <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                    <CreditCard size={16} />
+                <div className="space-y-3 border-t border-slate-200 pt-5">
+                  <h3 className="text-sm font-semibold text-slate-900">
                     Payment Gateway
                   </h3>
 

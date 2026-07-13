@@ -21,8 +21,12 @@ export async function releaseStaleReservedCoupons(): Promise<{
           lt: staleBefore,
         },
         booking: {
+          // A booking awaiting or holding an admin decision keeps its coupons
+          // reserved: they are confirmed on approval and released on
+          // rejection/cancellation. Without this guard the `updatedAt` staleness
+          // branch below would release them mid-review and zero the discount.
           bookingStatus: {
-            not: "CONFIRMED",
+            notIn: ["CONFIRMED", "PENDING_REVIEW", "APPROVED"],
           },
           OR: [
             {

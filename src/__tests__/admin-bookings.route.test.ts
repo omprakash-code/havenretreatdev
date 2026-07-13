@@ -125,7 +125,7 @@ describe("GET /api/admin/bookings", () => {
     );
   });
 
-  it("builds abandoned view as not-in-progress and not-confirmed", async () => {
+  it("builds abandoned view as abandoned-only", async () => {
     await GET(
       new Request("http://localhost/api/admin/bookings?type=abandoned")
     );
@@ -134,26 +134,47 @@ describe("GET /api/admin/bookings", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           AND: expect.arrayContaining([
-            expect.objectContaining({
-              AND: expect.arrayContaining([
-                {
-                  bookingStatus: {
-                    notIn: ["CONFIRMED", "PAID_EXPIRED"],
-                  },
-                },
-                expect.objectContaining({
-                  NOT: {
-                    bookingStatus: {
-                      in: [
-                        "INCOMPLETE",
-                        "AWAITING_PAYMENT",
-                        "PAYMENT_PROCESSING",
-                      ],
-                    },
-                  },
-                }),
-              ]),
-            }),
+            { bookingStatus: "ABANDONED" },
+          ]),
+        }),
+      })
+    );
+  });
+
+  it("returns pending-review bookings on the pending tab", async () => {
+    await GET(
+      new Request("http://localhost/api/admin/bookings?type=pending")
+    );
+
+    expect(prisma.booking.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            { bookingStatus: "PENDING_REVIEW" },
+          ]),
+        }),
+      })
+    );
+  });
+
+  it("keeps decided bookings on the main tab and excludes review/payment funnel rows", async () => {
+    await GET(new Request("http://localhost/api/admin/bookings"));
+
+    expect(prisma.booking.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            {
+              bookingStatus: {
+                in: [
+                  "APPROVED",
+                  "CONFIRMED",
+                  "REJECTED",
+                  "CANCELLED",
+                  "PAID_EXPIRED",
+                ],
+              },
+            },
           ]),
         }),
       })

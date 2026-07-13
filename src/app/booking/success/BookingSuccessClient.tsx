@@ -12,6 +12,7 @@ import AnimatedTicketCard from "@/components/booking/success/AnimatedTicketCard"
 import CelebrationBlock from "@/components/booking/success/CelebrationBlock";
 import CelebrationDetailsCard from "@/components/booking/success/CelebrationDetailsCard";
 import ExtrasShowcase from "@/components/booking/success/ExtrasShowcase";
+import ReviewStatusCard from "@/components/booking/success/ReviewStatusCard";
 import { buildCelebrationRows } from "@/components/booking/success/success-details";
 import TheatreImagePanel from "@/components/booking/success/TheatreImagePanel";
 import type { BookingSuccessData } from "@/components/booking/success/types";
@@ -54,15 +55,15 @@ export default function BookingSuccessClient() {
         if (!res.ok) {
           if (json?.code === "TOKEN_EXPIRED") {
             setErrorState({
-              title: "Confirmation link expired",
+              title: "Booking link expired",
               message:
-                "This confirmation link has expired. Please check your email for the latest confirmation.",
+                "This booking link has expired. Please check your email for the latest link to your booking request.",
             });
           } else {
             setErrorState({
-              title: "Unable to open confirmation",
+              title: "Unable to open booking request",
               message:
-                "This confirmation link is invalid. Please use the latest booking confirmation link.",
+                "This booking link is invalid. Please use the latest link from your booking request email.",
             });
           }
           return;
@@ -70,9 +71,9 @@ export default function BookingSuccessClient() {
 
         if (!json || !json.bookingRef) {
           setErrorState({
-            title: "Unable to open confirmation",
+            title: "Unable to open booking request",
             message:
-              "This confirmation link is invalid. Please use the latest booking confirmation link.",
+              "This booking link is invalid. Please use the latest link from your booking request email.",
           });
           return;
         }
@@ -81,7 +82,7 @@ export default function BookingSuccessClient() {
         setErrorState({
           title: "Unable to load booking",
           message:
-            "We could not load your booking confirmation right now. Please try again.",
+            "We could not load your booking request right now. Please try again.",
         });
       } finally {
         setLoading(false);
@@ -177,7 +178,7 @@ export default function BookingSuccessClient() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">
-            {errorState?.title ?? "Unable to open confirmation"}
+            {errorState?.title ?? "Unable to open booking request"}
           </h2>
           <p className="text-slate-600 mb-6">
             {errorState?.message ??
@@ -195,6 +196,10 @@ export default function BookingSuccessClient() {
   }
 
   const hasCelebrationDetails = buildCelebrationRows(data).length > 0;
+  // Submitted and approved bookings show their progress on the trail beside the
+  // booking reference. A rejection has no progress to show and carries a reason
+  // the customer must see, so it keeps the status card.
+  const showRejectionNotice = data.bookingStatus === "REJECTED";
 
   return (
     <>
@@ -231,6 +236,7 @@ export default function BookingSuccessClient() {
                 </div>
 
                 <div className="space-y-4 xl:pt-0">
+                  {showRejectionNotice && <ReviewStatusCard data={data} />}
                   <AnimatedTicketCard data={data} embedded />
                 </div>
               </div>

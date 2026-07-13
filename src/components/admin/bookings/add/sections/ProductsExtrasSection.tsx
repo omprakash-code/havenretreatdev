@@ -14,6 +14,7 @@ type ProductsExtrasSectionProps = {
   loadingProducts: boolean;
   products: ProductOption[];
   productsByCategory: Record<"CAKE" | "DECORATION" | "GIFT", ProductOption[]>;
+  durationHours?: number | null;
   getActiveVariantId: (product: ProductOption) => string;
   getVariantSelection: (productId: string, variantId: string) => ProductLineSelection;
   getIncludedQuantity: (product: ProductOption, variantId: string) => number;
@@ -36,6 +37,7 @@ function ProductsExtrasSectionComponent({
   loadingProducts,
   products,
   productsByCategory,
+  durationHours,
   getActiveVariantId,
   getVariantSelection,
   getIncludedQuantity,
@@ -114,6 +116,7 @@ function ProductsExtrasSectionComponent({
                           product={product}
                           activeVariantId={activeVariantId}
                           selection={selection}
+                          durationHours={durationHours}
                           includedQuantity={getIncludedQuantity(product, activeVariantId)}
                           ledDraft={getLedDraftValue(product.id, activeVariantId, selection.ledNumber)}
                           onVariantChange={(variantId) => onVariantChange(product, variantId)}

@@ -135,7 +135,7 @@ export default function MobileStickyAction({
         {hasPrice && resolvedAdvancePay !== null && (
           <div className="mb-2 border-b border-[#d7e4e1] px-1 pb-2 text-center">
             <p className="truncate whitespace-nowrap text-xs text-gray-700">
-              Pay {formatCurrency(resolvedAdvancePay)} only to confirm • Remaining at venue: {formatCurrency(remainingAtVenue ?? 0)}
+              No payment today • {formatCurrency(resolvedAdvancePay)} advance after confirmation • {formatCurrency(remainingAtVenue ?? 0)} before your event
             </p>
           </div>
         )}

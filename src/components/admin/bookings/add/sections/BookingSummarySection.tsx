@@ -126,13 +126,24 @@ export function BookingSummarySection({
   const totalAmount = pricing?.totalAmount ?? 0;
   const subtotalAmount = slotAmount + decorationAmount + extrasAmount + productsAmount;
   const paidAmount = Math.max(alreadyPaidAmount, 0);
-  const outstandingAmount = Math.max(totalAmount - paidAmount, 0);
   const payNowAmount =
     paymentAmountMode === "FULL" || paymentAmountMode === "REMAINING"
       ? totalAmount
       : pricing?.advancePaid ?? 0;
   const remainingAmount = pricing?.remainingPayable ?? 0;
   const collectNowAmount = Math.max(amountToCollectNow, 0);
+  // What the booking still owes once this update collects its amount, so typing
+  // an advance moves the balance immediately.
+  const remainingAfterCollection = Math.max(
+    totalAmount - paidAmount - collectNowAmount,
+    0
+  );
+  /** This update settles the booking: what is collected leaves nothing owing. */
+  const clearsFullBalance =
+    mode === "edit" &&
+    totalAmount > 0 &&
+    collectNowAmount > 0 &&
+    remainingAfterCollection === 0;
   const hasEditPaidAmount = mode === "edit" && paidAmount > 0;
   const isFullyPaidSnapshot = mode === "edit" && paidAmount >= totalAmount;
   const shouldUsePaidAmountLabel =
@@ -161,8 +172,8 @@ export function BookingSummarySection({
       : "Create Booking";
   const editCtaLabel =
     collectNowDisplayAmount > 0
-      ? paymentAmountMode === "REMAINING"
-        ? `Collect ${formatCurrencySymbol(collectNowDisplayAmount)} & Update`
+      ? clearsFullBalance
+        ? `Collect Full ${formatCurrencySymbol(collectNowDisplayAmount)} & Update`
         : `Collect ${formatCurrencySymbol(collectNowDisplayAmount)} & Update`
       : "Update Booking";
 
@@ -348,11 +359,42 @@ export function BookingSummarySection({
                         valueClassName="text-sm font-bold text-emerald-700"
                       />
                     ) : null}
-                    {outstandingAmount > 0 ? (
-                      <div className={hasEditPaidAmount ? "mt-1 border-t border-slate-200 pt-1" : ""}>
+                    {collectNowAmount > 0 ? (
+                      <div className={hasEditPaidAmount ? "mt-1" : ""}>
                         <SummaryRow
-                          label="Remaining to Collect"
-                          value={formatCurrency(outstandingAmount)}
+                          label={
+                            clearsFullBalance ? "Collecting Full Amount" : "Collecting Now"
+                          }
+                          value={formatCurrency(collectNowAmount)}
+                          valueClassName="text-sm font-semibold text-slate-900"
+                        />
+                      </div>
+                    ) : null}
+                    {clearsFullBalance ? (
+                      // Nothing is left to owe, so a "$0" balance row would only
+                      // add a number to read. Say what the update actually does.
+                      <div className="mt-1 border-t border-slate-200 pt-1">
+                        <p className="text-xs font-medium text-emerald-700">
+                          Booking will be fully paid. No balance left to collect.
+                        </p>
+                      </div>
+                    ) : remainingAfterCollection > 0 ? (
+                      <div
+                        className={
+                          hasEditPaidAmount || collectNowAmount > 0
+                            ? "mt-1 border-t border-slate-200 pt-1"
+                            : ""
+                        }
+                      >
+                        <SummaryRow
+                          // Balance left on the booking after this update, so an
+                          // advance typed above is already subtracted here.
+                          label={
+                            hasEditPaidAmount || collectNowAmount > 0
+                              ? "Remaining Balance"
+                              : "Remaining to Collect"
+                          }
+                          value={formatCurrency(remainingAfterCollection)}
                           valueClassName="text-sm font-semibold text-slate-900"
                         />
                       </div>

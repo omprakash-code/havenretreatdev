@@ -143,7 +143,7 @@ export default function CinematicHero() {
   }, []);
 
   return (
-    <section className="relative min-h-[24vh] sm:min-h-[28vh] flex items-center justify-center overflow-hidden py-5 sm:py-6">
+    <section className="relative min-h-[14vh] sm:min-h-[16vh] flex items-center justify-center overflow-hidden py-2.5 sm:py-3">
       <canvas
         ref={confettiCanvasRef}
         className="pointer-events-none fixed inset-0 z-30"

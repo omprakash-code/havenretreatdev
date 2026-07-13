@@ -1,13 +1,55 @@
-node_modules
-.next
-coverage
-build
+# ---- Secrets & environment (MUST never enter the build context) ----
+.env
+.env.*
+.env-copy
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+*_rsa
+secrets/
+*.secret
+
+# ---- Git & VCS metadata ----
 .git
 .gitignore
+.gitattributes
+.github
+
+# ---- Dependencies (reinstalled inside the image) ----
+node_modules
+.pnp
+.pnp.*
+.yarn
+
+# ---- Local build artifacts / caches (regenerated inside the image) ----
+.next
+out
+build
+coverage
+*.tsbuildinfo
+.turbo
+.vercel
+.prisma-seed
+.postgres-test
+src/generated/prisma
+
+# ---- Runtime user uploads (persisted via a volume, not baked into layers) ----
+public/media/admin-uploads
+
+# ---- OS / editor cruft ----
 .DS_Store
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.vscode
+.idea
+
+# ---- Docs / meta / scratch (not needed to build or run) ----
 README.md
 docs
+.backups
+unused

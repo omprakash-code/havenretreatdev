@@ -45,7 +45,9 @@ next-env.d.ts
 /.prisma-seed/
 
 # runtime uploads (do not commit)
-public/media/admin-uploads/
+public/media/admin-uploads/*
+!public/media/admin-uploads/**/
+!public/media/admin-uploads/**/.gitkeep
 
 /unused
 .backups

@@ -199,7 +199,7 @@ export default function ExtrasCategoryPage() {
   const isLastCategory = !nextCategory;
   const submitLabel = nextCategory
     ? `Continue to ${nextCategory.label}`
-    : "Continue to Payment";
+    : "Continue to Agreement";
 
   const handleContinue = async () => {
     if (!booking.bookingId) return;
@@ -287,7 +287,7 @@ export default function ExtrasCategoryPage() {
               extrasSubProgress={extrasSubProgress}
               className="lg:hidden !px-2 !py-2"
             />
-            <div className="border border-[#2f7e7a]/20 bg-white p-4 md:p-5">
+            <div className="bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] ring-1 ring-gray-900/[0.04] md:p-6">
               <div className="mb-1 flex items-center justify-between gap-3">
                 <h2 className="min-w-0 truncate text-1xl font-semibold text-[#1f2937]">
                   Choose {activeCategory?.label ?? "Add-ons"}
@@ -303,7 +303,7 @@ export default function ExtrasCategoryPage() {
                       }
                       router.push(BOOKING_ROUTES.OCCASION);
                     }}
-                    className="inline-flex cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
+                    className="inline-flex cursor-pointer items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-gray-900"
                   >
                     <ChevronLeft size={14} />
                     Back
@@ -312,7 +312,7 @@ export default function ExtrasCategoryPage() {
                   <button
                     type="button"
                     onClick={handleContinue}
-                    className="inline-flex cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
+                    className="inline-flex cursor-pointer items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-gray-900"
                   >
                     Skip
                     <ChevronRight size={14} />
@@ -331,7 +331,7 @@ export default function ExtrasCategoryPage() {
                 />
               ) : null}
               {activeCategory?.slug === "add-ons" && (
-                <p className="mt-3 border border-[#d7e4e1] bg-[#f8fbfa] px-3 py-2 text-xs font-normal text-[#1f2937] sm:text-sm">
+                <p className="mt-4 bg-gray-50 px-3 py-2.5 text-xs font-normal text-gray-500 sm:text-sm">
                   Add-ons are optional and availability may vary based on your event date and venue setup.
                 </p>
               )}

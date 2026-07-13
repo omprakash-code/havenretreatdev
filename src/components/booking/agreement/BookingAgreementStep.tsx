@@ -9,7 +9,6 @@ import AgreementSection from "@/components/booking/agreement/AgreementSection";
 import SignaturePad from "@/components/shared/SignaturePad";
 import { Check, ChevronLeft } from "@/components/icons";
 import {
-  HAVEN_AGREEMENT_ACKNOWLEDGMENT,
   HAVEN_AGREEMENT_CLAUSE_NUMBERS,
   HAVEN_AGREEMENT_DEFAULT_VERSION,
   HAVEN_AGREEMENT_INTRO,
@@ -43,7 +42,9 @@ export default function BookingAgreementStep({
   const router = useRouter();
   const { booking, hydrated, resetBooking } = useBooking();
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
-  const [signerName, setSignerName] = useState(() => booking.contact?.name ?? "");
+  // The signer types their own legal name: it is the signature on the contract,
+  // not a copy of the contact on the booking, and the two are allowed to differ.
+  const [signerName, setSignerName] = useState("");
   const [finalConfirmationChecked, setFinalConfirmationChecked] = useState(false);
   const [acknowledgedClauses, setAcknowledgedClauses] = useState<
     Record<number, boolean>
@@ -76,13 +77,6 @@ export default function BookingAgreementStep({
   }, [booking.bookingId, booking.contact, booking.schedule, booking.package, hydrated, router]);
 
   useEffect(() => {
-    if (signerName.trim()) return;
-    if (booking.contact?.name) {
-      setSignerName(booking.contact.name);
-    }
-  }, [booking.contact?.name, signerName]);
-
-  useEffect(() => {
     if (!highlightTarget) return;
     const timeoutId = window.setTimeout(() => {
       setHighlightTarget(null);
@@ -102,6 +96,21 @@ export default function BookingAgreementStep({
   );
   const hasSignerName = Boolean(signerName.trim());
   const hasSignature = Boolean(signatureImage);
+
+  // Acknowledging every clause is still an explicit, deliberate action: the
+  // control mirrors the individual checkboxes and clears them all when undone.
+  const toggleAllAcknowledgments = () => {
+    const nextAcknowledged = !hasAllAcknowledgments;
+    setAcknowledgedClauses(
+      Object.fromEntries(
+        HAVEN_AGREEMENT_CLAUSE_NUMBERS.map((clauseNumber) => [
+          clauseNumber,
+          nextAcknowledged,
+        ])
+      )
+    );
+    setHighlightTarget(null);
+  };
   const hasMissingAgreementRequirements =
     !hasAllAcknowledgments ||
     !finalConfirmationChecked ||
@@ -116,7 +125,7 @@ export default function BookingAgreementStep({
     if (!hasSignature) missing.push("add your signature");
     if (!finalConfirmationChecked) missing.push("confirm electronic signature consent");
 
-    return `Please ${missing.join(", ")} before continuing to payment.`;
+    return `Please ${missing.join(", ")} before submitting your booking request.`;
   }, [
     finalConfirmationChecked,
     hasAllAcknowledgments,
@@ -131,10 +140,17 @@ export default function BookingAgreementStep({
     hasSignature &&
     !isSubmitting;
 
+  // Attention reads as a tint against an accent rail, the same language the
+  // clauses use. The rail is always laid out and only takes colour when active,
+  // so highlighting a field cannot reflow the form around it.
+  const ATTENTION_IDLE =
+    "border-l-2 border-l-transparent transition-all duration-500 ease-out";
+  const ATTENTION_ACTIVE = "border-l-[#347f7c] bg-[#f4f9f8] pl-3.5";
+
   const getHighlightClass = (target: Exclude<HighlightTarget, null>) =>
     highlightTarget === target
-      ? "agreement-attention transition"
-      : "transition";
+      ? `${ATTENTION_IDLE} ${ATTENTION_ACTIVE}`
+      : ATTENTION_IDLE;
 
   if (!hydrated || !booking.bookingId || !booking.package || !booking.schedule || !booking.contact) {
     return null;
@@ -192,7 +208,7 @@ export default function BookingAgreementStep({
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      const res = await fetch("/api/bookings/accept-terms", {
+      const res = await fetch("/api/bookings/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -208,15 +224,18 @@ export default function BookingAgreementStep({
       });
 
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) {
+      if (!res.ok || !json?.success || !json?.successToken) {
         handleBookingError(json, router, {
           resetBooking,
-          fallbackMessage: "Unable to save signed agreement.",
+          fallbackMessage: "Unable to submit your booking request.",
         });
         return;
       }
 
-      router.push(BOOKING_ROUTES.PAYMENT);
+      // Do not clear the local draft here: this page redirects to the booking
+      // root whenever the draft goes empty, and that guard would beat the
+      // navigation below. The success page clears the draft once it has loaded.
+      router.replace(BOOKING_ROUTES.SUCCESS(json.successToken));
     } finally {
       setIsSubmitting(false);
     }
@@ -245,28 +264,26 @@ export default function BookingAgreementStep({
                         : BOOKING_ROUTES.CONTACT
                     );
                   }}
-                  className="inline-flex shrink-0 cursor-pointer items-center gap-1 border border-[#2f7e7a]/35 bg-[#edf3f1] px-3 py-1.5 text-xs font-medium text-[#245e5b] transition hover:bg-[#e3efec]"
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-gray-900"
                 >
                   <ChevronLeft size={14} />
                   Back
                 </button>
               </div>
-              <p className="mb-5 text-sm text-gray-500">
-                Review the agreement, confirm the required acknowledgments, and sign before continuing to payment.
+              <p className="mb-4 text-sm text-gray-500">
+                Review the agreement, confirm the required acknowledgments, and sign to submit your booking request.
               </p>
 
               <div className="space-y-4">
                 <div
                   ref={agreementPanelRef}
-                  className={`bg-[#f7f9f8] p-2 md:p-3 ${getHighlightClass(
-                    "agreement"
-                  )}`}
+                  className="bg-[#f7f9f8] p-2 transition md:p-3"
                 >
                   <div className="border border-[#d7e4e1] bg-white">
                     <div
                       ref={scrollRootRef}
                       tabIndex={-1}
-                      className="h-[24rem] overflow-y-auto px-4 pb-4 md:h-[29rem] xl:h-[33rem]"
+                      className="h-[37.75rem] overflow-y-auto px-4 pb-4 md:h-[42.75rem] xl:h-[46.75rem]"
                     >
                       <div className="mx-auto max-w-3xl space-y-3">
                         <div className="sticky top-0 z-10 bg-white pt-4 pr-2 pb-5">
@@ -370,62 +387,68 @@ export default function BookingAgreementStep({
                           )
                         )}
 
+                        {/* The acknowledgment sentence is not shown here: the
+                            clause checkboxes, the signature and the final
+                            confirmation already carry it on screen. It still
+                            goes into the signed agreement itself. */}
                         <div className="border-t border-[#edf1ef] pt-4">
-                          <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[#347f7c]">
-                            Final Acknowledgment
-                          </p>
-                          <p className="mt-2 text-[11px] leading-5 text-[#475467]">
-                            {HAVEN_AGREEMENT_ACKNOWLEDGMENT}
-                          </p>
+                          <button
+                            type="button"
+                            aria-pressed={hasAllAcknowledgments}
+                            onClick={toggleAllAcknowledgments}
+                            className="grid w-full cursor-pointer grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2.5 text-left transition"
+                          >
+                            <span
+                              className={`flex h-4 w-4 items-center justify-center self-start border transition ${
+                                hasAllAcknowledgments
+                                  ? "border-[#347f7c] bg-[#347f7c] text-white"
+                                  : "border-gray-400 bg-white"
+                              }`}
+                            >
+                              {hasAllAcknowledgments ? (
+                                <Check size={11} strokeWidth={2.5} />
+                              ) : null}
+                            </span>
+
+                            <span className="min-w-0">
+                              <span className="block text-[13px] font-semibold text-[#1f2937]">
+                                {hasAllAcknowledgments
+                                  ? `All ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses acknowledged`
+                                  : `Acknowledge all ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses`}
+                              </span>
+                            </span>
+                          </button>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {/* The section is only the scroll anchor. Highlighting it as
+                    well as the field inside would light up everything the signer
+                    already completed, so the glow stays on the one thing that
+                    needs attention. */}
                 <div
                   ref={signatureSectionRef}
-                  className={`border border-[#d7e4e1] bg-white p-4 md:p-5 ${
-                    highlightTarget === "signature" ||
-                    highlightTarget === "name" ||
-                    highlightTarget === "confirmation"
-                      ? getHighlightClass(highlightTarget)
-                      : "transition"
-                  }`}
+                  className="border border-[#d7e4e1] bg-white p-4 transition md:p-5"
                 >
                   <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#347f7c]">
                     Digital Signature
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-[#475467]">
-                    Sign as the responsible renter after reviewing the agreement.
-                  </p>
-
-                  <label
-                    className={`mt-5 block ${
-                      highlightTarget === "name"
-                        ? "agreement-attention"
-                        : ""
-                    }`}
-                  >
+                  <label className={`mt-5 block ${getHighlightClass("name")}`}>
                     <span className="text-sm font-medium text-[#344054]">
-                      Typed Full Legal Name
+                      Full Legal Name
                     </span>
                     <input
                       ref={signerNameInputRef}
                       value={signerName}
                       onChange={(event) => setSignerName(event.target.value)}
                       className="mt-2 w-full border border-[#d0d5dd] px-4 py-3 text-sm text-[#101828] outline-none transition focus:border-[#347f7c]"
-                      placeholder="Type the signer name exactly as it should appear on the agreement"
+                      placeholder="Enter your full legal name"
                     />
                   </label>
 
-                  <div
-                    className={`mt-5 ${
-                      highlightTarget === "signature"
-                        ? "agreement-attention"
-                        : ""
-                    }`}
-                  >
+                  <div className={`mt-5 ${getHighlightClass("signature")}`}>
                     <p className="mb-2 text-sm font-medium text-[#344054]">
                       Signature
                     </p>
@@ -433,16 +456,19 @@ export default function BookingAgreementStep({
                       value={signatureImage}
                       onChange={setSignatureImage}
                       disabled={!hasAllAcknowledgments}
-                      disabledMessage={`Acknowledge all ${HAVEN_AGREEMENT_TOTAL_CLAUSES} clauses to unlock signing.`}
+                      disabledMessage="Complete all acknowledgements to enable signing."
                       flat
                     />
                   </div>
 
+                  {/* This card already carries a border, so its left edge is the
+                      rail: it only changes colour. Using the shared idle classes
+                      would leave the border open on that side. */}
                   <div
-                    className={`mt-5 flex items-start gap-3 border border-[#d0d5dd] p-4 ${
+                    className={`mt-5 flex items-start gap-3 border border-[#d0d5dd] p-4 transition-all duration-500 ease-out ${
                       highlightTarget === "confirmation"
-                        ? "agreement-attention"
-                        : ""
+                        ? "border-l-[#347f7c] bg-[#f4f9f8]"
+                        : "border-l-[#d0d5dd]"
                     }`}
                   >
                     <button
@@ -461,7 +487,9 @@ export default function BookingAgreementStep({
                       {finalConfirmationChecked ? <Check size={14} /> : null}
                     </button>
                     <span className="text-sm leading-6 text-[#344054]">
-                      I confirm that this electronic signature and typed legal name are mine, and that I agree to the Haven Retreat event rental terms.
+                      I confirm that this is my legal name and electronic
+                      signature, and I agree to the Haven Retreat Rental
+                      Agreement.
                     </span>
                   </div>
 
@@ -487,14 +515,14 @@ export default function BookingAgreementStep({
               invalidSubmitMessage={missingAgreementMessage}
               hideSubmitOnMobile
               onMobileInlineSubmitVisibilityChange={setShowInlineSummarySubmit}
-              submitLabel={isSubmitting ? "Saving..." : "Continue to Payment"}
+              submitLabel={isSubmitting ? "Submitting booking..." : "Submit Booking Request"}
             />
           </div>
         </div>
       </div>
 
       <MobileStickyAction
-        label={isSubmitting ? "Saving..." : "Continue to Payment"}
+        label={isSubmitting ? "Submitting booking..." : "Submit Booking Request"}
         onClick={submitAgreement}
         onInvalidClick={handleInvalidAgreementSubmit}
         disabled={isSubmitting}
@@ -505,35 +533,6 @@ export default function BookingAgreementStep({
         totalPrice={booking.pricing?.total ?? booking.schedule?.basePrice ?? null}
         advancePay={booking.pricing?.advancePay ?? null}
       />
-      <style jsx>{`
-        .agreement-attention {
-          animation: agreementAttentionGlow 1.6s ease-out;
-        }
-
-        @keyframes agreementAttentionGlow {
-          0% {
-            background-color: rgba(52, 127, 124, 0);
-            box-shadow: 0 0 0 0 rgba(52, 127, 124, 0);
-          }
-          18% {
-            background-color: rgba(52, 127, 124, 0.08);
-            box-shadow:
-              0 0 0 1px rgba(52, 127, 124, 0.22),
-              0 14px 36px rgba(52, 127, 124, 0.18),
-              0 0 42px rgba(52, 127, 124, 0.2);
-          }
-          62% {
-            background-color: rgba(52, 127, 124, 0.04);
-            box-shadow:
-              0 0 0 1px rgba(52, 127, 124, 0.12),
-              0 10px 28px rgba(52, 127, 124, 0.1);
-          }
-          100% {
-            background-color: rgba(52, 127, 124, 0);
-            box-shadow: 0 0 0 0 rgba(52, 127, 124, 0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

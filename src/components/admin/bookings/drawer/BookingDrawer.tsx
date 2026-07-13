@@ -10,9 +10,16 @@ type Props = {
   open: boolean;
   onClose: () => void;
   booking: AdminBooking | null;
+  /** Refresh the booking list after an approve/reject decision. */
+  onReviewed?: () => void;
 };
 
-export default function BookingDrawer({ open, onClose, booking }: Props) {
+export default function BookingDrawer({
+  open,
+  onClose,
+  booking,
+  onReviewed,
+}: Props) {
   const [bookingDetails, setBookingDetails] = useState<AdminBooking | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +117,13 @@ export default function BookingDrawer({ open, onClose, booking }: Props) {
         <BookingDetails
           key={bookingDetails.id}
           booking={bookingDetails}
+          onReviewed={() => {
+            // The decision changed the booking: drop the cached copy so the
+            // drawer and the list both show the new status.
+            if (bookingId) detailsCacheRef.current.delete(bookingId);
+            void fetchBookingDetails({ force: true });
+            onReviewed?.();
+          }}
         />
       ) : (
         <div className="py-10 text-sm text-slate-500">Booking details unavailable.</div>

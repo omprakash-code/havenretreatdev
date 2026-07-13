@@ -39,7 +39,11 @@ import {
   getPackageIncludedProductQuantity,
   getPackageIncludedProductExtraQuantity,
 } from "@/lib/package-included-products";
-import { BOOKING_PREPAYMENT_MESSAGE } from "@/constants/booking-status-copy";
+import {
+  BOOKING_NO_PAYMENT_TODAY_TITLE,
+  BOOKING_REVIEW_FOLLOWUP_MESSAGE,
+  buildAdvancePaymentNotice,
+} from "@/constants/booking-status-copy";
 
 const APPLY_ERROR_MAP: Record<string, string> = {
   COUPON_INACTIVE: "This coupon is disabled.",
@@ -262,7 +266,7 @@ export default function BookingSummary({
   }, []);
 
   const resolvedSubmitLabel =
-    submitLabel ?? (isFinalExtrasPage ? "Continue to Payment" : "Save & Continue");
+    submitLabel ?? (isFinalExtrasPage ? "Continue to Agreement" : "Save & Continue");
   const resolvedSubmitLabelText =
     typeof resolvedSubmitLabel === "string" ||
     typeof resolvedSubmitLabel === "number" ||
@@ -928,35 +932,21 @@ export default function BookingSummary({
               </section>
             )}
 
-            <section className="border border-[#d7e4e1] bg-white p-3.5">
-              {discountPrice > 0 && (
+            {discountPrice > 0 && (
+              <section className="border border-[#d7e4e1] bg-white p-3.5">
                 <SummaryRow
                   label="Subtotal Before Discount"
                   value={formatCurrency(subtotalBeforeDiscount)}
                   labelClassName="text-gray-500 text-sm font-normal"
                 />
-              )}
 
-              {discountPrice > 0 && (
                 <SummaryRow
                   label="Coupon Discount"
                   value={`-${formatCurrency(discountPrice)}`}
                   labelClassName="text-gray-500 text-sm font-normal"
                 />
-              )}
-
-              <div
-                ref={payConfirmRef}
-                className="border border-[#2f7e7a]/20 bg-[#edf3f1] px-4 py-2 text-center"
-              >
-                <p className="text-sm font-semibold text-[#245e5b]">
-                  Pay {formatCurrency(advancePay)} only to confirm
-                </p>
-                <p className="text-xs text-[#347f7c]">
-                  Remaining {formatCurrency(remainingAtTheatre)} is due one week before your event
-                </p>
-              </div>
-            </section>
+              </section>
+            )}
 
           </div>
         </div>
@@ -1024,13 +1014,30 @@ export default function BookingSummary({
           )}
         </div>
 
-        <div className="mt-4 border-t border-black/10 px-1 pt-3">
+        {/* Sits outside the wrapper above, which is hidden on mobile until the
+            inline submit appears. This element is what the observer watches to
+            decide that, so hiding it would deadlock the mobile submit button. */}
+        <div ref={payConfirmRef} className="mt-2.5 text-center">
+          <p className="text-sm font-semibold text-[#245e5b]">
+            {BOOKING_NO_PAYMENT_TODAY_TITLE}.
+          </p>
+        </div>
+
+        <div className="mt-4 px-1">
           <div className="flex items-start gap-2 border border-[#b9d8d3] bg-[#f2f8f6] px-3 py-2.5">
             <Info size={13} className="mt-0.5 shrink-0 text-[#347f7c]" />
             <div>
               <p className="text-xs leading-relaxed text-[#245e5b]">
-                {BOOKING_PREPAYMENT_MESSAGE}
+                {BOOKING_REVIEW_FOLLOWUP_MESSAGE}
               </p>
+              {advancePay > 0 && (
+                <p className="mt-1.5 text-xs leading-relaxed text-[#347f7c]">
+                  {buildAdvancePaymentNotice(
+                    formatCurrency(advancePay),
+                    formatCurrency(remainingAtTheatre)
+                  )}
+                </p>
+              )}
             </div>
           </div>
           <p className="mt-2.5 flex items-center justify-center gap-2 text-xs text-gray-500">

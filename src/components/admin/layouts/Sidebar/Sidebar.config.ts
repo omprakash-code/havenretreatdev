@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   CalendarCheck,
+  ClipboardCheck,
   Monitor,
   Clock,
   Package,
@@ -36,6 +37,12 @@ const sidebarMenuItems = [
         feature: "bookings",
       },
       {
+        name: "Pending Review",
+        href: "/admin/bookings/pending",
+        icon: ClipboardCheck,
+        feature: "pendingReviewBookings",
+      },
+      {
         name: "Bookings (live)",
         href: "/admin/bookings/live",
         icon: Activity,
@@ -54,7 +61,7 @@ const sidebarMenuItems = [
         feature: "slots",
       },
       {
-        name: "Theatres",
+        name: "Packages",
         href: "/admin/theatres",
         icon: Monitor,
         feature: "packages",

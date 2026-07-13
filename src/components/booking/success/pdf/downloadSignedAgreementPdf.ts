@@ -433,9 +433,12 @@ export async function buildSignedAgreementPdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.2);
   doc.setTextColor(...PDF_COLORS.body);
+  // Quotes the consent the signer actually accepted on the agreement step. If
+  // that checkbox is reworded, this line has to follow it: the certificate is
+  // the record of what they agreed to.
   doc.text(
     normalizePdfText(
-      `I, ${agreement.signerName}, confirm that this electronic signature is mine and that I agree to the terms above.`
+      `I, ${agreement.signerName}, confirm that this is my legal name and electronic signature, and I agree to the Haven Retreat Rental Agreement.`
     ),
     marginX + 5,
     y + 13,
@@ -492,6 +495,8 @@ export async function buildSignedAgreementPdf(
   doc.text("ELECTRONIC SIGNATURE", marginX + 10, signatureBoxY + 25);
 
   const certificateX = marginX + 90;
+  // The agreement id is already in the header and on every page footer. What
+  // belongs here is only what binds this signature to a person and a moment.
   const certificateRows = [
     ["SIGNER", normalizePdfText(agreement.signerName)],
     ["SIGNED AT", normalizePdfText(formatISTDateTime(agreement.signedAt))],
@@ -499,7 +504,6 @@ export async function buildSignedAgreementPdf(
       "CONSENT",
       agreement.confirmationAccepted ? "Electronically accepted" : "Not recorded",
     ],
-    ["AGREEMENT ID", normalizePdfText(agreement.id)],
   ];
   certificateRows.forEach(([label, value], index) => {
     const rowY = signatureBoxY + 3 + index * 6.2;

@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { Prisma, PaymentStatus, BookingStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import {
+  derivePaymentLifecycle,
+  getBookingStatusLabel,
+  getPaymentStatusLabel,
+  isReviewWorkflowBookingStatus,
+} from "@/lib/booking-status";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
@@ -34,6 +40,11 @@ import {
   persistAdminBookingCoupons,
 } from "@/app/api/admin/bookings/_coupon";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import { getPackageIncludedProductTotalPrice } from "@/lib/package-included-products";
+import {
+  getDurationAdjustedUnitPrice,
+  rebaseDurationAdjustedUnitPrice,
+} from "@/lib/product-duration-pricing";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
 import {
   AdminRangeBookingError,
@@ -49,6 +60,7 @@ import {
   BookingOverlapError,
 } from "@/services/booking/booking-safety.service";
 import {
+  ADMIN_SOFT_DELETE_REASON,
   BOOKING_BUFFER_MINUTES,
   BOOKING_BUSINESS_CLOSE_TIME,
   BOOKING_BUSINESS_OPEN_TIME,
@@ -56,12 +68,14 @@ import {
   DEFAULT_MINIMUM_BOOKING_MINUTES,
 } from "@/lib/booking-policy";
 
+// PENDING_REVIEW and APPROVED bookings stay admin-editable (with conflict
+// validation); a rejected request is a closed decision.
 const NON_EDITABLE_BOOKING_STATUSES: BookingStatus[] = [
   BookingStatus.CANCELLED,
   BookingStatus.ABANDONED,
   BookingStatus.PAID_EXPIRED,
+  BookingStatus.REJECTED,
 ];
-const ADMIN_SOFT_DELETE_REASON = "ADMIN_SOFT_DELETED";
 
 function resolveDisplayPaymentStatus(
   paymentStatus: PaymentStatus | null | undefined,
@@ -538,6 +552,25 @@ export async function GET(
           createdByAdminId: booking.createdByAdminId ?? null,
           paymentStatus: paymentStatusForDisplay,
           bookingStatus: booking.bookingStatus,
+          bookingStatusLabel: getBookingStatusLabel(booking.bookingStatus),
+          // Payment is shown independently of the approval decision.
+          paymentLifecycle: derivePaymentLifecycle({
+            paymentStatus: paymentStatusForDisplay,
+            advancePaid: booking.advancePaid,
+            remainingPayable: booking.remainingPayable,
+          }),
+          paymentStatusLabel: getPaymentStatusLabel({
+            paymentStatus: paymentStatusForDisplay,
+            advancePaid: booking.advancePaid,
+            remainingPayable: booking.remainingPayable,
+          }),
+          reviewSubmittedAt: booking.reviewSubmittedAt?.toISOString() ?? null,
+          reviewedAt: booking.reviewedAt?.toISOString() ?? null,
+          reviewedByAdminId: booking.reviewedByAdminId ?? null,
+          rejectionReason: booking.rejectionReason ?? null,
+          approvalNotes: booking.approvalNotes ?? null,
+          internalNotes: booking.internalNotes ?? null,
+          agreementSigned: Boolean(latestSignedAgreement),
           cancelledReason: booking.cancelledReason ?? null,
           appliedCouponCode: couponCodes[0] ?? null,
           appliedCoupons,
@@ -761,6 +794,7 @@ export async function PATCH(
         include: {
           eventPackage: {
             select: {
+              name: true,
               eventDurationHours: true,
               guestLimit: true,
               venueId: true,
@@ -946,6 +980,22 @@ export async function PATCH(
       }
 
       const bookingItemsToCreate: Prisma.BookingItemCreateManyInput[] = [];
+      // The tables and chairs a package includes are already paid for inside the
+      // package price, so they must stay free on an edit exactly as they are on
+      // create. Re-pricing them here silently inflated the customer's total.
+      const includedProductSource = booking.eventPackage
+        ? {
+            name: booking.eventPackage.name,
+            baseGuests: booking.eventPackage.guestLimit,
+          }
+        : null;
+      const bookingDurationHours =
+        calculateDurationHours(rangeStartTime, rangeEndTime) ?? 0;
+      // Existing item snapshots were priced for the booking's previous times.
+      const previousDurationHours = calculateDurationHours(
+        booking.eventStartTime,
+        booking.eventEndTime
+      );
       let productsAmount = 0;
       const ledNumbers: string[] = [];
       const bodyOccasionData =
@@ -966,8 +1016,23 @@ export async function PATCH(
       normalizedItems.forEach((item) => {
         const variant = variantMap.get(item.variantId);
         if (variant && variant.productId === item.productId) {
-          const unitPrice = variant.salePrice ?? variant.regularPrice;
-          const totalPrice = unitPrice * item.quantity;
+          const unitPrice = getDurationAdjustedUnitPrice({
+            product: {
+              slug: variant.product.slug,
+              name: variant.product.name,
+            },
+            baseUnitPrice: variant.salePrice ?? variant.regularPrice,
+            durationHours: bookingDurationHours,
+          });
+          const totalPrice = getPackageIncludedProductTotalPrice({
+            source: variant.isDefault ? includedProductSource : null,
+            product: {
+              slug: variant.product.slug,
+              name: variant.product.name,
+            },
+            quantity: item.quantity,
+            unitPrice,
+          });
           productsAmount += totalPrice;
 
           if (
@@ -1004,7 +1069,15 @@ export async function PATCH(
           );
         }
 
-        const unitPrice = fallback.unitPrice;
+        // The variant is gone, so the snapshot price is all we have. For
+        // duration-priced products, move its overage from the previously
+        // booked hours to the new ones.
+        const unitPrice = rebaseDurationAdjustedUnitPrice({
+          product: { name: fallback.productName },
+          unitPrice: fallback.unitPrice,
+          fromDurationHours: previousDurationHours,
+          toDurationHours: bookingDurationHours,
+        });
         const totalPrice = unitPrice * item.quantity;
         productsAmount += totalPrice;
 
@@ -1254,9 +1327,15 @@ export async function PATCH(
         additionalAmountToCollect > 0 &&
         booking.bookingStatus === BookingStatus.CONFIRMED &&
         (booking.paymentStatus ?? PaymentStatus.INITIALIZED) === PaymentStatus.PAID;
-      const effectivePaymentStatus = shouldCollectOnlineNow
-        ? PaymentStatus.PAID
-        : nextPaymentStatus;
+      // Offline money is in the admin's hand the moment they record it, exactly
+      // as it is for an offline booking created by an admin. Without this the
+      // booking keeps its old status, and the payment row below is never written.
+      const collectsOfflineNow =
+        paymentType === "OFFLINE" && additionalAmountToCollect > 0;
+      const effectivePaymentStatus =
+        shouldCollectOnlineNow || collectsOfflineNow
+          ? PaymentStatus.PAID
+          : nextPaymentStatus;
       const persistedAdvancePaid = shouldCollectOnlineNow
         ? currentAdvancePaid
         : pricing.advancePaid;
@@ -1271,8 +1350,12 @@ export async function PATCH(
         };
       }
 
+      // Recording payment never approves a booking. Legacy payment-first
+      // bookings keep auto-confirming on full payment; a review-workflow booking
+      // only changes status when an admin approves or rejects it.
       const nextBookingStatus =
-        effectivePaymentStatus === PaymentStatus.PAID
+        effectivePaymentStatus === PaymentStatus.PAID &&
+        !isReviewWorkflowBookingStatus(booking.bookingStatus)
           ? BookingStatus.CONFIRMED
           : booking.bookingStatus;
 

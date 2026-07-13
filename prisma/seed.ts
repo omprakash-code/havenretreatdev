@@ -16,6 +16,7 @@ import {
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcrypt";
+import { buildHavenAgreementTemplateContent } from "../src/constants/haven-agreement-content.js";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -83,9 +84,9 @@ const VENUE = {
   zipCode: "33101",
   country: "USA",
   images: [
-    "/media/booking/theatres/theatre-1/theatre-1-1.png",
-    "/media/booking/theatres/theatre-2/theatre-2-1.png",
-    "/media/booking/theatres/theatre-3/theatre-3-1.png",
+    "/media/booking/success/haven-retreat.avif",
+    "/media/booking/success/pool-view.avif",
+    "/media/booking/location/booking-bg-1.jpg",
   ],
   maxGuests: 50,
   cleaningFee: 95,
@@ -493,6 +494,7 @@ const OCCASIONS = [
 // Add-ons are daily-repeat event services, not tracked inventory:
 //   stock: null         -> unlimited / untracked (sells any number of times)
 //   maxPerBooking: N     -> max quantity a single booking may add
+//   variants: first entry is the default selection
 const PRODUCTS = [
   {
     name: "Tables",
@@ -502,7 +504,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 6,
     sortOrder: 1,
-    variant: { label: "Per Table", regularPrice: 15 },
+    variants: [{ label: "Per Table", regularPrice: 15 }],
   },
   {
     name: "Chairs",
@@ -512,7 +514,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 48,
     sortOrder: 2,
-    variant: { label: "Per Chair", regularPrice: 3 },
+    variants: [{ label: "Per Chair", regularPrice: 3 }],
   },
   {
     name: "Bartender",
@@ -522,7 +524,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 3,
-    variant: { label: "Per Booking", regularPrice: 200 },
+    variants: [{ label: "Per Booking", regularPrice: 200 }],
   },
   {
     name: "Pool Heater",
@@ -532,7 +534,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 4,
-    variant: { label: "Per Booking", regularPrice: 150 },
+    variants: [{ label: "Per Booking", regularPrice: 150 }],
   },
   {
     name: "Pool Slide",
@@ -542,7 +544,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 5,
-    variant: { label: "Per Booking", regularPrice: 300 },
+    variants: [{ label: "Per Booking", regularPrice: 300 }],
   },
   {
     name: "Balloon Arch",
@@ -552,7 +554,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 10,
     sortOrder: 6,
-    variant: { label: "Per Setup", regularPrice: 300 },
+    variants: [{ label: "Per Setup", regularPrice: 300 }],
   },
   {
     name: "Backdrop Balloons",
@@ -562,7 +564,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 7,
-    variant: { label: "Per Setup", regularPrice: 350 },
+    variants: [{ label: "Per Setup", regularPrice: 350 }],
   },
   {
     name: "BABY Marquee + Balloon",
@@ -572,7 +574,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 8,
-    variant: { label: "Per Setup", regularPrice: 500 },
+    variants: [{ label: "Per Setup", regularPrice: 500 }],
   },
   {
     name: "Tent 10x10",
@@ -582,7 +584,7 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 9,
-    variant: { label: "Per Tent", regularPrice: 45 },
+    variants: [{ label: "Per Tent", regularPrice: 45 }],
   },
   {
     name: "Hot Tub",
@@ -592,18 +594,52 @@ const PRODUCTS = [
     stock: null,
     maxPerBooking: 1,
     sortOrder: 10,
-    variant: { label: "Per Booking", regularPrice: 50 },
+    variants: [{ label: "Per Booking", regularPrice: 50 }],
   },
   {
     name: "Balloon Décor Package",
     slug: "balloon-decor-package",
-    image: "/media/booking/products/add-ons/balloon-décor-package.avif",
+    image: "/media/booking/products/add-ons/balloon-decor-package.avif",
     description:
       "Balloon décor package starting at $375. Includes up to 3 balloon colors of your choice, balloon arch design, cake cylinders/pedestals, and basic setup & styling.",
     stock: null,
     maxPerBooking: 1,
     sortOrder: 11,
-    variant: { label: "Per Setup", regularPrice: 375 },
+    variants: [{ label: "Per Setup", regularPrice: 375 }],
+  },
+  {
+    name: "U Shape Entrance Arch",
+    slug: "u-shape-entrance-arch",
+    image: "/media/booking/products/add-ons/u-shape-entrance-arch.avif",
+    description: "Statement U-shaped arch to frame your event entrance.",
+    stock: null,
+    maxPerBooking: 1,
+    sortOrder: 12,
+    variants: [{ label: "Per Setup", regularPrice: 400 }],
+  },
+  {
+    name: "Shimmer Wall",
+    slug: "shimmer-wall",
+    image: "/media/booking/products/add-ons/shimmer-wall.avif",
+    description: "Sparkling shimmer wall backdrop for photos and event styling.",
+    stock: null,
+    maxPerBooking: 1,
+    sortOrder: 13,
+    variants: [{ label: "Per Setup", regularPrice: 95 }],
+  },
+  {
+    name: "Photo Booth",
+    slug: "photo-booth",
+    image: "/media/booking/products/add-ons/photobooth-and-props.avif",
+    description:
+      "Photo booth setup with fun props, digital sharing, and an online gallery. Choose the Premium or Classic package.",
+    stock: null,
+    maxPerBooking: 1,
+    sortOrder: 14,
+    variants: [
+      { label: "Premium", regularPrice: 315 },
+      { label: "Classic", regularPrice: 250 },
+    ],
   },
 ] as const;
 
@@ -623,21 +659,6 @@ const APP_SETTINGS = [
 /* --------------------------------
    AGREEMENT TEMPLATE DATA
 --------------------------------- */
-const AGREEMENT_TEMPLATE_CONTENT = `
-<h1>Haven Retreat Event Rental Agreement</h1>
-<p>This agreement is between Haven Retreat and the renter for a private event booking.</p>
-<h2>Rental Period</h2>
-<p>The rental period begins and ends at the booking time selected by the renter. Setup time is included inside the booked duration.</p>
-<h2>Guest Policy</h2>
-<p>The renter agrees that guest count must not exceed the venue maximum capacity or the confirmed booking guest count.</p>
-<h2>Payment Policy</h2>
-<p>The booking is confirmed only after required payment is received and the reservation is approved by Haven Retreat.</p>
-<h2>Property Rules</h2>
-<p>Guests must respect the property, neighborhood, pool and outdoor areas. The renter is responsible for guest conduct and damages.</p>
-<h2>Cancellation And Changes</h2>
-<p>Schedule changes, cancellations and refunds are subject to Haven Retreat approval and current booking policies.</p>
-`;
-
 function featureRows(packageId: string, seed: PackageSeed) {
   let sortOrder = 1;
   const groupRows = (
@@ -924,39 +945,44 @@ async function seedProducts() {
       },
     });
 
-    await prisma.productVariant.upsert({
-      where: {
-        productId_label: {
-          productId: product.id,
-          label: seed.variant.label,
+    for (const [index, variant] of seed.variants.entries()) {
+      await prisma.productVariant.upsert({
+        where: {
+          productId_label: {
+            productId: product.id,
+            label: variant.label,
+          },
         },
-      },
-      update: {
-        regularPrice: seed.variant.regularPrice,
-        salePrice: null,
-        stock: seed.stock,
-        maxPerBooking: seed.maxPerBooking,
-        isDefault: true,
-        isActive: true,
-        sortOrder: 1,
-      },
-      create: {
-        productId: product.id,
-        label: seed.variant.label,
-        regularPrice: seed.variant.regularPrice,
-        salePrice: null,
-        stock: seed.stock,
-        maxPerBooking: seed.maxPerBooking,
-        isDefault: true,
-        isActive: true,
-        sortOrder: 1,
-      },
-    });
+        update: {
+          regularPrice: variant.regularPrice,
+          salePrice: null,
+          stock: seed.stock,
+          maxPerBooking: seed.maxPerBooking,
+          isDefault: index === 0,
+          isActive: true,
+          sortOrder: index + 1,
+        },
+        create: {
+          productId: product.id,
+          label: variant.label,
+          regularPrice: variant.regularPrice,
+          salePrice: null,
+          stock: seed.stock,
+          maxPerBooking: seed.maxPerBooking,
+          isDefault: index === 0,
+          isActive: true,
+          sortOrder: index + 1,
+        },
+      });
+    }
   }
 
   console.log("Products seeded", {
     products: PRODUCTS.length,
-    productVariants: PRODUCTS.length,
+    productVariants: PRODUCTS.reduce(
+      (total, seed) => total + seed.variants.length,
+      0
+    ),
   });
 }
 
@@ -979,7 +1005,7 @@ async function seedAppSettings() {
 async function seedAgreementTemplate() {
   console.log("Seeding agreement template...");
 
-  const content = AGREEMENT_TEMPLATE_CONTENT.trim();
+  const content = buildHavenAgreementTemplateContent();
 
   await prisma.agreementTemplate.updateMany({
     where: { isActive: true },
@@ -1038,7 +1064,10 @@ async function main() {
       0
     ),
     products: PRODUCTS.length,
-    productVariants: PRODUCTS.length,
+    productVariants: PRODUCTS.reduce(
+      (total, seed) => total + seed.variants.length,
+      0
+    ),
     appSettings: APP_SETTINGS.length,
     agreementTemplates: 1,
   });

@@ -169,6 +169,10 @@ function isPaymentStageAbandonment(reason: string | null | undefined) {
   );
 }
 
+function areAbandonmentEmailsEnabled() {
+  return false;
+}
+
 async function sendAbandonmentNotificationForBooking(
   booking: BookingForAbandonmentNotification
 ) {
@@ -283,6 +287,12 @@ async function sendAbandonmentNotificationForBooking(
 export async function notifyAbandonedBookingsByIds(
   abandonedBookingIds: string[]
 ) {
+  // Abandonment recovery is paused until the future selling/recovery workflow
+  // is ready. Keep callers harmless while still returning a stable shape.
+  if (!areAbandonmentEmailsEnabled()) {
+    return { notifiedBookingIds: [] as string[] };
+  }
+
   const uniqueIds = Array.from(
     new Set(
       abandonedBookingIds

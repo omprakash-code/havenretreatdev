@@ -1,8 +1,9 @@
-import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
+import BookingEmailFontStyles from "@/emails/components/BookingEmailFontStyles";
+import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import {
   BOOKING_PAYMENT_APPLIED_MESSAGE,
-  BOOKING_REVIEW_MESSAGE,
-  BOOKING_REVIEW_TITLE,
+  BOOKING_CONFIRMED_MESSAGE,
+  BOOKING_CONFIRMED_TITLE,
 } from "@/constants/booking-status-copy";
 export type BookingConfirmationAddonItem = {
   name: string;
@@ -145,7 +146,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
                     fontWeight: 700,
                     color: color.textMuted,
                     textTransform: "uppercase" as const,
-                    fontFamily: "'Courier New', Courier, monospace",
+                    fontFamily: bookingEmailFonts.body,
                   }}
                 >
                   {children}
@@ -169,7 +170,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
           color: color.textSecondary,
           width: "42%",
           fontSize: 13,
-          fontFamily: "'Courier New', Courier, monospace",
+          fontFamily: bookingEmailFonts.body,
           letterSpacing: "0.02em",
         }}
       >
@@ -181,7 +182,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
           color: color.textPrimary,
           fontWeight: 600,
           fontSize: 13,
-          fontFamily: "'Courier New', Courier, monospace",
+          fontFamily: bookingEmailFonts.body,
           textAlign: "right",
         }}
       >
@@ -249,11 +250,12 @@ export default function BookingConfirmationEmail({
     <div
       style={{
         margin: 0,
-        padding: "5px",
+        padding: "32px 5px",
         backgroundColor: color.pageBg,
-        fontFamily: "'Courier New', Courier, monospace",
+        fontFamily: bookingEmailFonts.body,
       }}
     >
+      <BookingEmailFontStyles />
       <table
         role="presentation"
         cellPadding={0}
@@ -304,7 +306,7 @@ export default function BookingConfirmationEmail({
                           color: color.cardBg,
                           letterSpacing: "-0.02em",
                           lineHeight: 1.05,
-                          fontFamily: "Georgia, 'Times New Roman', serif",
+                          fontFamily: bookingEmailFonts.heading,
                           wordBreak: "break-word",
                         }}
                       >
@@ -440,13 +442,13 @@ export default function BookingConfirmationEmail({
                 <tbody>
                   <tr>
                     <td style={{ padding: "10px 12px" }}>
-                      <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "#245e5b", fontFamily: "'Courier New', Courier, monospace" }}>
-                        {BOOKING_REVIEW_TITLE}
+                      <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "#245e5b", fontFamily: bookingEmailFonts.body }}>
+                        {BOOKING_CONFIRMED_TITLE}
                       </p>
-                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "#347f7c", lineHeight: 1.5, fontFamily: "'Courier New', Courier, monospace" }}>
-                        {BOOKING_REVIEW_MESSAGE}
+                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "#2b6a67", lineHeight: 1.5, fontFamily: bookingEmailFonts.body }}>
+                        {BOOKING_CONFIRMED_MESSAGE}
                       </p>
-                      <p style={{ margin: "6px 0 0", fontSize: 10, color: "#347f7c", fontFamily: "'Courier New', Courier, monospace" }}>
+                      <p style={{ margin: "6px 0 0", fontSize: 10, color: "#2b6a67", fontFamily: bookingEmailFonts.body }}>
                         {BOOKING_PAYMENT_APPLIED_MESSAGE}
                       </p>
                     </td>
@@ -490,7 +492,7 @@ export default function BookingConfirmationEmail({
                           fontSize: 14,
                           fontWeight: 800,
                           color: color.textPrimary,
-                          fontFamily: "Georgia, 'Times New Roman', serif",
+                          fontFamily: bookingEmailFonts.heading,
                           letterSpacing: "-0.01em",
                         }}
                       >
@@ -602,7 +604,7 @@ export default function BookingConfirmationEmail({
                                     letterSpacing: "0.12em",
                                     textTransform: "uppercase" as const,
                                     paddingBottom: 8,
-                                    fontFamily: "'Courier New', Courier, monospace",
+                                    fontFamily: bookingEmailFonts.body,
                                   }}
                                 >
                                   Item
@@ -616,7 +618,7 @@ export default function BookingConfirmationEmail({
                                     letterSpacing: "0.12em",
                                     textTransform: "uppercase" as const,
                                     paddingBottom: 8,
-                                    fontFamily: "'Courier New', Courier, monospace",
+                                    fontFamily: bookingEmailFonts.body,
                                   }}
                                 >
                                   Qty
@@ -630,7 +632,7 @@ export default function BookingConfirmationEmail({
                                     letterSpacing: "0.12em",
                                     textTransform: "uppercase" as const,
                                     paddingBottom: 8,
-                                    fontFamily: "'Courier New', Courier, monospace",
+                                    fontFamily: bookingEmailFonts.body,
                                   }}
                                 >
                                   Amount
@@ -646,7 +648,7 @@ export default function BookingConfirmationEmail({
                                       color: color.textSubtle,
                                       padding: "8px 0",
                                       borderTop: color.borderLine,
-                                      fontFamily: "'Courier New', Courier, monospace",
+                                      fontFamily: bookingEmailFonts.body,
                                     }}
                                   >
                                     {item.name}
@@ -660,7 +662,7 @@ export default function BookingConfirmationEmail({
                                       color: color.textSubtle,
                                       padding: "8px 0",
                                       borderTop: color.borderLine,
-                                      fontFamily: "'Courier New', Courier, monospace",
+                                      fontFamily: bookingEmailFonts.body,
                                     }}
                                   >
                                     {item.quantity}
@@ -672,7 +674,7 @@ export default function BookingConfirmationEmail({
                                       color: color.textSubtle,
                                       padding: "8px 0",
                                       borderTop: color.borderLine,
-                                      fontFamily: "'Courier New', Courier, monospace",
+                                      fontFamily: bookingEmailFonts.body,
                                     }}
                                   >
                                     {item.totalPrice === 0 ? "Included" : formatMoney(item.totalPrice)}
@@ -706,7 +708,7 @@ export default function BookingConfirmationEmail({
                           letterSpacing: "0.2em",
                           color: color.textSecondary,
                           textTransform: "uppercase" as const,
-                          fontFamily: "'Courier New', Courier, monospace",
+                          fontFamily: bookingEmailFonts.body,
                         }}
                       >
                         Payment Summary
@@ -855,10 +857,10 @@ export default function BookingConfirmationEmail({
                 padding: "12px 8px",
                 backgroundColor: color.panelBg,
                 borderTop: color.borderLine,
-                color: color.borderStrong,
+                color: color.textMuted,
                 fontSize: 10,
                 letterSpacing: "0.06em",
-                fontFamily: "'Courier New', Courier, monospace",
+                fontFamily: bookingEmailFonts.body,
                 textAlign: "center",
               }}
             >

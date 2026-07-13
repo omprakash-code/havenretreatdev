@@ -6,12 +6,13 @@ import {
   timeToMinutes as parseBookingTime,
 } from "@/lib/booking-range";
 import {
-  ACTIVE_RANGE_HOLD_STATUSES,
   BOOKING_BUFFER_MINUTES,
   BOOKING_BUSINESS_CLOSE_TIME,
   BOOKING_BUSINESS_OPEN_TIME,
   BOOKING_TIME_ZONE,
   DEFAULT_MINIMUM_BOOKING_MINUTES,
+  buildRangeConflictFilter,
+  isReservedRangeStatus,
 } from "@/lib/booking-policy";
 import { getOwnedBookingIdFromCookies } from "@/services/booking/range-booking-api-session";
 
@@ -93,19 +94,16 @@ export async function GET(req: Request) {
   // their time range; only other sessions' holds block availability.
   const ownedBookingId = await getOwnedBookingIdFromCookies();
 
-  // Find CONFIRMED bookings that overlap this date
+  // Find reserved bookings (pending review / approved / legacy confirmed) and
+  // other sessions' live holds that overlap this date.
   const bookings = await prisma.booking.findMany({
     where: {
       venueId: { in: venueIds },
       ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
-      OR: [
-        { bookingStatus: "CONFIRMED" },
-        {
-          bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
-          holdExpiresAt: { gt: now },
-          ...(ownedBookingId ? { id: { not: ownedBookingId } } : {}),
-        },
-      ],
+      OR: buildRangeConflictFilter(
+        now,
+        ownedBookingId ? { id: { not: ownedBookingId } } : {}
+      ),
       startsAtUtc: { lt: dayEndUtc },
       occupiedUntilUtc: { gt: dayStartUtc },
     },
@@ -147,7 +145,7 @@ export async function GET(req: Request) {
     unavailableRanges.push({
       startTime: minutesToTime(startMin),
       endTime: minutesToTime(cappedEnd),
-      reason: b.bookingStatus === "CONFIRMED" ? "BOOKED" : "LOCKED",
+      reason: isReservedRangeStatus(b.bookingStatus) ? "BOOKED" : "LOCKED",
     });
   }
 

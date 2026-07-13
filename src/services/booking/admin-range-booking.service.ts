@@ -7,7 +7,7 @@ import {
   timeToMinutes,
   toBookingDate,
 } from "@/lib/booking-range";
-import { ACTIVE_RANGE_HOLD_STATUSES } from "@/lib/booking-policy";
+import { buildRangeConflictFilter } from "@/lib/booking-policy";
 
 export type AdminRangeBookingErrorCode =
   | "INVALID_RANGE"
@@ -153,13 +153,7 @@ export async function validateAdminRangeBooking(
   const bookingConflict = await tx.booking.findFirst({
     where: {
       ...(input.venueId ? { venueId: input.venueId } : {}),
-      OR: [
-        { bookingStatus: "CONFIRMED" },
-        {
-          bookingStatus: { in: [...ACTIVE_RANGE_HOLD_STATUSES] },
-          holdExpiresAt: { gt: new Date() },
-        },
-      ],
+      OR: buildRangeConflictFilter(new Date()),
       startsAtUtc: { lt: range.occupiedUntilUtc },
       occupiedUntilUtc: { gt: range.startsAtUtc },
       ...(input.excludeBookingId ? { id: { not: input.excludeBookingId } } : {}),
@@ -168,7 +162,10 @@ export async function validateAdminRangeBooking(
   });
 
   if (bookingConflict) {
-    throw new AdminRangeBookingError("BOOKING_CONFLICT", "Time overlaps a confirmed booking.");
+    throw new AdminRangeBookingError(
+      "BOOKING_CONFLICT",
+      "Time overlaps an existing booking."
+    );
   }
 
   return { range };

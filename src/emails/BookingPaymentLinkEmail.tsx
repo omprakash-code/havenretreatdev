@@ -4,7 +4,7 @@ import {
   BookingEmailDataRow,
   BookingEmailSummaryPanel,
 } from "@/emails/components/BookingEmailContent";
-import { bookingEmailColors } from "@/emails/theme/booking-email-colors";
+import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import { resolveBookingEmailTheme } from "@/emails/theme/booking-email-theme";
 
 export type BookingPaymentLinkEmailProps = {
@@ -53,9 +53,9 @@ export default function BookingPaymentLinkEmail({
     <div
       style={{
         margin: 0,
-        padding: "12px",
+        padding: "32px 12px",
         backgroundColor: color.pageBg,
-        fontFamily: "'Courier New', Courier, monospace",
+        fontFamily: bookingEmailFonts.body,
       }}
     >
       <table
