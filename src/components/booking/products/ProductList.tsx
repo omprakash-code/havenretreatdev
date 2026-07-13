@@ -86,7 +86,7 @@ export default function ProductList({
 
   if (!products.length) {
     return (
-      <p className="border border-[#d7e4e1] bg-[#f8fbfa] px-4 py-3 text-sm text-gray-500">
+      <p className="bg-gray-50 px-4 py-3 text-sm text-gray-500">
         No add-ons are available in this category right now.
       </p>
     );

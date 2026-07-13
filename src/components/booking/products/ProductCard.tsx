@@ -219,8 +219,8 @@ export default function ProductCard({
      Render
   ------------------------------ */
   return (
-    <div className="flex h-full min-w-0 flex-col border border-[#2f7e7a]/25 bg-white p-2 sm:p-4 transition hover:border-[#347f7c]/45 hover:bg-[#fcfdfd]">
-      <div className="relative aspect-[4/3] w-full overflow-hidden border border-[#d7e4e1] bg-[#f8fbfa]">
+    <div className="flex h-full min-w-0 flex-col bg-gray-50 p-3 ring-1 ring-gray-900/[0.04] transition-shadow hover:shadow-[0_2px_16px_rgba(0,0,0,0.06)] sm:p-4">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
         <Image
           src={product.image}
           alt={product.name}
@@ -230,14 +230,14 @@ export default function ProductCard({
         />
       </div>
 
-      <div className="mt-2 sm:mt-3 flex items-start justify-between gap-1.5 sm:gap-2 min-w-0">
+      <div className="mt-2.5 sm:mt-3.5 flex items-start justify-between gap-1.5 sm:gap-2 min-w-0">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <h4 className="min-w-0 text-xs sm:text-sm font-semibold text-gray-800 leading-snug line-clamp-2">
+          <h4 className="min-w-0 text-[13px] sm:text-sm font-semibold text-gray-900 leading-snug line-clamp-2">
             {product.name}
           </h4>
 
           {isPackageIncluded && (
-            <p className="inline-flex shrink-0 border border-[#d7e4e1] bg-[#edf3f1] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-[#245e5b] sm:px-2 sm:text-[10px]">
+            <p className="inline-flex shrink-0 items-center bg-gray-200/70 px-2 py-0.5 text-[9px] font-medium leading-none text-gray-600 sm:text-[10px]">
               {includedQuantity} included
             </p>
           )}
@@ -247,7 +247,7 @@ export default function ProductCard({
           <button
             type="button"
             onClick={openLedPrompt}
-            className="shrink-0 border border-[#2f7e7a]/30 bg-[#edf3f1] px-2 py-1 text-[10px] sm:text-[11px] font-semibold text-[#245e5b] hover:bg-[#e3efec] cursor-pointer"
+            className="shrink-0 bg-white px-2.5 py-1 text-[10px] sm:text-[11px] font-medium text-gray-700 ring-1 ring-gray-200 transition hover:bg-gray-100 cursor-pointer"
           >
             {numberLabel}: {existing?.ledNumber}
           </button>
@@ -264,7 +264,7 @@ export default function ProductCard({
         <button
           type="button"
           onClick={() => setShowPackageDetails(true)}
-          className="mt-1.5 w-fit cursor-pointer text-left text-[11px] font-semibold text-[#347f7c] underline decoration-[#347f7c]/40 underline-offset-2 transition hover:text-[#245e5b] sm:text-xs"
+          className="mt-1.5 w-fit cursor-pointer text-left text-[11px] font-medium text-[#347f7c] underline-offset-2 transition hover:text-[#245e5b] hover:underline sm:text-xs"
         >
           {variants.length > 1
             ? `View ${activeVariant.label} package details`
@@ -272,36 +272,35 @@ export default function ProductCard({
         </button>
       )}
 
-      {/* Variants */}
-      <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2 sm:mt-3">
-        {variants.map((v) => {
-          const active = v.id === activeVariant.id;
+      {/* Variants (selector only shown when there is a real choice) */}
+      {variants.length > 1 && (
+        <div className="mt-2.5 flex flex-wrap gap-1.5 sm:mt-3">
+          {variants.map((v) => {
+            const active = v.id === activeVariant.id;
 
-          return (
-            <button
-              key={v.id}
-              onClick={() => setActiveVariant(v)}
-              disabled={variants.length === 1}
-              className={`px-2 sm:px-3 py-1 text-[10px] sm:text-[11px] border transition
-                ${active
-                  ? "border-[#347f7c] bg-[#347f7c] text-white"
-                  : "border-[#d7e4e1] text-gray-700 hover:border-[#347f7c]/40 hover:bg-[#f8fbfa]"
-                }
-                ${variants.length === 1 ? "cursor-default opacity-80" : ""}
-              `}
-            >
-              {v.label}
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <button
+                key={v.id}
+                onClick={() => setActiveVariant(v)}
+                className={`cursor-pointer px-3 py-1 text-[10px] sm:text-[11px] font-medium transition
+                  ${active
+                    ? "bg-[#347f7c] text-white"
+                    : "bg-white text-gray-600 ring-1 ring-gray-200 hover:bg-gray-100"
+                  }
+                `}
+              >
+                {v.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Price + Controls */}
-      <div className="mt-auto pt-2 sm:pt-3 grid grid-cols-[1fr_auto] items-end gap-1.5 sm:gap-2">
+      <div className="mt-auto pt-3 sm:pt-4 grid grid-cols-[1fr_auto] items-end gap-1.5 sm:gap-2">
         <div>
-          <p className="text-[10px] sm:text-xs text-gray-500">Price</p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <p className="text-[15px] sm:text-lg font-bold text-gray-900 leading-none">
+          <div className="flex flex-wrap items-baseline gap-1.5">
+            <p className="text-base sm:text-xl font-semibold tracking-tight text-gray-900 leading-none">
               {formatCurrency(priceMeta.displayPrice)}
             </p>
             {priceMeta.hasDiscount && (
@@ -309,15 +308,19 @@ export default function ProductCard({
                 <p className="text-[10px] sm:text-xs text-gray-400 line-through leading-none">
                   {formatCurrency(priceMeta.regularPrice)}
                 </p>
-                <span className="bg-[#edf3f1] px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-[#245e5b] leading-none">
+                <span className="bg-emerald-50 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-emerald-700 leading-none">
                   {priceMeta.savingsPercent}% OFF
                 </span>
               </>
             )}
           </div>
-          {outOfStock ? (
-            <p className="mt-1 text-[10px] sm:text-xs text-gray-500">Out of stock</p>
-          ) : null}
+          <p className="mt-1 text-[10px] sm:text-[11px] text-gray-500">
+            {outOfStock
+              ? "Out of stock"
+              : isSingleSelect
+                ? "One per event"
+                : activeVariant.label}
+          </p>
         </div>
 
         <div className="relative h-8 sm:h-9 w-[74px] sm:w-[88px] shrink-0">
@@ -336,9 +339,9 @@ export default function ProductCard({
                 transition={{ duration: 0.12, ease: "easeOut" }}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.96 }}
-                className="absolute inset-0 flex h-full w-full items-center justify-center gap-0.5 border border-[#347f7c] bg-[#347f7c] text-xs font-semibold text-white cursor-pointer select-none transition hover:bg-[#245e5b] disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:text-gray-600"
+                className="absolute inset-0 flex h-full w-full items-center justify-center gap-1 bg-[#347f7c] text-[13px] font-semibold text-white cursor-pointer select-none transition hover:bg-[#245e5b] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
               >
-                <Plus size={12} />
+                <Plus size={15} />
                 {outOfStock ? "Out" : "Add"}
               </motion.button>
             ) : isSingleSelect ? (
@@ -353,7 +356,7 @@ export default function ProductCard({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ duration: 0.12, ease: "easeOut" }}
-                className="absolute inset-0 flex h-full w-full items-center justify-center gap-0.5 border border-[#2f7e7a]/25 bg-[#edf3f1] text-xs font-semibold text-[#245e5b] cursor-pointer select-none transition-colors hover:bg-[#e3efec] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                className="absolute inset-0 flex h-full w-full items-center justify-center bg-[#347f7c]/10 text-[13px] font-semibold text-[#245e5b] cursor-pointer select-none transition-colors hover:bg-[#347f7c]/15 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
               >
                 {isPackageIncluded ? "Included" : "Added"}
               </motion.button>
@@ -364,7 +367,7 @@ export default function ProductCard({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ duration: 0.12, ease: "easeOut" }}
-                className="absolute inset-0 flex h-full w-full items-center justify-between border border-[#d7e4e1] bg-[#f8fbfa] px-0.5"
+                className="absolute inset-0 flex h-full w-full items-center justify-between bg-white px-1 ring-1 ring-gray-200"
               >
                 <button
                   type="button"
@@ -372,12 +375,12 @@ export default function ProductCard({
                   title="Decrease quantity"
                   aria-label="Decrease quantity"
                   disabled={quantity <= includedQuantity}
-                  className="flex aspect-square h-5 w-5 items-center justify-center border border-[#d7e4e1] bg-white leading-none cursor-pointer text-[#245e5b] hover:bg-[#edf3f1] active:scale-[0.97] transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-6 sm:w-6"
+                  className="flex aspect-square h-6 w-6 items-center justify-center leading-none cursor-pointer text-gray-600 hover:bg-gray-100 active:scale-95 transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:w-7"
                 >
                   <Minus size={10} />
                 </button>
 
-                <span className="font-semibold text-[11px] sm:text-xs select-none leading-none">
+                <span className="font-semibold text-[11px] sm:text-xs text-gray-900 select-none leading-none">
                   {quantity}
                 </span>
 
@@ -387,7 +390,7 @@ export default function ProductCard({
                   title="Increase quantity"
                   aria-label="Increase quantity"
                   disabled={outOfStock || reachedLimit}
-                  className="flex aspect-square h-5 w-5 items-center justify-center border border-[#d7e4e1] bg-white leading-none cursor-pointer text-[#245e5b] hover:bg-[#edf3f1] active:scale-[0.97] transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-6 sm:w-6"
+                  className="flex aspect-square h-6 w-6 items-center justify-center leading-none cursor-pointer text-gray-600 hover:bg-gray-100 active:scale-95 transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:w-7"
                 >
                   <Plus size={11} />
                 </button>
@@ -418,9 +421,9 @@ export default function ProductCard({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 24, opacity: 0 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className="w-full rounded-t-2xl border border-[#2f7e7a]/20 bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl sm:max-w-md sm:rounded-none sm:p-6"
+              className="w-full bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl sm:max-w-md sm:p-6"
             >
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 sm:hidden" />
+              <div className="mx-auto mb-4 h-1 w-10 bg-gray-300 sm:hidden" />
 
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -443,7 +446,7 @@ export default function ProductCard({
                   type="button"
                   onClick={() => setShowPackageDetails(false)}
                   aria-label="Close package details"
-                  className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center border border-[#d7e4e1] text-gray-500 transition hover:bg-[#edf3f1] hover:text-[#245e5b]"
+                  className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                 >
                   <X size={17} />
                 </button>
@@ -467,7 +470,7 @@ export default function ProductCard({
               <button
                 type="button"
                 onClick={() => setShowPackageDetails(false)}
-                className="mt-6 w-full cursor-pointer border border-[#347f7c] bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#245e5b]"
+                className="mt-6 w-full cursor-pointer bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#245e5b]"
               >
                 Done
               </button>
