@@ -7,40 +7,9 @@ on:
   workflow_dispatch:
 
 jobs:
-
-  build:
-    name: Build & Validate
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Prisma Generate
-        run: npx prisma generate
-
-      - name: Build Application
-        run: npm run build
-        env:
-          ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
-          NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
-          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-          NEXT_PUBLIC_CUSTOMER_RANGE_BOOKING_ENABLED: "true"
-          NEXT_PUBLIC_ADMIN_RANGE_BOOKING_ENABLED: "true"
-
   deploy:
     name: Deploy to Production VPS
     runs-on: ubuntu-latest
-    needs: build
 
     steps:
       - name: Deploy via SSH
@@ -52,11 +21,12 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            cd /home/havenretreatdev
+            cd /home/havenretreat
 
             git fetch origin main
             git reset --hard origin/main
 
+            export DOCKER_BUILDKIT=1
             docker compose up -d db
             docker compose build app
             docker compose run --rm app npx prisma migrate deploy
