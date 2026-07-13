@@ -7,7 +7,7 @@ services:
     # with defaults matching the existing live VPS deployment.
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local-db-password}
       POSTGRES_DB: ${POSTGRES_DB:-havenretreat}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -40,7 +40,7 @@ services:
     environment:
       # Built from the same credentials Compose read out of .env, with defaults
       # matching the current live VPS database. Host is the private service name `db`.
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-havenretreat}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-change-me-local-db-password}@db:5432/${POSTGRES_DB:-havenretreat}
       # Feature flags — preserved from the previous compose configuration.
       AVAILABILITY_ENGINE_ENABLED: ${AVAILABILITY_ENGINE_ENABLED:-false}
       RANGE_BOOKING_LOCKS_ENABLED: ${RANGE_BOOKING_LOCKS_ENABLED:-false}
