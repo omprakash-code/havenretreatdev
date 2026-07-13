@@ -53,7 +53,7 @@ export default function BookingPaymentLinkEmail({
     <div
       style={{
         margin: 0,
-        padding: "12px",
+        padding: "32px 12px",
         backgroundColor: color.pageBg,
         fontFamily: bookingEmailFonts.body,
       }}

@@ -104,7 +104,7 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
     <div
       style={{
         margin: 0,
-        padding: "5px",
+        padding: "32px 5px",
         backgroundColor: color.pageBg,
         fontFamily: bookingEmailFonts.body,
       }}
