@@ -38,7 +38,9 @@ export async function POST(
     });
 
     if (!result.alreadyDecided) {
-      await sendBookingRejectedEmail(result.bookingId);
+      void sendBookingRejectedEmail(result.bookingId).catch((error) => {
+        console.error("BOOKING_REJECTED_EMAIL_DISPATCH_FAILED", error);
+      });
     }
 
     return NextResponse.json({

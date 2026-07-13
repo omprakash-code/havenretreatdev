@@ -45,11 +45,19 @@ export async function sendEmail({
 }: SendEmailParams) {
   const html = await render(react);
 
-  await getResendClient().emails.send({
+  // Resend's SDK reports API failures via the `error` field instead of
+  // throwing, so an unchecked send can fail silently.
+  const { error } = await getResendClient().emails.send({
     from: getFromEmail(), // e.g. "Haven Retreat <onboarding@resend.dev>"
     to,
     subject,
     html,
     attachments: attachments && attachments.length > 0 ? attachments : undefined,
   });
+
+  if (error) {
+    throw new Error(
+      `Resend send failed for "${subject}": ${error.name}: ${error.message}`
+    );
+  }
 }

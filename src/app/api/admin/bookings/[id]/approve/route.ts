@@ -49,7 +49,9 @@ export async function POST(
     });
 
     if (!result.alreadyDecided) {
-      await sendBookingApprovedEmail(result.bookingId);
+      void sendBookingApprovedEmail(result.bookingId).catch((error) => {
+        console.error("BOOKING_APPROVED_EMAIL_DISPATCH_FAILED", error);
+      });
     }
 
     return NextResponse.json({
