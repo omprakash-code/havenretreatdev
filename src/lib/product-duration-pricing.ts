@@ -37,11 +37,33 @@ export function getProductDurationPricing(product: ProductRef) {
   return DURATION_PRICED_PRODUCTS[slug] ?? null;
 }
 
-// Amount charged on top of the base price for the booked duration.
-// Unknown duration means no overage: only the base price is charged.
-function getDurationOverageAmount(product: ProductRef, durationHours: number | null | undefined) {
+export type DurationPricingBreakdown = {
+  includedHours: number;
+  extraHourlyRate: number;
+  // Hours the price is computed for (falls back to includedHours when the
+  // booked duration is unknown).
+  bookedHours: number;
+  extraHours: number;
+  overageAmount: number;
+  baseUnitPrice: number;
+  unitPrice: number;
+};
+
+// The full price composition for a duration-priced product, for UIs that
+// explain the charge (pricing modal, summary breakdown). Unknown duration
+// means no overage: only the base price is charged. Returns null for
+// products without a duration-pricing config.
+export function getDurationPricingBreakdown({
+  product,
+  baseUnitPrice,
+  durationHours,
+}: {
+  product: ProductRef;
+  baseUnitPrice: number;
+  durationHours: number | null | undefined;
+}): DurationPricingBreakdown | null {
   const config = getProductDurationPricing(product);
-  if (!config) return 0;
+  if (!config) return null;
 
   const bookedHours =
     typeof durationHours === "number" &&
@@ -49,8 +71,25 @@ function getDurationOverageAmount(product: ProductRef, durationHours: number | n
     durationHours > 0
       ? durationHours
       : config.includedHours;
-  return Math.round(
-    Math.max(bookedHours - config.includedHours, 0) * config.extraHourlyRate
+  const extraHours = Math.max(bookedHours - config.includedHours, 0);
+  const overageAmount = Math.round(extraHours * config.extraHourlyRate);
+
+  return {
+    includedHours: config.includedHours,
+    extraHourlyRate: config.extraHourlyRate,
+    bookedHours,
+    extraHours,
+    overageAmount,
+    baseUnitPrice,
+    unitPrice: baseUnitPrice + overageAmount,
+  };
+}
+
+// Amount charged on top of the base price for the booked duration.
+function getDurationOverageAmount(product: ProductRef, durationHours: number | null | undefined) {
+  return (
+    getDurationPricingBreakdown({ product, baseUnitPrice: 0, durationHours })
+      ?.overageAmount ?? 0
   );
 }
 
@@ -66,7 +105,10 @@ export function getDurationAdjustedUnitPrice({
   baseUnitPrice: number;
   durationHours: number | null | undefined;
 }) {
-  return baseUnitPrice + getDurationOverageAmount(product, durationHours);
+  return (
+    getDurationPricingBreakdown({ product, baseUnitPrice, durationHours })
+      ?.unitPrice ?? baseUnitPrice
+  );
 }
 
 // Moves an already duration-adjusted snapshot price from one booked duration

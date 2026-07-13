@@ -21,7 +21,7 @@ import {
 } from "@/lib/package-included-products";
 import {
   getDurationAdjustedUnitPrice,
-  getDurationPricingLabel,
+  getDurationPricingBreakdown,
 } from "@/lib/product-duration-pricing";
 import { getVariantMaxAllowed } from "@/lib/product-stock";
 
@@ -107,17 +107,23 @@ export default function ProductCard({
     useState<Variant | undefined>(defaultVariant);
   const [showLedPrompt, setShowLedPrompt] = useState(false);
   const [showPackageDetails, setShowPackageDetails] = useState(false);
+  const [showPricingDetails, setShowPricingDetails] = useState(false);
   const [draftLedNumber, setDraftLedNumber] = useState("");
   const packageDetails =
     product.slug && activeVariant
       ? PACKAGE_DETAILS[product.slug]?.(activeVariant.label)
       : undefined;
 
+  const anyDetailsOpen = showPackageDetails || showPricingDetails;
+
   useEffect(() => {
-    if (!showPackageDetails) return;
+    if (!anyDetailsOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowPackageDetails(false);
+      if (event.key === "Escape") {
+        setShowPackageDetails(false);
+        setShowPricingDetails(false);
+      }
     };
 
     const previousOverflow = document.body.style.overflow;
@@ -128,7 +134,7 @@ export default function ProductCard({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [showPackageDetails]);
+  }, [anyDetailsOpen]);
 
   /* -----------------------------
      Existing item lookup
@@ -220,12 +226,12 @@ export default function ProductCard({
   if (!activeVariant) return null;
   const priceMeta = getVariantPriceMeta(activeVariant);
   // Duration-priced add-ons (e.g. Bartender) scale with the booked hours.
-  const displayPrice = getDurationAdjustedUnitPrice({
+  const durationPricing = getDurationPricingBreakdown({
     product,
     baseUnitPrice: priceMeta.displayPrice,
     durationHours: booking.durationHours,
   });
-  const durationPricingLabel = getDurationPricingLabel(product);
+  const displayPrice = durationPricing?.unitPrice ?? priceMeta.displayPrice;
 
   /* -----------------------------
      Render
@@ -284,6 +290,16 @@ export default function ProductCard({
         </button>
       )}
 
+      {durationPricing && (
+        <button
+          type="button"
+          onClick={() => setShowPricingDetails(true)}
+          className="mt-1.5 w-fit cursor-pointer text-left text-[11px] font-medium text-[#347f7c] underline-offset-2 transition hover:text-[#245e5b] hover:underline sm:text-xs"
+        >
+          View pricing details
+        </button>
+      )}
+
       {/* Variants (selector only shown when there is a real choice) */}
       {variants.length > 1 && (
         <div className="mt-2.5 flex flex-wrap gap-1.5 sm:mt-3">
@@ -329,8 +345,9 @@ export default function ProductCard({
           <p className="mt-1 text-[10px] sm:text-[11px] text-gray-500">
             {outOfStock
               ? "Out of stock"
-              : durationPricingLabel ??
-                (isSingleSelect ? "One per event" : activeVariant.label)}
+              : isSingleSelect
+                ? "One per event"
+                : activeVariant.label}
           </p>
         </div>
 
@@ -481,6 +498,127 @@ export default function ProductCard({
               <button
                 type="button"
                 onClick={() => setShowPackageDetails(false)}
+                className="mt-6 w-full cursor-pointer bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#245e5b]"
+              >
+                Done
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showPricingDetails && durationPricing && (
+          <motion.div
+            className="fixed inset-0 z-[120] flex items-end bg-black/45 sm:items-center sm:justify-center sm:px-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`pricing-details-${product.id}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setShowPricingDetails(false);
+              }
+            }}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="w-full bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl sm:max-w-md sm:p-6"
+            >
+              <div className="mx-auto mb-4 h-1 w-10 bg-gray-300 sm:hidden" />
+
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3
+                    id={`pricing-details-${product.id}`}
+                    className="text-lg font-bold text-gray-900"
+                  >
+                    {product.name} Service
+                  </h3>
+                  {product.description && (
+                    <p className="mt-1 text-sm text-gray-600">
+                      {product.description}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPricingDetails(false)}
+                  aria-label="Close pricing details"
+                  className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Included
+              </p>
+              <ul className="mt-2 space-y-2">
+                {[
+                  `Professional ${product.name.toLowerCase()}`,
+                  `Up to ${durationPricing.includedHours} hours of service`,
+                ].map((item) => (
+                  <li
+                    key={item}
+                    className="flex items-start gap-3 text-sm leading-5 text-gray-700"
+                  >
+                    <CheckCircle2
+                      size={17}
+                      className="mt-0.5 shrink-0 text-[#347f7c]"
+                    />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Pricing
+              </p>
+              <dl className="mt-2 space-y-2 text-sm text-gray-700">
+                <div className="flex items-center justify-between gap-3">
+                  <dt>Base price</dt>
+                  <dd className="font-medium text-gray-900">
+                    {formatCurrency(durationPricing.baseUnitPrice)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt>Additional time</dt>
+                  <dd className="font-medium text-gray-900">
+                    {formatCurrency(durationPricing.extraHourlyRate)}/hour
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt>Current booking duration</dt>
+                  <dd className="font-medium text-gray-900">
+                    {durationPricing.bookedHours} hours
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-black/10 pt-2">
+                  <dt className="font-semibold text-gray-900">Current price</dt>
+                  <dd className="font-bold text-gray-900">
+                    {formatCurrency(durationPricing.unitPrice)}
+                  </dd>
+                </div>
+              </dl>
+
+              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Notes
+              </p>
+              <p className="mt-2 text-sm leading-5 text-gray-600">
+                Pricing updates automatically based on your selected booking
+                duration.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setShowPricingDetails(false)}
                 className="mt-6 w-full cursor-pointer bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#245e5b]"
               >
                 Done

@@ -39,6 +39,7 @@ import {
   getPackageIncludedProductQuantity,
   getPackageIncludedProductExtraQuantity,
 } from "@/lib/package-included-products";
+import { getDurationPricingBreakdown } from "@/lib/product-duration-pricing";
 import {
   BOOKING_NO_PAYMENT_TODAY_TITLE,
   BOOKING_REVIEW_FOLLOWUP_MESSAGE,
@@ -787,6 +788,7 @@ export default function BookingSummary({
                       key={item.id}
                       item={item}
                       selectedPackage={selectedPackage}
+                      durationHours={booking.durationHours}
                       onRemoveItem={onRemoveItem}
                     />
                   ))}
@@ -1194,10 +1196,12 @@ export default function BookingSummary({
 function SummaryProductRow({
   item,
   selectedPackage,
+  durationHours,
   onRemoveItem,
 }: {
   item: BookingItemSnapshot;
   selectedPackage: SelectedPackage | null;
+  durationHours?: number | null;
   onRemoveItem?: (id: string) => void;
 }) {
   const includedQuantity = getPackageIncludedProductQuantity(selectedPackage, {
@@ -1227,6 +1231,26 @@ function SummaryProductRow({
     }
   } else if (item.quantity > 1) {
     lineItems.push(`${item.quantity}× ${item.productName}`);
+  }
+
+  // Duration-priced add-ons (e.g. Bartender) show how the amount was built:
+  // "$200 + $40/hr × 2 hrs". Only when extra hours are actually charged.
+  const durationBreakdown =
+    typeof item.baseUnitPrice === "number"
+      ? getDurationPricingBreakdown({
+          product: { slug: item.productSlug, name: item.productName },
+          baseUnitPrice: item.baseUnitPrice,
+          durationHours,
+        })
+      : null;
+  if (durationBreakdown && durationBreakdown.extraHours > 0) {
+    lineItems.push(
+      `${formatCurrency(durationBreakdown.baseUnitPrice)} + ${formatCurrency(
+        durationBreakdown.extraHourlyRate
+      )}/hr × ${durationBreakdown.extraHours} ${
+        durationBreakdown.extraHours === 1 ? "hr" : "hrs"
+      }`
+    );
   }
 
   return (
