@@ -1,6 +1,7 @@
 export const bookingEmailFonts = {
   heading: "'Playfair Display', Georgia, serif",
   body: "Inter, sans-serif",
+  mono: "'Courier New', Courier, monospace",
 } as const;
 
 export const bookingEmailColors = {

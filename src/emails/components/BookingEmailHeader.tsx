@@ -10,6 +10,8 @@ type BookingEmailHeaderProps = {
   logoBorder: string;
   fallbackBackgroundColor?: string;
   fallbackTextColor?: string;
+  /** Render the title as a monospace reference chip (for booking refs). */
+  referenceTitle?: boolean;
 };
 
 export default function BookingEmailHeader({
@@ -20,6 +22,7 @@ export default function BookingEmailHeader({
   logoBorder,
   fallbackBackgroundColor = textColor,
   fallbackTextColor = bookingEmailColors.brandAccent,
+  referenceTitle = false,
 }: BookingEmailHeaderProps) {
   return (
     <tr>
@@ -47,20 +50,42 @@ export default function BookingEmailHeader({
                 >
                   {eyebrow}
                 </p>
-                <h1
-                  style={{
-                    margin: "6px 0 0",
-                    fontSize: 22,
-                    fontWeight: 900,
-                    color: textColor,
-                    letterSpacing: "-0.02em",
-                    lineHeight: 1.05,
-                    fontFamily: bookingEmailFonts.heading,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {title}
-                </h1>
+                {referenceTitle ? (
+                  <h1 style={{ margin: "8px 0 0", fontSize: 0, lineHeight: 1 }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        backgroundColor: "#f8fbfa",
+                        border: "1px solid #d7e4e1",
+                        padding: "5px 10px",
+                        fontSize: 15,
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                        lineHeight: 1.2,
+                        color: "#18181b",
+                        fontFamily: bookingEmailFonts.mono,
+                        whiteSpace: "nowrap" as const,
+                      }}
+                    >
+                      {title}
+                    </span>
+                  </h1>
+                ) : (
+                  <h1
+                    style={{
+                      margin: "6px 0 0",
+                      fontSize: 22,
+                      fontWeight: 900,
+                      color: textColor,
+                      letterSpacing: "-0.02em",
+                      lineHeight: 1.05,
+                      fontFamily: bookingEmailFonts.heading,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {title}
+                  </h1>
+                )}
               </td>
               <td
                 align="right"

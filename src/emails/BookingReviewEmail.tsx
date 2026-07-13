@@ -129,6 +129,7 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
         <tbody>
           <BookingEmailHeader
             title={props.bookingRef}
+            referenceTitle
             eyebrow={copy.eyebrow}
             backgroundColor={bookingEmailColors.brandAccent}
             textColor={color.textPrimary}

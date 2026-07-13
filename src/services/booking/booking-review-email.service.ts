@@ -140,7 +140,7 @@ export async function sendBookingSubmittedEmails(bookingId: string) {
       await send(
         "SUBMITTED",
         booking.contactEmail,
-        `Booking Request Received - ${booking.bookingRef}`,
+        `We've received your booking request for ${base.date} [${booking.bookingRef}]`,
         base,
         {
           actionUrl: successUrl,
@@ -155,13 +155,18 @@ export async function sendBookingSubmittedEmails(bookingId: string) {
 
   const adminRecipients = resolveAdminBookingNotificationRecipients();
   const reviewUrl = `${resolveBaseUrl()}/admin/bookings?status=PENDING_REVIEW`;
+  const adminSubject = [
+    `New booking request – ${base.date}`,
+    `${base.guestCount} guests`,
+    ...(base.occasionLabel ? [base.occasionLabel] : []),
+  ].join(" · ");
 
   for (const recipient of adminRecipients) {
     try {
       await send(
         "ADMIN_SUBMITTED",
         recipient,
-        `New Booking Request - Review Required - ${booking.bookingRef}`,
+        `${adminSubject} [${booking.bookingRef}]`,
         base,
         {
           actionUrl: reviewUrl,
@@ -186,7 +191,7 @@ export async function sendBookingApprovedEmail(bookingId: string) {
     await send(
       "APPROVED",
       booking.contactEmail!,
-      `Booking approved - ${booking.bookingRef}`,
+      `Your booking for ${base.date} has been approved [${booking.bookingRef}]`,
       base,
       { actionUrl: successUrl, actionLabel: "View Booking" }
     );
@@ -206,7 +211,7 @@ export async function sendBookingRejectedEmail(bookingId: string) {
     await send(
       "REJECTED",
       booking.contactEmail!,
-      `Booking request update - ${booking.bookingRef}`,
+      `We couldn't approve your booking request for ${base.date} [${booking.bookingRef}]`,
       base,
       { actionUrl: `${resolveBaseUrl()}/contact`, actionLabel: "Contact Us" }
     );
