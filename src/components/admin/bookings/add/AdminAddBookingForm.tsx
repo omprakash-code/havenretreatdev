@@ -29,6 +29,10 @@ import {
   reconcilePackageIncludedProductSelections,
   type PackageIncludedProductSource,
 } from "@/lib/package-included-products";
+import {
+  getDurationAdjustedUnitPrice,
+  rebaseDurationAdjustedUnitPrice,
+} from "@/lib/product-duration-pricing";
 import { BookingSummarySection } from "@/components/admin/bookings/add/sections/BookingSummarySection";
 import { CustomerInfoSection } from "@/components/admin/bookings/add/sections/CustomerInfoSection";
 import { OccasionSection } from "@/components/admin/bookings/add/sections/OccasionSection";
@@ -1063,6 +1067,20 @@ export function AdminAddBookingForm({
 
   const selectedProductItems = useMemo(() => {
     const items: SelectedProductSummaryItem[] = [];
+    const bookingDurationHours =
+      startTime && endTime
+        ? Math.max((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60, 0)
+        : null;
+    // Prefill item snapshots were priced for the booking's saved time range.
+    const prefillDurationHours =
+      editPrefill?.eventStartTime && editPrefill?.eventEndTime
+        ? Math.max(
+            (timeToMinutes(editPrefill.eventEndTime) -
+              timeToMinutes(editPrefill.eventStartTime)) /
+              60,
+            0
+          )
+        : null;
 
     Object.entries(productSelections).forEach(([key, selection]) => {
       if (selection.quantity <= 0) return;
@@ -1074,7 +1092,12 @@ export function AdminAddBookingForm({
         const fallback = prefillItemByKey.get(key);
         if (!fallback) return;
 
-        const fallbackUnitPrice = Number(fallback.unitPrice ?? 0);
+        const fallbackUnitPrice = rebaseDurationAdjustedUnitPrice({
+          product: { name: fallback.productName },
+          unitPrice: Number(fallback.unitPrice ?? 0),
+          fromDurationHours: prefillDurationHours,
+          toDurationHours: bookingDurationHours,
+        });
         items.push({
           key,
           productId,
@@ -1097,7 +1120,12 @@ export function AdminAddBookingForm({
         const fallback = prefillItemByKey.get(key);
         if (!fallback) return;
 
-        const fallbackUnitPrice = Number(fallback.unitPrice ?? 0);
+        const fallbackUnitPrice = rebaseDurationAdjustedUnitPrice({
+          product: { slug: product.slug, name: fallback.productName },
+          unitPrice: Number(fallback.unitPrice ?? 0),
+          fromDurationHours: prefillDurationHours,
+          toDurationHours: bookingDurationHours,
+        });
         items.push({
           key,
           productId,
@@ -1115,7 +1143,11 @@ export function AdminAddBookingForm({
         return;
       }
 
-      const unitPrice = getVariantPrice(variant);
+      const unitPrice = getDurationAdjustedUnitPrice({
+        product: { slug: product.slug, name: product.name },
+        baseUnitPrice: getVariantPrice(variant),
+        durationHours: bookingDurationHours,
+      });
       const isIncludedVariant =
         variant.isDefault ||
         (!product.variants.some((entry) => entry.isDefault) &&
@@ -1149,7 +1181,15 @@ export function AdminAddBookingForm({
     });
 
     return items;
-  }, [productSelections, productById, prefillItemByKey, selectedTheatre]);
+  }, [
+    productSelections,
+    productById,
+    prefillItemByKey,
+    selectedTheatre,
+    startTime,
+    endTime,
+    editPrefill,
+  ]);
 
   const productsAmount = useMemo(() => {
     return selectedProductItems.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -2372,6 +2412,14 @@ export function AdminAddBookingForm({
           loadingProducts={loadingProducts}
           products={products}
           productsByCategory={productsByCategory}
+          durationHours={
+            startTime && endTime
+              ? Math.max(
+                  (timeToMinutes(endTime) - timeToMinutes(startTime)) / 60,
+                  0
+                )
+              : null
+          }
           getActiveVariantId={getActiveVariantId}
           getVariantSelection={getVariantSelection}
           getIncludedQuantity={(product, variantId) => {

@@ -9,6 +9,27 @@ import {
     RangeBookingSessionError,
     requireActiveRangeBookingSession,
 } from "@/services/booking/range-booking-session.service";
+import { getVariantBaseUnitPriceMap } from "@/services/booking/variant-base-price.service";
+
+type BookingItemWithProduct = {
+    variantId: string;
+    [key: string]: unknown;
+};
+
+// Snapshot items plus the variant's live base unit price, so the client can
+// re-derive duration-adjusted prices from the current database price.
+async function withVariantBaseUnitPrices<T extends BookingItemWithProduct>(
+    items: T[]
+) {
+    const baseUnitPriceByVariantId = await getVariantBaseUnitPriceMap(
+        prisma,
+        items.map((item) => item.variantId)
+    );
+    return items.map((item) => ({
+        ...item,
+        baseUnitPrice: baseUnitPriceByVariantId.get(item.variantId) ?? null,
+    }));
+}
 
 function clearBookingSessionCookie(cookieStore: Awaited<ReturnType<typeof cookies>>) {
     cookieStore.set("ds_booking_session", "", {
@@ -57,6 +78,7 @@ export async function GET() {
                 success: true,
                 data: {
                     ...booking,
+                    items: await withVariantBaseUnitPrices(booking.items),
                     rangeSchedule: {
                         eventDate: booking.eventDate,
                         startTime: booking.eventStartTime,
@@ -151,7 +173,7 @@ export async function GET() {
         );
     }
 
-    const items = booking.items.map((item) => ({
+    const items = await withVariantBaseUnitPrices(booking.items.map((item) => ({
         id: item.id,
         bookingId: item.bookingId,
         productId: item.productId,
@@ -165,7 +187,7 @@ export async function GET() {
         createdAt: item.createdAt,
         productImage: item.product?.image ?? null,
         productSlug: item.product?.slug ?? null,
-    }));
+    })));
 
     const appliedCoupons = booking.couponUsages.map((usage) => ({
         id: usage.coupon.id,

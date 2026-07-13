@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
+import { getVariantBaseUnitPriceMap } from "@/services/booking/variant-base-price.service";
 import { requireActiveRangeBookingSession } from "@/services/booking/range-booking-session.service";
 
 const EDITABLE_BOOKING_STATUSES = [
@@ -71,6 +72,11 @@ export async function GET(req: Request) {
       },
     });
 
+    const baseUnitPriceByVariantId = await getVariantBaseUnitPriceMap(
+      prisma,
+      items.map((item) => item.variantId)
+    );
+
     const ledNumberRaw =
       booking.occasionData &&
       typeof booking.occasionData === "object" &&
@@ -115,6 +121,7 @@ export async function GET(req: Request) {
           label: item.variantLabel,
           price: item.unitPrice,
         },
+        baseUnitPrice: baseUnitPriceByVariantId.get(item.variantId) ?? null,
         quantity: item.quantity,
         totalPrice: item.totalPrice,
         ledNumber,

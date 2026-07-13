@@ -41,6 +41,10 @@ import {
 } from "@/app/api/admin/bookings/_coupon";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { getPackageIncludedProductTotalPrice } from "@/lib/package-included-products";
+import {
+  getDurationAdjustedUnitPrice,
+  rebaseDurationAdjustedUnitPrice,
+} from "@/lib/product-duration-pricing";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
 import {
   AdminRangeBookingError,
@@ -985,6 +989,13 @@ export async function PATCH(
             baseGuests: booking.eventPackage.guestLimit,
           }
         : null;
+      const bookingDurationHours =
+        calculateDurationHours(rangeStartTime, rangeEndTime) ?? 0;
+      // Existing item snapshots were priced for the booking's previous times.
+      const previousDurationHours = calculateDurationHours(
+        booking.eventStartTime,
+        booking.eventEndTime
+      );
       let productsAmount = 0;
       const ledNumbers: string[] = [];
       const bodyOccasionData =
@@ -1005,7 +1016,14 @@ export async function PATCH(
       normalizedItems.forEach((item) => {
         const variant = variantMap.get(item.variantId);
         if (variant && variant.productId === item.productId) {
-          const unitPrice = variant.salePrice ?? variant.regularPrice;
+          const unitPrice = getDurationAdjustedUnitPrice({
+            product: {
+              slug: variant.product.slug,
+              name: variant.product.name,
+            },
+            baseUnitPrice: variant.salePrice ?? variant.regularPrice,
+            durationHours: bookingDurationHours,
+          });
           const totalPrice = getPackageIncludedProductTotalPrice({
             source: variant.isDefault ? includedProductSource : null,
             product: {
@@ -1051,7 +1069,15 @@ export async function PATCH(
           );
         }
 
-        const unitPrice = fallback.unitPrice;
+        // The variant is gone, so the snapshot price is all we have. For
+        // duration-priced products, move its overage from the previously
+        // booked hours to the new ones.
+        const unitPrice = rebaseDurationAdjustedUnitPrice({
+          product: { name: fallback.productName },
+          unitPrice: fallback.unitPrice,
+          fromDurationHours: previousDurationHours,
+          toDurationHours: bookingDurationHours,
+        });
         const totalPrice = unitPrice * item.quantity;
         productsAmount += totalPrice;
 

@@ -10,6 +10,10 @@ import {
   type ProductOption,
 } from "@/components/admin/bookings/add/shared";
 import { getNumberDecorationKind, getNumberDecorationLabel } from "@/lib/product-numbering";
+import {
+  getDurationAdjustedUnitPrice,
+  getDurationPricingLabel,
+} from "@/lib/product-duration-pricing";
 import { getVariantMaxAllowed } from "@/lib/product-stock";
 
 type ProductCardProps = {
@@ -17,6 +21,7 @@ type ProductCardProps = {
   activeVariantId: string;
   selection: ProductLineSelection;
   includedQuantity?: number;
+  durationHours?: number | null;
   ledDraft: string;
   onVariantChange: (variantId: string) => void;
   onIncrement: () => void;
@@ -31,6 +36,7 @@ function ProductCardComponent({
   activeVariantId,
   selection,
   includedQuantity = 0,
+  durationHours,
   ledDraft,
   onVariantChange,
   onIncrement,
@@ -125,14 +131,26 @@ function ProductCardComponent({
             </div>
 
             <div className="flex items-end justify-between gap-2">
-              <p className="text-[12px] font-bold text-slate-900 sm:text-[13px]">
-                ${getVariantPrice(activeVariant)}
-                {includedQuantity > 0 ? (
-                  <span className="ml-1 text-[10px] font-medium text-emerald-700">
-                    {includedQuantity} included
-                  </span>
+              <div className="min-w-0">
+                <p className="text-[12px] font-bold text-slate-900 sm:text-[13px]">
+                  $
+                  {getDurationAdjustedUnitPrice({
+                    product,
+                    baseUnitPrice: getVariantPrice(activeVariant),
+                    durationHours,
+                  })}
+                  {includedQuantity > 0 ? (
+                    <span className="ml-1 text-[10px] font-medium text-emerald-700">
+                      {includedQuantity} included
+                    </span>
+                  ) : null}
+                </p>
+                {getDurationPricingLabel(product) ? (
+                  <p className="mt-0.5 text-[10px] leading-tight text-slate-500">
+                    {getDurationPricingLabel(product)}
+                  </p>
                 ) : null}
-              </p>
+              </div>
 
               <div className="w-[70px] min-w-[70px] max-w-[70px] shrink-0">
                 {isLed ? (
@@ -230,6 +248,7 @@ function areProductCardPropsEqual(prev: ProductCardProps, next: ProductCardProps
     prev.activeVariantId === next.activeVariantId &&
     prev.selection === next.selection &&
     prev.includedQuantity === next.includedQuantity &&
+    prev.durationHours === next.durationHours &&
     prev.ledDraft === next.ledDraft
   );
 }

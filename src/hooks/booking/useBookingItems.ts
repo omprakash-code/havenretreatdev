@@ -54,6 +54,8 @@ export function useBookingItems() {
             productSlug: i.productSlug,
             variantLabel: i.variant.label,
             unitPrice: i.variant.price,
+            baseUnitPrice:
+              typeof i.baseUnitPrice === "number" ? i.baseUnitPrice : undefined,
             quantity: i.quantity,
             totalPrice: i.totalPrice,
             ledNumber: i.ledNumber,

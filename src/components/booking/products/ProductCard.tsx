@@ -19,6 +19,10 @@ import {
   getPackageIncludedProductQuantity,
   getPackageIncludedProductTotalPrice,
 } from "@/lib/package-included-products";
+import {
+  getDurationAdjustedUnitPrice,
+  getDurationPricingLabel,
+} from "@/lib/product-duration-pricing";
 import { getVariantMaxAllowed } from "@/lib/product-stock";
 
 type Props = {
@@ -156,6 +160,7 @@ export default function ProductCard({
         quantity: nextQty,
         minimumQuantity: includedQuantity,
         selectedPackage: booking.package,
+        durationHours: booking.durationHours,
       })
     );
   };
@@ -214,6 +219,13 @@ export default function ProductCard({
 
   if (!activeVariant) return null;
   const priceMeta = getVariantPriceMeta(activeVariant);
+  // Duration-priced add-ons (e.g. Bartender) scale with the booked hours.
+  const displayPrice = getDurationAdjustedUnitPrice({
+    product,
+    baseUnitPrice: priceMeta.displayPrice,
+    durationHours: booking.durationHours,
+  });
+  const durationPricingLabel = getDurationPricingLabel(product);
 
   /* -----------------------------
      Render
@@ -301,7 +313,7 @@ export default function ProductCard({
         <div>
           <div className="flex flex-wrap items-baseline gap-1.5">
             <p className="text-base sm:text-xl font-semibold tracking-tight text-gray-900 leading-none">
-              {formatCurrency(priceMeta.displayPrice)}
+              {formatCurrency(displayPrice)}
             </p>
             {priceMeta.hasDiscount && (
               <>
@@ -317,9 +329,8 @@ export default function ProductCard({
           <p className="mt-1 text-[10px] sm:text-[11px] text-gray-500">
             {outOfStock
               ? "Out of stock"
-              : isSingleSelect
-                ? "One per event"
-                : activeVariant.label}
+              : durationPricingLabel ??
+                (isSingleSelect ? "One per event" : activeVariant.label)}
           </p>
         </div>
 
@@ -436,7 +447,7 @@ export default function ProductCard({
                   <p className="mt-1 text-sm text-gray-600">
                     {packageDetails.introBefore}
                     <span className="font-semibold text-gray-900">
-                      {formatCurrency(priceMeta.displayPrice)}
+                      {formatCurrency(displayPrice)}
                     </span>
                     {packageDetails.introAfter}
                   </p>
@@ -554,6 +565,7 @@ function upsertItem({
   quantity,
   minimumQuantity = 0,
   selectedPackage,
+  durationHours,
 }: {
   prev: BookingItemSnapshot[];
   product: Product;
@@ -561,9 +573,14 @@ function upsertItem({
   quantity: number;
   minimumQuantity?: number;
   selectedPackage?: { name?: string | null; capacity?: number | null } | null;
+  durationHours?: number | null;
 }): BookingItemSnapshot[] {
   const priceMeta = getVariantPriceMeta(variant);
-  const unitPrice = priceMeta.displayPrice;
+  const unitPrice = getDurationAdjustedUnitPrice({
+    product,
+    baseUnitPrice: priceMeta.displayPrice,
+    durationHours,
+  });
   const resolvedQuantity = Math.max(quantity, minimumQuantity);
 
   // Single-select variants are exclusive package choices (e.g. Photo Booth
@@ -599,6 +616,7 @@ function upsertItem({
       ...items[index],
       quantity: resolvedQuantity,
       unitPrice,
+      baseUnitPrice: priceMeta.displayPrice,
       totalPrice,
     };
   } else {
@@ -612,6 +630,7 @@ function upsertItem({
       variantLabel: variant.label,
       category: product.category,
       unitPrice,
+      baseUnitPrice: priceMeta.displayPrice,
       quantity: resolvedQuantity,
       totalPrice,
     });

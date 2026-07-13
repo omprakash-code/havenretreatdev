@@ -47,6 +47,8 @@ export type ProductSelection = {
     label: string;
     price: number;
   };
+  // Live variant price without duration overage (null when the variant is gone)
+  baseUnitPrice?: number | null;
 
   category: ProductCategory;
 

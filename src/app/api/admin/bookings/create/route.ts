@@ -30,6 +30,7 @@ import {
   type BookingConfirmationEmailProps,
 } from "@/emails/BookingConfirmationEmail";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import { getDurationAdjustedUnitPrice } from "@/lib/product-duration-pricing";
 import {
   AdminRangeBookingError,
   validateAdminRangeBooking,
@@ -649,6 +650,10 @@ export async function POST(req: Request) {
         );
       }
 
+      const bookingDurationHours = rangeStartTime && rangeEndTime
+        ? Math.max((timeToMinutes(rangeEndTime) - timeToMinutes(rangeStartTime)) / 60, 0)
+        : 0;
+
       const bookingItemsToCreate: Prisma.BookingItemCreateManyInput[] = [];
       let productsAmount = 0;
       const ledNumbers: string[] = [];
@@ -672,7 +677,14 @@ export async function POST(req: Request) {
           );
         }
 
-        const unitPrice = variant.salePrice ?? variant.regularPrice;
+        const unitPrice = getDurationAdjustedUnitPrice({
+          product: {
+            slug: variant.product.slug,
+            name: variant.product.name,
+          },
+          baseUnitPrice: variant.salePrice ?? variant.regularPrice,
+          durationHours: bookingDurationHours,
+        });
         const totalPrice = getPackageIncludedProductTotalPrice({
           source: variant.isDefault ? includedProductSource : null,
           product: {
@@ -833,9 +845,6 @@ export async function POST(req: Request) {
 
       const includedDurationHours = selectedPackage?.eventDurationHours ?? 0;
       const extraHourlyRate = selectedPackage?.hourlyRate ?? 0;
-      const bookingDurationHours = rangeStartTime && rangeEndTime
-        ? Math.max((timeToMinutes(rangeEndTime) - timeToMinutes(rangeStartTime)) / 60, 0)
-        : 0;
 
       const effectiveDecorationRequired = decorationRequired;
 
