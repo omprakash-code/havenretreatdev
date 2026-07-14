@@ -277,30 +277,30 @@ ${shareUrl}`;
                 the trail on the reference line rather than centring it against
                 the label stacked above it. */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-            <div className="min-w-0 text-center sm:text-left lg:flex lg:flex-col lg:justify-start lg:gap-[5px]">
-              <div className="inline-flex max-w-full flex-nowrap items-center justify-center gap-2 sm:justify-start">
-                <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-xs">
-                  Booking Reference
-                </p>
+              <div className="min-w-0 text-left lg:flex lg:flex-col lg:justify-start lg:gap-[5px]">
+                <div className="flex max-w-full flex-nowrap items-center gap-2">
+                  <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:text-xs">
+                    Booking Reference
+                  </p>
+                </div>
+                <div className="relative mt-1 inline-flex max-w-full items-center gap-1.5">
+                  <code className="relative z-10 max-w-[calc(100vw-8rem)] truncate whitespace-nowrap border border-[#d7e4e1] bg-[#f8fbfa] px-2 py-1 text-xs font-bold tracking-wider text-zinc-900 sm:max-w-none sm:px-2.5 sm:text-sm">
+                    {data.bookingRef}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={handleCopyBookingRef}
+                    title={isBookingRefCopied ? "Copied" : "Copy booking reference"}
+                    className="inline-flex h-8 min-w-8 shrink-0 cursor-pointer items-center justify-center border border-[#d7e4e1] bg-white px-2 text-zinc-600 transition hover:bg-[#f8fbfa] hover:text-[#245e5b]"
+                  >
+                    {isBookingRefCopied ? (
+                      <span className="text-[11px] font-semibold text-emerald-600">Copied</span>
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="relative inline-flex max-w-full items-center justify-center gap-1.5 sm:justify-start">
-                <code className="relative z-10 whitespace-nowrap border border-[#d7e4e1] bg-[#f8fbfa] px-2.5 py-1 text-xs font-bold tracking-wider text-zinc-900 sm:text-sm">
-                  {data.bookingRef}
-                </code>
-                <button
-                  type="button"
-                  onClick={handleCopyBookingRef}
-                  title={isBookingRefCopied ? "Copied" : "Copy booking reference"}
-                  className="inline-flex h-8 min-w-8 cursor-pointer items-center justify-center border border-[#d7e4e1] bg-white px-2 text-zinc-600 transition hover:bg-[#f8fbfa] hover:text-[#245e5b]"
-                >
-                  {isBookingRefCopied ? (
-                    <span className="text-[11px] font-semibold text-emerald-600">Copied</span>
-                  ) : (
-                    <Copy size={14} />
-                  )}
-                </button>
-              </div>
-            </div>
 
               <ReviewStatusTrail bookingStatus={data.bookingStatus} />
             </div>

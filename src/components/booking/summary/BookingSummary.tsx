@@ -138,6 +138,7 @@ export default function BookingSummary({
   const headerRef = useRef<HTMLDivElement | null>(null);
   const middleRef = useRef<HTMLDivElement | null>(null);
   const footerRef = useRef<HTMLDivElement | null>(null);
+  const mobileSubmitHandoffRef = useRef<HTMLDivElement | null>(null);
   const [showTopFade, setShowTopFade] = useState(false);
   const [canScrollDetails, setCanScrollDetails] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(false);
@@ -305,7 +306,7 @@ export default function BookingSummary({
     if (!hideSubmitOnMobile) return;
     if (typeof window === "undefined") return;
 
-    const target = payConfirmRef.current;
+    const target = mobileSubmitHandoffRef.current;
     if (!target) return;
 
     const observer = new IntersectionObserver(
@@ -317,8 +318,8 @@ export default function BookingSummary({
       },
       {
         root: null,
-        threshold: 0.35,
-        rootMargin: "0px 0px -20% 0px",
+        threshold: 0.01,
+        rootMargin: "0px 0px -72px 0px",
       }
     );
 
@@ -979,6 +980,12 @@ export default function BookingSummary({
       </div>
 
       <div
+        ref={mobileSubmitHandoffRef}
+        className="h-px w-full lg:hidden"
+        aria-hidden="true"
+      />
+
+      <div
         ref={footerRef}
         className="shrink-0 border-t border-[#d7e4e1] bg-white p-4"
       >
@@ -1016,9 +1023,8 @@ export default function BookingSummary({
           )}
         </div>
 
-        {/* Sits outside the wrapper above, which is hidden on mobile until the
-            inline submit appears. This element is what the observer watches to
-            decide that, so hiding it would deadlock the mobile submit button. */}
+        {/* Kept outside the mobile-hidden wrapper so the confirmation copy stays
+            available as the summary footer enters the viewport. */}
         <div ref={payConfirmRef} className="mt-2.5 text-center">
           <p className="text-sm font-semibold text-[#245e5b]">
             {BOOKING_NO_PAYMENT_TODAY_TITLE}.

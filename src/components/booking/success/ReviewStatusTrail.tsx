@@ -47,15 +47,15 @@ export default function ReviewStatusTrail({
     // the reference's centre line without the reference having to move.
     <ol
       aria-label="Booking review progress"
-      className="flex w-full flex-wrap items-center gap-x-2.5 gap-y-2 sm:h-8 sm:min-w-0 sm:flex-1 sm:flex-nowrap"
+      className="flex w-full flex-wrap items-center gap-2 sm:h-8 sm:min-w-0 sm:flex-1 sm:flex-nowrap sm:gap-x-2.5"
     >
       {steps.map((step, index) => (
         <li
           key={step.label}
-          className={`flex items-center gap-2.5 ${
+          className={`min-w-0 flex items-center gap-2 ${
             index < steps.length - 1
-              ? "min-w-0 flex-1"
-              : "shrink-0 sm:ml-auto"
+              ? "sm:flex-1"
+              : "ml-auto shrink-0 sm:ml-auto"
           }`}
         >
           <span
@@ -73,12 +73,12 @@ export default function ReviewStatusTrail({
             )}
           </span>
 
-          <span className="whitespace-nowrap text-xs font-medium text-slate-700 sm:text-sm">
+          <span className="whitespace-nowrap text-[11px] font-medium text-slate-700 sm:text-sm">
             {step.label}
           </span>
 
           {step.state === "current" && isPendingReview && (
-            <span className="shrink-0 border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium tracking-wide text-amber-900 uppercase">
+            <span className="shrink-0 border border-[#b9d8d3] bg-[#f2f8f6] px-2 py-0.5 text-[10px] font-medium tracking-wide text-[#245e5b] uppercase">
               In progress
             </span>
           )}

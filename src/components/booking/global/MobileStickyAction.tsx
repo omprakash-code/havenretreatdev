@@ -42,15 +42,11 @@ export default function MobileStickyAction({
 }: MobileStickyActionProps) {
   const [showInvalidError, setShowInvalidError] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
-  const [scrollHidden, setScrollHidden] = useState(false);
   const hasPrice = typeof totalPrice === "number" && Number.isFinite(totalPrice);
   const resolvedAdvancePay =
     typeof advancePay === "number" && Number.isFinite(advancePay)
       ? Math.max(advancePay, 0)
       : null;
-  const remainingAtVenue = hasPrice && resolvedAdvancePay !== null
-    ? Math.max(Number(totalPrice) - resolvedAdvancePay, 0)
-    : null;
   const shouldShowInvalidError = showInvalidError && isInvalid;
 
   useEffect(() => {
@@ -69,40 +65,6 @@ export default function MobileStickyAction({
     return () => window.clearTimeout(timeoutId);
   }, [showInvalidError]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let lastY = window.scrollY;
-    let ticking = false;
-
-    const handleScroll = () => {
-      if (ticking) return;
-      ticking = true;
-
-      window.requestAnimationFrame(() => {
-        const nextY = window.scrollY;
-        const delta = nextY - lastY;
-
-        // Keep CTA visible near top; hide on clear downward scroll and reveal on upward scroll.
-        if (nextY <= 16) {
-          setScrollHidden(false);
-        } else if (delta > 6) {
-          setScrollHidden(true);
-        } else if (delta < -4) {
-          setScrollHidden(false);
-        }
-
-        lastY = nextY;
-        ticking = false;
-      });
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-
   const handleClick = () => {
     if (disabled) return;
     if (enableInvalidSubmitFeedback && isInvalid) {
@@ -118,13 +80,11 @@ export default function MobileStickyAction({
     onClick?.();
   };
 
-  const shouldHide = hidden || scrollHidden;
+  if (hidden) return null;
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/45 bg-white/90 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-all duration-300 ease-out supports-[backdrop-filter]:bg-white/90 lg:hidden ${
-        shouldHide ? "pointer-events-none translate-y-6 opacity-0" : "translate-y-0 opacity-100"
-      } ${className}`.trim()}
+      className={`fixed inset-x-0 bottom-0 z-40 border-t border-white/45 bg-white/90 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-12px_28px_rgba(15,23,42,0.14)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/90 lg:hidden ${className}`.trim()}
     >
       <div className="w-full max-w-7xl">
         {shouldShowInvalidError && (
@@ -135,7 +95,7 @@ export default function MobileStickyAction({
         {hasPrice && resolvedAdvancePay !== null && (
           <div className="mb-2 border-b border-[#d7e4e1] px-1 pb-2 text-center">
             <p className="truncate whitespace-nowrap text-xs text-gray-700">
-              No payment today • {formatCurrency(resolvedAdvancePay)} advance after confirmation • {formatCurrency(remainingAtVenue ?? 0)} before your event
+              No payment is required today.
             </p>
           </div>
         )}
