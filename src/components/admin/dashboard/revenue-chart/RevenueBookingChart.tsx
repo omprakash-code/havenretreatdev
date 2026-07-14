@@ -98,17 +98,14 @@ export default function RevenueBookingsChart({ range }: Props) {
   );
 
   return (
-    <div
-      className="bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-5 w-full"
-      style={{ height: 350 }}
-    >
+    <div className="h-[285px] w-full rounded-2xl bg-white p-3 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:h-[350px] sm:p-5">
       {/* Summary */}
-      <div className="flex items-center gap-6 mb-4">
+      <div className="mb-2 flex items-center gap-6 sm:mb-4">
         <div>
           <p className="text-xs text-gray-500">
             Revenue
           </p>
-          <p className="text-lg font-semibold text-gray-900">
+          <p className="text-base font-semibold text-gray-900 sm:text-lg">
             ${totals.revenue.toLocaleString()}
           </p>
         </div>
@@ -117,7 +114,7 @@ export default function RevenueBookingsChart({ range }: Props) {
           <p className="text-xs text-gray-500">
             Bookings
           </p>
-          <p className="text-lg font-semibold text-gray-900">
+          <p className="text-base font-semibold text-gray-900 sm:text-lg">
             {totals.bookings}
           </p>
         </div>
@@ -130,68 +127,70 @@ export default function RevenueBookingsChart({ range }: Props) {
       )}
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={rows}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#f1f1f1"
-          />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 12, fill: "#9ca3af" }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            yAxisId="revenue"
-            tick={{ fontSize: 12, fill: "#9ca3af" }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={formatCompactCurrency}
-          />
-          <YAxis
-            yAxisId="bookings"
-            orientation="right"
-            axisLine={false}
-            tickLine={false}
-            allowDecimals={false}
-            tick={{ fontSize: 12, fill: "#9ca3af" }}
-          />
-          <Tooltip
-            formatter={(value, name) => {
-              if (name === "revenue") {
-                return [`$${Number(value).toLocaleString()}`, "Revenue"];
-              }
-              return [Number(value), "Bookings"];
-            }}
-            contentStyle={{
-              background: "white",
-              borderRadius: 12,
-              border: "none",
-              boxShadow:
-                "0 10px 25px rgba(0,0,0,0.08)",
-            }}
-          />
+      <div className="h-[210px] sm:h-[220px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={rows} margin={{ top: 8, right: 0, left: -20, bottom: 0 }}>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#f1f1f1"
+            />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 12, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              yAxisId="revenue"
+              tick={{ fontSize: 12, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={formatCompactCurrency}
+            />
+            <YAxis
+              yAxisId="bookings"
+              orientation="right"
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+              tick={{ fontSize: 12, fill: "#9ca3af" }}
+            />
+            <Tooltip
+              formatter={(value, name) => {
+                if (name === "revenue") {
+                  return [`$${Number(value).toLocaleString()}`, "Revenue"];
+                }
+                return [Number(value), "Bookings"];
+              }}
+              contentStyle={{
+                background: "white",
+                borderRadius: 12,
+                border: "none",
+                boxShadow:
+                  "0 10px 25px rgba(0,0,0,0.08)",
+              }}
+            />
 
-          <Line
-            yAxisId="revenue"
-            type="monotone"
-            dataKey="revenue"
-            stroke={CHART_NEUTRAL}
-            strokeWidth={2}
-            dot={false}
-          />
+            <Line
+              yAxisId="revenue"
+              type="monotone"
+              dataKey="revenue"
+              stroke={CHART_NEUTRAL}
+              strokeWidth={2}
+              dot={false}
+            />
 
-          <Line
-            yAxisId="bookings"
-            type="monotone"
-            dataKey="bookings"
-            stroke={BRAND_TEAL}
-            strokeWidth={2.5}
-            dot={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+            <Line
+              yAxisId="bookings"
+              type="monotone"
+              dataKey="bookings"
+              stroke={BRAND_TEAL}
+              strokeWidth={2.5}
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
 
       {!loading && !hasData && !error && (
         <p className="mt-2 text-xs text-gray-500">

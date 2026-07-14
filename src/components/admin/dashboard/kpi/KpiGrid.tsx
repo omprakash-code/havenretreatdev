@@ -120,11 +120,11 @@ export default function KpiGrid() {
 
   if (!data) {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:gap-4 xl:grid-cols-4 lg:gap-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 lg:gap-5">
         {[...Array(4)].map((_, i) => (
           <div
             key={i}
-            className="h-[120px] rounded-2xl bg-gray-100 animate-pulse"
+            className="h-[112px] rounded-2xl bg-gray-100 animate-pulse sm:h-[120px]"
           />
         ))}
       </div>
@@ -132,7 +132,7 @@ export default function KpiGrid() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 lg:gap-5 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-5 xl:grid-cols-4">
       <KpiCard
         title="Pending Bookings"
         value={String(data.pendingReview)}

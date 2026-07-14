@@ -59,12 +59,13 @@ export default function AdminDashboardPage() {
         <PageHeader
           title="Dashboard"
           description="Business performance overview and operational insights"
+          inlineActions
           actions={(
-            <div className="flex w-full flex-wrap gap-2">
+            <div className="flex items-center gap-2">
               {isAdminFeatureEnabled("manualBooking") && (
                 <Link
                   href="/admin/bookings?openAddBooking=1"
-                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-center text-sm font-medium leading-tight text-white transition hover:bg-neutral-800 active:scale-[0.98]"
+                  className="inline-flex min-h-9 items-center justify-center rounded-md bg-neutral-900 px-3 py-2 text-center text-sm font-medium leading-tight text-white transition hover:bg-neutral-800 active:scale-[0.98] sm:min-h-10 sm:px-4"
                 >
                   + New Booking
                 </Link>
@@ -73,7 +74,7 @@ export default function AdminDashboardPage() {
               {isAdminFeatureEnabled("abandonedBookings") && (
                 <Link
                   href="/admin/bookings/abandoned"
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+                  className="hidden min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] sm:inline-flex"
                 >
                   View Abandonment
                 </Link>
@@ -82,7 +83,7 @@ export default function AdminDashboardPage() {
               {isAdminFeatureEnabled("coupons") && (
                 <Link
                   href="/admin/coupons"
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
+                  className="hidden min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-center text-sm font-medium leading-tight text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] sm:inline-flex"
                 >
                   + Create Coupon
                 </Link>
@@ -92,7 +93,7 @@ export default function AdminDashboardPage() {
         />
 
         {/* Full-width Stack */}
-        <div className="mt-6 space-y-4 sm:space-y-5 lg:space-y-6">
+        <div className="mt-5 space-y-4 sm:mt-6 sm:space-y-5 lg:space-y-6">
           {/* KPI Cards */}
           <KpiGrid />
 
