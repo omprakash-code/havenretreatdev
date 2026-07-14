@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Temporary demo deploy setting: admin legacy routes still have theatre/slot
-  // nullability cleanup pending after Haven Retreat approval.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  poweredByHeader: false,
   reactCompiler: true,
   images: {
     remotePatterns: [
@@ -14,6 +10,31 @@ const nextConfig: NextConfig = {
         hostname: "storage.googleapis.com",
       },
     ],
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "X-Frame-Options",
+            value: "DENY",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+        ],
+      },
+    ];
   },
 };
 
