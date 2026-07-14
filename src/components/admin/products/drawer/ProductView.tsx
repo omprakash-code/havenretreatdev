@@ -2,6 +2,7 @@
 
 import { Calendar, Clock, Tag } from "@/components/icons";
 import type { AdminProduct } from "@/types/admin/product";
+import { formatVenueDateTime } from "@/lib/formatters";
 
 type ProductViewProps = {
   product: AdminProduct;
@@ -166,14 +167,14 @@ export default function ProductView({ product, onClose, onEdit }: ProductViewPro
             <p className="text-xs text-slate-500">Created At</p>
             <p className="mt-1 inline-flex items-center gap-1 text-sm text-slate-900">
               <Calendar size={14} />
-              {new Date(product.createdAt).toLocaleString("en-IN")}
+              {formatVenueDateTime(product.createdAt)}
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs text-slate-500">Updated At</p>
             <p className="mt-1 inline-flex items-center gap-1 text-sm text-slate-900">
               <Calendar size={14} />
-              {new Date(product.updatedAt).toLocaleString("en-IN")}
+              {formatVenueDateTime(product.updatedAt)}
             </p>
           </div>
         </div>

@@ -9,7 +9,9 @@ import { Phone } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/WhatsApp";
 
 import {
-  formatET,
+  formatCalendarDate,
+  formatVenueDate,
+  formatVenueTime,
   maskPhone,
 } from "@/lib/formatters";
 
@@ -61,7 +63,7 @@ export default function BookingRow({
       ? SLA_META[booking.sla.label]
       : null;
   const scheduleDateLabel =
-    booking.schedule?.dateLabel || formatET(booking.slot.date).split(",")[0];
+    booking.schedule?.dateLabel || formatCalendarDate(booking.slot.date);
   const scheduleTimeLabel =
     booking.schedule?.timeLabel ||
     `${booking.slot.startTime} - ${booking.slot.endTime}`;
@@ -174,9 +176,9 @@ export default function BookingRow({
 
       {/* Created At */}
       <td className="px-3 py-3 text-neutral-500 leading-tight whitespace-nowrap">
-        <div>{formatET(booking.createdAt).split(",")[0]}</div>
+        <div>{formatVenueDate(booking.createdAt)}</div>
         <div className="text-xs">
-          {formatET(booking.createdAt).split(",")[1]}
+          {formatVenueTime(booking.createdAt)}
         </div>
       </td>
 

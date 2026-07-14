@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { formatWallDate } from "@/lib/formatters";
 import { Copy } from "@/components/icons";
 import type { AdminCouponFormState } from "../../types";
 import { SectionCard } from "../fields";
@@ -200,10 +201,7 @@ function toRelativeDateLabel(date: Date) {
 
   if (sameDay) return "today";
 
-  const dateLabel = date.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-  });
+  const dateLabel = formatWallDate(date, { day: "numeric", month: "short" }, "en-GB");
 
   return dateLabel;
 }

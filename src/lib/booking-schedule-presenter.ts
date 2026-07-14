@@ -1,9 +1,8 @@
 import { formatInTimeZone } from "date-fns-tz";
 
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 import { formatSlotTime } from "@/lib/formatters";
 import { timeToMinutes } from "@/lib/time";
-
-export const DEFAULT_BOOKING_TIMEZONE = "America/New_York";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -66,7 +65,7 @@ export function resolvePresentedBookingSchedule(
   const bookingStart = input.eventStartTime?.trim();
   const bookingEnd = input.eventEndTime?.trim();
   if (input.eventDate && bookingStart && bookingEnd) {
-    const timezone = input.timezone?.trim() || DEFAULT_BOOKING_TIMEZONE;
+    const timezone = input.timezone?.trim() || BOOKING_TIME_ZONE;
     const startsAtUtc = toDate(input.startsAtUtc);
     const dateKey =
       startsAtUtc != null

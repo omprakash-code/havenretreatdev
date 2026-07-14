@@ -6,7 +6,7 @@ import {
   HAVEN_AGREEMENT_REQUIRED_ACKNOWLEDGMENTS,
   HAVEN_AGREEMENT_SECTIONS,
 } from "@/constants/haven-agreement-content";
-import { formatISTDateTime } from "@/lib/formatters";
+import { formatVenueDateTime } from "@/lib/formatters";
 
 type AgreementClause = {
   number: number;
@@ -256,7 +256,7 @@ export async function buildSignedAgreementPdf(
     ["BOOKING REFERENCE", normalizePdfText(data.bookingRef)],
     ["AGREEMENT ID", normalizePdfText(agreement.id)],
     ["SIGNED BY", normalizePdfText(agreement.signerName)],
-    ["SIGNED AT", normalizePdfText(formatISTDateTime(agreement.signedAt))],
+    ["SIGNED AT", normalizePdfText(formatVenueDateTime(agreement.signedAt))],
     [
       "AGREEMENT VERSION",
       normalizePdfText(agreement.agreementVersion ?? "Not specified"),
@@ -499,7 +499,7 @@ export async function buildSignedAgreementPdf(
   // belongs here is only what binds this signature to a person and a moment.
   const certificateRows = [
     ["SIGNER", normalizePdfText(agreement.signerName)],
-    ["SIGNED AT", normalizePdfText(formatISTDateTime(agreement.signedAt))],
+    ["SIGNED AT", normalizePdfText(formatVenueDateTime(agreement.signedAt))],
     [
       "CONSENT",
       agreement.confirmationAccepted ? "Electronically accepted" : "Not recorded",

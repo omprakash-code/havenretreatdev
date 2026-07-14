@@ -1,4 +1,5 @@
 import type { BookingConfirmationEmailProps } from "@/emails/BookingConfirmationEmail";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 
 const ICS_CONTENT_TYPE = "text/calendar; charset=utf-8; method=REQUEST";
 
@@ -234,8 +235,8 @@ export function buildBookingConfirmationCalendarAttachment(
     "BEGIN:VEVENT",
     `UID:${escapeIcsText(`${bookingRef}@havenretreat.booking`)}`,
     `DTSTAMP:${formatUtcIcsDateTime(now)}`,
-    `DTSTART;TZID=Asia/Kolkata:${formatIcsDateTime(range.startDate)}`,
-    `DTEND;TZID=Asia/Kolkata:${formatIcsDateTime(range.endDate)}`,
+    `DTSTART;TZID=${BOOKING_TIME_ZONE}:${formatIcsDateTime(range.startDate)}`,
+    `DTEND;TZID=${BOOKING_TIME_ZONE}:${formatIcsDateTime(range.endDate)}`,
     `SUMMARY:${escapeIcsText(`Booking confirmed: ${bookingRef}`)}`,
     `DESCRIPTION:${escapeIcsText(descriptionLines.join("\\n"))}`,
     `LOCATION:${escapeIcsText(venue || "Haven Retreat")}`,

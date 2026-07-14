@@ -10,6 +10,7 @@ import {
   maxGuestsForIncluded,
 } from "@/lib/package-guest-pricing";
 import { timeToMinutes } from "@/lib/time";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 import {
   ADVANCE_PAYMENT_AMOUNT_KEY,
   DEFAULT_EXTRA_HOURLY_RATE,
@@ -265,7 +266,7 @@ export function AdminAddBookingForm({
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [businessOpenTime, setBusinessOpenTime] = useState("09:00");
   const [businessCloseTime, setBusinessCloseTime] = useState("23:00");
-  const [bookingTimezone, setBookingTimezone] = useState("America/New_York");
+  const [bookingTimezone, setBookingTimezone] = useState<string>(BOOKING_TIME_ZONE);
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [customAdvanceAmount, setCustomAdvanceAmount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});

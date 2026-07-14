@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import PageHeader from "@/components/admin/page/PageHeader";
 import AdminDrawer from "@/components/admin/drawer/AdminDrawer";
-import { formatISTDateTime } from "@/lib/formatters";
+import { formatVenueDateTime } from "@/lib/formatters";
 import { resolveAdminProfileImage } from "@/lib/admin-profile-image";
 import { toast } from "sonner";
 import {
@@ -377,15 +377,15 @@ export default function AdminProfilePage() {
             <div className="grid grid-cols-1 gap-3">
               <StatCard
                 label="Account Created"
-                value={formatISTDateTime(profile.createdAt)}
+                value={formatVenueDateTime(profile.createdAt)}
               />
               <StatCard
                 label="Last Updated"
-                value={formatISTDateTime(profile.updatedAt)}
+                value={formatVenueDateTime(profile.updatedAt)}
               />
               <StatCard
                 label="Last Login"
-                value={formatISTDateTime(profile.lastLoginAt)}
+                value={formatVenueDateTime(profile.lastLoginAt)}
               />
             </div>
           </article>

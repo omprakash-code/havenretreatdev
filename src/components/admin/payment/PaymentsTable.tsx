@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatISTDateTime } from "@/lib/formatters";
+import { formatVenueDateTime } from "@/lib/formatters";
 import { Info } from "@/components/icons";
 import type { AdminPaymentRecord } from "@/types/payment";
 
@@ -167,7 +167,7 @@ export default function PaymentsTable({
                 </div>
               </td>
               <td className="py-3 pl-4 pr-5 whitespace-nowrap">
-                {formatISTDateTime(row.createdAt)}
+                {formatVenueDateTime(row.createdAt)}
               </td>
             </tr>
           ))}

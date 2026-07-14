@@ -1,7 +1,7 @@
 "use client";
 
 import { Eye, Pencil, Trash } from "@/components/icons";
-import { formatISTDateTime } from "@/lib/formatters";
+import { formatVenueDateTime } from "@/lib/formatters";
 import type { AdminContactInquiry, ContactInquiryStatus } from "@/types/admin/contact";
 
 type ContactTableProps = {
@@ -74,7 +74,7 @@ export default function ContactTable({
                 <StatusBadge status={row.status} />
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
-                {formatISTDateTime(row.createdAt)}
+                {formatVenueDateTime(row.createdAt)}
               </td>
               <td className="py-3 pl-4 pr-5 whitespace-nowrap">
                 <div className="flex items-center gap-1">

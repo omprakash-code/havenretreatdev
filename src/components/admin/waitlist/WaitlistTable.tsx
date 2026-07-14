@@ -1,7 +1,7 @@
 "use client";
 
 import { Eye, Pencil, Trash } from "@/components/icons";
-import { formatISTDate, formatISTDateTime } from "@/lib/formatters";
+import { formatCalendarDate, formatVenueDateTime } from "@/lib/formatters";
 import type { AdminWaitlistEntry, WaitlistStatus } from "@/types/admin/waitlist";
 
 type WaitlistTableProps = {
@@ -31,8 +31,8 @@ function WaitlistStatusBadge({ status }: { status: WaitlistStatus }) {
 function preferredDateTimeText(entry: AdminWaitlistEntry) {
   if (!entry.preferredDate && !entry.preferredTime) return "—";
   if (!entry.preferredDate) return entry.preferredTime ?? "—";
-  if (!entry.preferredTime) return formatISTDate(entry.preferredDate);
-  return `${formatISTDate(entry.preferredDate)} • ${entry.preferredTime}`;
+  if (!entry.preferredTime) return formatCalendarDate(entry.preferredDate);
+  return `${formatCalendarDate(entry.preferredDate)} • ${entry.preferredTime}`;
 }
 
 export default function WaitlistTable({
@@ -83,7 +83,7 @@ export default function WaitlistTable({
                   <WaitlistStatusBadge status={entry.status} />
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
-                  {formatISTDateTime(entry.createdAt)}
+                  {formatVenueDateTime(entry.createdAt)}
                 </td>
                 <td className="py-3 pl-4 pr-5 whitespace-nowrap">
                   <div className="flex items-center gap-1">

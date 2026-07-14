@@ -1,6 +1,6 @@
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { buildCelebrationRows } from "@/components/booking/success/success-details";
-import { formatISTDateTime, formatSlotTime } from "@/lib/formatters";
+import { formatVenueDateTime, formatSlotTime } from "@/lib/formatters";
 import { SUCCESS_VENUE_IMAGE } from "@/components/booking/success/assets";
 import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 import {
@@ -173,7 +173,7 @@ export async function buildBookingTicketPdf(
       },
       {
         label: "Signed At",
-        value: formatISTDateTime(data.signedAgreement.signedAt),
+        value: formatVenueDateTime(data.signedAgreement.signedAt),
       },
       {
         label: "Agreement Version",
@@ -423,7 +423,7 @@ function drawHeader(layout: PdfLayout, data: BookingSuccessData, logo: PdfImage 
     { align: "right" }
   );
   doc.text(
-    `Issued: ${formatISTDateTime(new Date())}`,
+    `Issued: ${formatVenueDateTime(new Date())}`,
     innerAlignRight,
     subtitleY,
     { align: "right" }

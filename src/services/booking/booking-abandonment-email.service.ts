@@ -1,4 +1,4 @@
-import { formatInTimeZone } from "date-fns-tz";
+import { formatVenueDateTime } from "@/lib/formatters";
 import { Prisma } from "@prisma/client";
 import AdminBookingAbandonmentEmail from "@/emails/AdminBookingAbandonmentEmail";
 import UserBookingAbandonmentEmail from "@/emails/UserBookingAbandonmentEmail";
@@ -7,8 +7,6 @@ import { prisma } from "@/lib/db";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { sendEmail } from "@/services/email.service";
 import { resolveAdminBookingNotificationRecipients } from "@/services/booking/booking-notification-recipients.service";
-
-const IST_TIMEZONE = "Asia/Kolkata";
 
 const resolvedBaseUrl = (() => {
   const nextPublic = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -204,10 +202,9 @@ async function sendAbandonmentNotificationForBooking(
     booking.items,
     booking.occasionData
   );
-  const abandonedAt = formatInTimeZone(
+  const abandonedAt = formatVenueDateTime(
     booking.cancelledAt ?? new Date(),
-    IST_TIMEZONE,
-    "EEE, dd MMM yyyy, hh:mm a"
+    "EEE, dd MMM yyyy, hh:mm a zzz"
   );
 
   let customerEmailSent = false;

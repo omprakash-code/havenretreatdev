@@ -13,7 +13,7 @@ import type {
   CouponRuleOptionInclude,
   CouponRuleOptions,
 } from "./options.types";
-import { formatISTDate } from "@/lib/formatters";
+import { formatCalendarDate } from "@/lib/formatters";
 import SearchableMultiSelect from "./SearchableMultiSelect";
 
 const LOCATION_RESTRICTION_TYPE = "__LOCATION__" as const;
@@ -101,13 +101,13 @@ export function RuleEditorCard({
       ? "Not set"
       : Number.isNaN(fromRuleDate.getTime())
       ? "Invalid date"
-      : formatISTDate(fromRuleDate);
+      : formatCalendarDate(fromRuleDate);
   const formattedToRuleDate =
     !toRuleDate
       ? "Not set"
       : Number.isNaN(toRuleDate.getTime())
       ? "Invalid date"
-      : formatISTDate(toRuleDate);
+      : formatCalendarDate(toRuleDate);
   useEffect(() => {
     if (!["PRODUCT_ID", "TARGET_PRODUCT_ID"].includes(rule.type) || options.products.length > 0) {
       return;

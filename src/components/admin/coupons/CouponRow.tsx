@@ -1,7 +1,7 @@
 "use client";
 
 import { Eye, Pencil, Trash } from "@/components/icons";
-import { formatIST } from "@/lib/formatters";
+import { formatVenueDate, formatVenueTime } from "@/lib/formatters";
 import type { AdminCouponListItem } from "./coupon-list.types";
 
 type Props = {
@@ -35,10 +35,10 @@ export default function CouponRow({ srNo, coupon, onEdit, onView, onDelete }: Pr
       <td className="whitespace-nowrap">{SCOPE_LABEL[coupon.scope]}</td>
 
       <td className="whitespace-nowrap leading-tight">
-        <div>{formatIST(coupon.validFrom).split(",")[0]}</div>
+        <div>{formatVenueDate(coupon.validFrom)}</div>
         <div className="text-xs text-neutral-500">
           {coupon.validTill
-            ? `till ${formatIST(coupon.validTill).split(",")[0]}`
+            ? `till ${formatVenueDate(coupon.validTill)}`
             : "No expiry"}
         </div>
       </td>
@@ -63,8 +63,8 @@ export default function CouponRow({ srNo, coupon, onEdit, onView, onDelete }: Pr
       </td>
 
       <td className="text-neutral-500 leading-tight whitespace-nowrap">
-        <div>{formatIST(coupon.updatedAt).split(",")[0]}</div>
-        <div className="text-xs">{formatIST(coupon.updatedAt).split(",")[1]}</div>
+        <div>{formatVenueDate(coupon.updatedAt)}</div>
+        <div className="text-xs">{formatVenueTime(coupon.updatedAt)}</div>
       </td>
 
       <td className="whitespace-nowrap">

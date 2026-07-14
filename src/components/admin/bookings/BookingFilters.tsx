@@ -3,7 +3,7 @@
 import { useMemo, useRef } from "react";
 import { Calendar, ChevronDown } from "@/components/icons";
 import AdminCompactFilters from "@/components/admin/shared/AdminCompactFilters";
-import { formatSlotTime } from "@/lib/formatters";
+import { formatSlotTime, formatWallDate } from "@/lib/formatters";
 import type { DatePreset } from "@/types/admin/filters";
 
 interface Props {
@@ -124,11 +124,7 @@ export default function BookingsFilters({
     if (!customDate) return "Event Date";
     const date = new Date(`${customDate}T00:00:00`);
     if (Number.isNaN(date.getTime())) return "Custom date";
-    return new Intl.DateTimeFormat("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(date);
+    return formatWallDate(date, { day: "2-digit", month: "short", year: "numeric" }, "en-GB");
   }, [customDate]);
 
   const hasActiveFilters =

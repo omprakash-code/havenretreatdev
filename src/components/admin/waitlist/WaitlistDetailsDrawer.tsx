@@ -3,7 +3,7 @@
 import { useRef, useMemo, useState } from "react";
 import AdminDrawer from "@/components/admin/drawer/AdminDrawer";
 import { Calendar } from "@/components/icons";
-import { formatISTDate, formatISTDateTime } from "@/lib/formatters";
+import { formatCalendarDate, formatVenueDateTime } from "@/lib/formatters";
 import type {
   AdminWaitlistEntry,
   AdminWaitlistUpdatePayload,
@@ -105,7 +105,7 @@ export default function WaitlistDetailsDrawer({
               <Field label="Preferred Location" value={entry.locationPreference} />
               <Field
                 label="Preferred Date"
-                value={entry.preferredDate ? formatISTDate(entry.preferredDate) : null}
+                value={entry.preferredDate ? formatCalendarDate(entry.preferredDate) : null}
               />
               <Field label="Preferred Time" value={entry.preferredTime} />
               <Field
@@ -118,18 +118,18 @@ export default function WaitlistDetailsDrawer({
             <Field label="Notes" value={entry.notes} />
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Submitted At" value={formatISTDateTime(entry.createdAt)} />
+              <Field label="Submitted At" value={formatVenueDateTime(entry.createdAt)} />
               <Field
                 label="Last Updated At"
-                value={formatISTDateTime(entry.updatedAt)}
+                value={formatVenueDateTime(entry.updatedAt)}
               />
               <Field
                 label="Contacted At"
-                value={entry.contactedAt ? formatISTDateTime(entry.contactedAt) : null}
+                value={entry.contactedAt ? formatVenueDateTime(entry.contactedAt) : null}
               />
               <Field
                 label="Closed At"
-                value={entry.closedAt ? formatISTDateTime(entry.closedAt) : null}
+                value={entry.closedAt ? formatVenueDateTime(entry.closedAt) : null}
               />
             </div>
           </>
@@ -336,5 +336,5 @@ function getFormattedDate(value: string) {
   if (!value) return "Select preferred date";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "Invalid date";
-  return formatISTDate(parsed);
+  return formatCalendarDate(parsed);
 }

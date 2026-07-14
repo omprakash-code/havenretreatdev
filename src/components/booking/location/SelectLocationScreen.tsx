@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatWallDate } from "@/lib/formatters";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 import Image from "next/image";
 import { MapPin } from "@/components/icons";
 import BookingCalendar from "@/components/booking/location/BookingCalendar";
@@ -33,12 +35,9 @@ type Location = {
   city?: string;
 };
 
-const DEFAULT_VENUE_TIMEZONE = "America/New_York";
 
 function getWeekdayShort(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-  });
+  return formatWallDate(date, { weekday: "short" });
 }
 
 
@@ -83,7 +82,7 @@ export default function SelectLocationScreen({ onContinue, selectedPackageName, 
     (booking.bookingId && locations.length > 0 ? locations[0].id : undefined);
 
   const noSlotsForLocation = Boolean(effectiveLocationId) && !datesLoading && availableDates.length === 0;
-  const venueTimezone = rangeSettings?.timezone ?? DEFAULT_VENUE_TIMEZONE;
+  const venueTimezone = rangeSettings?.timezone ?? BOOKING_TIME_ZONE;
 
   const releaseBookingSession = useCallback(async () => {
     try {

@@ -1,6 +1,6 @@
 // src/services/coupon/coupon-rules.ts
 
-import { formatInTimeZone } from "date-fns-tz"
+import { formatCalendarDateKey } from "@/lib/formatters"
 import { isValidPhone, normalizePhone } from "@/lib/phone"
 import { resolveCouponScheduleContext } from "@/services/coupon/coupon-evaluation-context"
 import {
@@ -8,7 +8,6 @@ import {
   CouponRuleEntity,
 } from './coupon.types'
 
-const IST_TIMEZONE = "Asia/Kolkata"
 const PHONE_LIKE_PATTERN = /^\+?[\d\s()-]+$/
 
 export function evaluateRule(
@@ -202,9 +201,9 @@ function isDateInRange(
       }
       const parsed = new Date(raw)
       if (Number.isNaN(parsed.getTime())) return ""
-      return formatInTimeZone(parsed, IST_TIMEZONE, "yyyy-MM-dd")
+      return formatCalendarDateKey(parsed)
     }
-    return formatInTimeZone(input, IST_TIMEZONE, "yyyy-MM-dd")
+    return formatCalendarDateKey(input)
   }
 
   const slotKey = toDateKey(slotDate)

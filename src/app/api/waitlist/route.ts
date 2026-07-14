@@ -2,7 +2,7 @@
 // Set FEATURE_DISABLED to false to re-enable.
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatVenueDate } from "@/lib/formatters";
 import { prisma } from "@/lib/db";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 
@@ -56,13 +56,13 @@ function parsePeopleCount(input: number | string | null | undefined) {
 }
 
 function buildWaitlistReference(now: Date, counter: number) {
-  const day = formatInTimeZone(now, "Asia/Kolkata", "yyyyMMdd");
+  const day = formatVenueDate(now, "yyyyMMdd");
   const incremental = String(counter).padStart(4, "0");
   return `HR-${day}-${incremental}`;
 }
 
 function getWaitlistReferencePrefix(now: Date) {
-  const day = formatInTimeZone(now, "Asia/Kolkata", "yyyyMMdd");
+  const day = formatVenueDate(now, "yyyyMMdd");
   return `HR-${day}-`;
 }
 

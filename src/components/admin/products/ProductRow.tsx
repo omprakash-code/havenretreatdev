@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Eye, Pencil, Trash } from "@/components/icons";
 import type { AdminProduct } from "@/types/admin/product";
+import { formatVenueDateTime } from "@/lib/formatters";
 import ProductVariantChips from "./ProductVariantChips";
 
 const FALLBACK_IMAGE = "/assets/logo.png";
@@ -153,13 +154,7 @@ export default function ProductRow({
 
             {/* Created */}
             <td className="px-3 py-3 text-xs text-neutral-500 whitespace-nowrap">
-                {new Date(product.createdAt).toLocaleString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                })}
+                {formatVenueDateTime(product.createdAt)}
             </td>
 
             {/* Status */}

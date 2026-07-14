@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { formatISTDateTime } from "@/lib/formatters";
+import { formatVenueDateTime } from "@/lib/formatters";
 import { Calendar } from "@/components/icons";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import type { AdminCouponFormState, CouponRuleFormState } from "../../types";
@@ -546,13 +546,13 @@ export function ActiveDatesSection({
       ? "Not set"
       : Number.isNaN(validFromDate.getTime())
       ? "Invalid date"
-      : formatISTDateTime(validFromDate);
+      : formatVenueDateTime(validFromDate);
   const formattedValidTill =
     !validTillDate
       ? "Not set"
       : Number.isNaN(validTillDate.getTime())
       ? "Invalid date"
-      : formatISTDateTime(validTillDate);
+      : formatVenueDateTime(validTillDate);
 
   return (
     <SectionCard title="Active Dates">

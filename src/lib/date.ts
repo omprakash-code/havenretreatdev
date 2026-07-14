@@ -1,3 +1,4 @@
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 /**
  * // src/lib/date.ts
  * SINGLE SOURCE OF TRUTH for date comparison.
@@ -29,7 +30,7 @@ export function addDays(date: Date, days: number) {
 
 export function getDateKeyInTimeZone(
   date: Date = new Date(),
-  timezone = "America/New_York"
+  timezone: string = BOOKING_TIME_ZONE
 ): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 import { Clock, Edit, X } from "@/components/icons";
 import {
   buildTimeValues,
@@ -9,7 +10,7 @@ import {
   parseTimeValue,
 } from "@/lib/booking-time-range";
 import { toDateKeyString } from "@/lib/date";
-import { formatISTTime } from "@/lib/formatters";
+import { formatTimeLabel } from "@/lib/formatters";
 
 type TimeRangePickerProps = {
   startTime: string | null;
@@ -86,7 +87,7 @@ export default function TimeRangePicker({
   unavailableRanges = [],
   businessOpenTime = "09:00",
   businessCloseTime = "23:00",
-  timezone = "America/New_York",
+  timezone = BOOKING_TIME_ZONE,
 }: TimeRangePickerProps) {
   const times = useMemo(() => buildTimeValues(incrementMinutes), [incrementMinutes]);
   const [nowMinutes, setNowMinutes] = useState(() => getNowMinutes(timezone));
@@ -271,7 +272,7 @@ export default function TimeRangePicker({
     isRangeInterior: boolean;
     isEndSelection: boolean;
   }) => {
-    const label = formatISTTime(time);
+    const label = formatTimeLabel(time);
     const candidateMinutes = parseTimeValue(time);
 
     if (selected) return `${label} selected`;
@@ -381,9 +382,9 @@ export default function TimeRangePicker({
               }
             >
               {durationHours
-                ? `${formatISTTime(startTime!)} - ${formatISTTime(endTime!)}`
+                ? `${formatTimeLabel(startTime!)} - ${formatTimeLabel(endTime!)}`
                 : startTime
-                  ? `${formatISTTime(startTime)} - Add end time`
+                  ? `${formatTimeLabel(startTime)} - Add end time`
                   : "Select duration"}
             </span>
           </span>
@@ -439,7 +440,7 @@ export default function TimeRangePicker({
                 </h2>
                 <p className="mt-0.5 text-xs text-[#667085] sm:mt-1 sm:text-sm">
                   {draftStartTime && draftEndTime
-                    ? `${formatISTTime(draftStartTime)} - ${formatISTTime(draftEndTime)}`
+                    ? `${formatTimeLabel(draftStartTime)} - ${formatTimeLabel(draftEndTime)}`
                     : `Min. ${minDurationHours} ${minDurationHours === 1 ? "hr" : "hrs"}`}
                 </p>
               </div>
@@ -456,7 +457,7 @@ export default function TimeRangePicker({
                     Start Time
                   </span>
                   <span className="mt-0.5 block text-xs font-medium text-[#101828] sm:mt-1.5 sm:text-sm">
-                    {draftStartTime ? formatISTTime(draftStartTime) : "Add time"}
+                    {draftStartTime ? formatTimeLabel(draftStartTime) : "Add time"}
                   </span>
                 </div>
 
@@ -471,7 +472,7 @@ export default function TimeRangePicker({
                     End Time
                   </span>
                   <span className="mt-0.5 block text-xs font-medium text-[#101828] sm:mt-1.5 sm:text-sm">
-                    {draftEndTime ? formatISTTime(draftEndTime) : "Add time"}
+                    {draftEndTime ? formatTimeLabel(draftEndTime) : "Add time"}
                   </span>
                 </div>
               </div>
@@ -562,10 +563,10 @@ export default function TimeRangePicker({
                     }`}
                   >
                     <span className="block text-[10px] leading-none sm:text-[13px]">
-                      {formatISTTime(time).replace(" AM", "").replace(" PM", "")}
+                      {formatTimeLabel(time).replace(" AM", "").replace(" PM", "")}
                     </span>
                     <span className="mt-0.5 block text-[8px] font-normal sm:mt-1 sm:text-[10px]">
-                      {formatISTTime(time).endsWith("AM") ? "AM" : "PM"}
+                      {formatTimeLabel(time).endsWith("AM") ? "AM" : "PM"}
                     </span>
                   </button>
                 );

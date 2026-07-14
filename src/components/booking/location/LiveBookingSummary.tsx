@@ -1,7 +1,7 @@
 "use client";
 
 import { Calendar, Clock } from "@/components/icons";
-import { formatDuration, formatISTTime } from "@/lib/formatters";
+import { formatDuration, formatTimeLabel, formatWallDate } from "@/lib/formatters";
 
 type LiveBookingSummaryProps = {
   selectedDate: Date | null;
@@ -11,11 +11,7 @@ type LiveBookingSummaryProps = {
 };
 
 function formatBookingDate(date: Date) {
-  return date.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return formatWallDate(date, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default function LiveBookingSummary({
@@ -56,7 +52,7 @@ export default function LiveBookingSummary({
           label="Time"
           value={
             startTime && endTime && durationHours
-              ? `${formatISTTime(startTime)} → ${formatISTTime(endTime)} · ${formatDuration(
+              ? `${formatTimeLabel(startTime)} → ${formatTimeLabel(endTime)} · ${formatDuration(
                   durationHours * 60
                 )}`
               : "Select start and end"

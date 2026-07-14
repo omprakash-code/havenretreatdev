@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import AdminDrawer from "@/components/admin/drawer/AdminDrawer";
-import { formatISTDateTime } from "@/lib/formatters";
+import { formatVenueDateTime } from "@/lib/formatters";
 import type {
   AdminContactInquiry,
   AdminContactInquiryEditPayload,
@@ -105,7 +105,7 @@ export default function ContactEditDrawer({
           <label className="text-sm text-slate-700">
             Created At
             <div className="mt-1 flex h-10 w-full items-center rounded-md border border-neutral-200 bg-neutral-50 px-3 text-sm text-slate-500">
-              {formatISTDateTime(inquiry.createdAt)}
+              {formatVenueDateTime(inquiry.createdAt)}
             </div>
           </label>
         </div>

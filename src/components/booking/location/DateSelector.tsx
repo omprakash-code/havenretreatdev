@@ -1,6 +1,8 @@
 "use client";
 
 import { Calendar } from "@/components/icons";
+import { formatWallDate } from "@/lib/formatters";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 import {
   addDaysToDateKey,
   dateFromDateKey,
@@ -29,10 +31,7 @@ type DateSelectorProps = {
 };
 
 function formatBookingDateShort(date: Date) {
-  return date.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-  });
+  return formatWallDate(date, { day: "2-digit", month: "short" });
 }
 
 export default function DateSelector({
@@ -47,7 +46,7 @@ export default function DateSelector({
   isQuickDate,
   isSameDay,
   getWeekdayShort,
-  timezone = "America/New_York",
+  timezone = BOOKING_TIME_ZONE,
 }: DateSelectorProps) {
   const venueTodayKey = getDateKeyInTimeZone(new Date(), timezone);
 
@@ -102,7 +101,7 @@ export default function DateSelector({
                     {date.getDate()}
                   </span>
                   <span className="mt-1 block text-[11px] font-medium opacity-75">
-                    {date.toLocaleDateString("en-US", { month: "short" })}
+                    {formatWallDate(date, { month: "short" })}
                   </span>
                 </button>
               );

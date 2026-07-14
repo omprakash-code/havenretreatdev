@@ -9,16 +9,16 @@ import type { AdminBooking } from "@/types/admin/booking-admin";
 import type { DatePreset } from "@/types/admin/filters";
 import BookingDrawer from "@/components/admin/bookings/drawer/BookingDrawer";
 import ConfirmActionModal from "@/components/admin/drawer/ConfirmActionModal";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatVenueDateKey } from "@/lib/formatters";
 import AdminEmptyState from "@/components/admin/shared/AdminEmptyState";
 import { Search, ShoppingCart } from "@/components/icons";
 
 const applyDatePreset = (date: Date, preset: DatePreset) => {
-  const istDateKey = formatInTimeZone(date, "Asia/Kolkata", "yyyy-MM-dd");
-  const todayDateKey = formatInTimeZone(new Date(), "Asia/Kolkata", "yyyy-MM-dd");
+  const venueDateKey = formatVenueDateKey(date);
+  const todayDateKey = formatVenueDateKey(new Date());
   const diffDays = Math.floor(
     (new Date(`${todayDateKey}T00:00:00`).getTime() -
-      new Date(`${istDateKey}T00:00:00`).getTime()) /
+      new Date(`${venueDateKey}T00:00:00`).getTime()) /
       (1000 * 60 * 60 * 24)
   );
 
@@ -183,11 +183,7 @@ export default function CartAbandonmentPage() {
   const filteredData = useMemo(() => {
     return data.filter((b) => {
       if (customDate) {
-        const bookingDateKey = formatInTimeZone(
-          new Date(b.createdAt),
-          "Asia/Kolkata",
-          "yyyy-MM-dd"
-        );
+        const bookingDateKey = formatVenueDateKey(new Date(b.createdAt));
         if (bookingDateKey !== customDate) return false;
       } else if (preset) {
         const created = new Date(b.createdAt);

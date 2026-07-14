@@ -1,4 +1,6 @@
 import { useMemo, useRef } from "react";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
+import { formatVenueDateKey } from "@/lib/formatters";
 import { ChevronDown } from "lucide-react";
 
 import { Calendar } from "@/components/icons";
@@ -63,7 +65,7 @@ export function ScheduleSection({
   unavailableRanges = [],
   businessOpenTime = "09:00",
   businessCloseTime = "23:00",
-  timezone = "America/New_York",
+  timezone = BOOKING_TIME_ZONE,
   loadingAvailability = false,
   onLocationDateChange,
   onTheatreSlotChange,
@@ -149,7 +151,7 @@ export function ScheduleSection({
                 type="date"
                 value={date}
                 onChange={(event) => onLocationDateChange(locationId, event.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
+                min={formatVenueDateKey(new Date())}
                 disabled={!locationId}
                 aria-label="Date"
                 className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"

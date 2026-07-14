@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil } from "@/components/icons";
-import { formatISTDateTime } from "@/lib/formatters";
+import { formatVenueDateTime } from "@/lib/formatters";
 import type { AdminLocationRecord } from "@/types/admin/location";
 
 type LocationsTableProps = {
@@ -66,7 +66,7 @@ export default function LocationsTable({
               <td className="px-4 py-3 whitespace-nowrap">{row.productsCount}</td>
               <td className="px-4 py-3 whitespace-nowrap">{row.couponsCount}</td>
               <td className="px-4 py-3 whitespace-nowrap">
-                {formatISTDateTime(row.updatedAt)}
+                {formatVenueDateTime(row.updatedAt)}
               </td>
               <td className="py-3 pl-4 pr-5 whitespace-nowrap">
                 <button

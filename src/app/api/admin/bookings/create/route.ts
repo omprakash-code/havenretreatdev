@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatCalendarDate } from "@/lib/formatters";
 import { nanoid } from "nanoid";
 
 import { prisma } from "@/lib/db";
@@ -47,7 +47,6 @@ import {
 } from "@/lib/booking-policy";
 import {
   AdminBookingApiError as AdminBookingError,
-  IST_TIMEZONE,
   OFFLINE_METHODS,
   PAYMENT_AMOUNT_MODES,
   PAYMENT_TYPES,
@@ -153,7 +152,7 @@ function buildEmailData(input: {
     customerEmail: input.contactEmail ?? undefined,
     locationName: input.locationName ?? "—",
     theatreName: input.theatreName,
-    date: formatInTimeZone(input.slotDate, IST_TIMEZONE, "EEE, dd MMM yyyy"),
+    date: formatCalendarDate(input.slotDate, "EEE, dd MMM yyyy"),
     timeSlot: `${input.slotStartTime} - ${input.slotEndTime}`,
     guestCount: input.guestCount,
     occasionLabel: input.occasionLabel ?? undefined,

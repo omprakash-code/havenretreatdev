@@ -4,7 +4,12 @@ import {
   parseBookingLockMinutes,
 } from "@/lib/app-settings";
 
-export const BOOKING_TIME_ZONE = "America/New_York";
+// Single source of truth for the venue timezone. Every formatter, calendar
+// invite, business-day key, and schedule computation flows from this value.
+// Override via NEXT_PUBLIC_BOOKING_TIME_ZONE (any IANA id, e.g.
+// "America/Chicago") — set at build time so server and client agree.
+export const BOOKING_TIME_ZONE =
+  process.env.NEXT_PUBLIC_BOOKING_TIME_ZONE?.trim() || "America/New_York";
 export const BOOKING_INTERVAL_MINUTES = 30;
 export const BOOKING_BUSINESS_OPEN_TIME = "09:00";
 export const BOOKING_BUSINESS_CLOSE_TIME = "23:00";

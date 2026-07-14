@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatWallDate } from "@/lib/formatters";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 import { ChevronLeft, ChevronRight, X } from "@/components/icons";
 import { dateFromDateKey, getDateKeyInTimeZone, toDateKey } from "@/lib/date";
 
@@ -19,7 +21,7 @@ export default function BookingCalendar({
   availableDates,
   variant = "modal",
   selectedDate,
-  timezone = "America/New_York",
+  timezone = BOOKING_TIME_ZONE,
 }: BookingCalendarProps) {
   const venueToday = useMemo(
     () => dateFromDateKey(getDateKeyInTimeZone(new Date(), timezone)),
@@ -55,7 +57,7 @@ export default function BookingCalendar({
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
-  const monthName = currentMonth.toLocaleString("en-IN", { month: "long" });
+  const monthName = formatWallDate(currentMonth, { month: "long" });
   const canGoPreviousMonth =
     year > venueToday.getFullYear() ||
     (year === venueToday.getFullYear() && month > venueToday.getMonth());

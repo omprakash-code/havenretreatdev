@@ -13,9 +13,8 @@ import {
   resolveCouponBaseAmount,
 } from "./coupon-targeting"
 import { resolveCouponScheduleContext } from "@/services/coupon/coupon-evaluation-context"
-import { formatInTimeZone } from "date-fns-tz"
-
-const IST_TIMEZONE = "Asia/Kolkata"
+import { formatCalendarDateKey } from "@/lib/formatters"
+import { localBookingTimeToUtc } from "@/lib/booking-range"
 
 export function evaluateCoupon(
   coupon: CouponEntity & { rules: CouponRuleEntity[] },
@@ -120,13 +119,16 @@ function getBookingStartInstant(
   const schedule = resolveCouponScheduleContext(ctx)
   if (schedule.startsAtUtc) return schedule.startsAtUtc
 
-  const slotDateKey = formatInTimeZone(schedule.date, IST_TIMEZONE, "yyyy-MM-dd")
+  // schedule.date is a midnight-pinned calendar date (venue-midnight for
+  // range bookings, UTC-midnight in legacy rows), so key it as a calendar
+  // date and interpret the start time as venue wall-clock time.
+  const slotDateKey = formatCalendarDateKey(schedule.date)
   const [hours, minutes] = schedule.startTime.split(":").map(Number)
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
 
   const hourText = String(Math.trunc(hours)).padStart(2, "0")
   const minuteText = String(Math.trunc(minutes)).padStart(2, "0")
-  const slotStart = new Date(`${slotDateKey}T${hourText}:${minuteText}:00+05:30`)
+  const slotStart = localBookingTimeToUtc(slotDateKey, `${hourText}:${minuteText}`)
   if (Number.isNaN(slotStart.getTime())) return null
   return slotStart
 }

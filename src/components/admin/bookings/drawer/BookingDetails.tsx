@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatET } from "@/lib/formatters";
+import { formatCalendarDate, formatVenueDateTime } from "@/lib/formatters";
 import BookingReviewActions from "@/components/admin/bookings/drawer/BookingReviewActions";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 import Image from "next/image";
@@ -383,7 +383,7 @@ export default function BookingDetails({
 }: BookingDetailsProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "payment">("overview");
   const scheduleDateLabel =
-    booking.schedule?.dateLabel || formatET(booking.slot.date).split(",")[0];
+    booking.schedule?.dateLabel || formatCalendarDate(booking.slot.date);
   const scheduleTimeLabel =
     booking.schedule?.timeLabel ||
     `${booking.slot.startTime} - ${booking.slot.endTime}`;
@@ -796,7 +796,7 @@ export default function BookingDetails({
                   <div className="flex items-start justify-between gap-4">
                     <span className="text-xs text-slate-500">Accepted At</span>
                     <span className="text-xs font-medium text-slate-900">
-                      {formatET(booking.termsAcceptedAt)}
+                      {formatVenueDateTime(booking.termsAcceptedAt)}
                     </span>
                   </div>
                 )}
@@ -813,7 +813,7 @@ export default function BookingDetails({
                       <div className="flex items-start justify-between gap-4">
                         <span className="text-xs text-slate-500">Signed At</span>
                         <span className="text-sm font-medium text-slate-900 text-right">
-                          {formatET(booking.signedAgreement.signedAt)}
+                          {formatVenueDateTime(booking.signedAgreement.signedAt)}
                         </span>
                       </div>
                       <div className="flex items-start justify-between gap-4">
@@ -865,7 +865,7 @@ export default function BookingDetails({
                   <div className="flex items-start justify-between gap-4">
                     <span className="text-xs text-slate-500">Created</span>
                     <span className="text-sm font-medium text-slate-900">
-                      {formatET(booking.createdAt)}
+                      {formatVenueDateTime(booking.createdAt)}
                     </span>
                   </div>
                   <div className="flex items-start justify-between gap-4">
@@ -1092,7 +1092,7 @@ export default function BookingDetails({
                       <div className="flex items-start justify-between gap-4">
                         <span className="text-xs text-slate-500">Recorded On</span>
                         <span className="text-sm font-medium text-slate-900">
-                          {formatET(booking.paymentDetails.createdAt)}
+                          {formatVenueDateTime(booking.paymentDetails.createdAt)}
                         </span>
                       </div>
 

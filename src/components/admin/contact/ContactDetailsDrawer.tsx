@@ -1,7 +1,7 @@
 "use client";
 
 import AdminDrawer from "@/components/admin/drawer/AdminDrawer";
-import { formatISTDateTime } from "@/lib/formatters";
+import { formatVenueDateTime } from "@/lib/formatters";
 import type { AdminContactInquiry, ContactInquiryStatus } from "@/types/admin/contact";
 
 type ContactDetailsDrawerProps = {
@@ -74,11 +74,11 @@ export default function ContactDetailsDrawer({
               <StatusBadge status={inquiry.status} />
             </div>
           </div>
-          <Field label="Created At" value={formatISTDateTime(inquiry.createdAt)} />
-          <Field label="Updated At" value={formatISTDateTime(inquiry.updatedAt)} />
+          <Field label="Created At" value={formatVenueDateTime(inquiry.createdAt)} />
+          <Field label="Updated At" value={formatVenueDateTime(inquiry.updatedAt)} />
           <Field
             label="Responded At"
-            value={inquiry.respondedAt ? formatISTDateTime(inquiry.respondedAt) : null}
+            value={inquiry.respondedAt ? formatVenueDateTime(inquiry.respondedAt) : null}
           />
           <Field label="Read Status" value={inquiry.isRead ? "Read" : "Unread"} />
         </div>

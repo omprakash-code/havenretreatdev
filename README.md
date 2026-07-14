@@ -257,7 +257,22 @@ EMAIL_FROM=                      # Sender address
 ADMIN_EMAIL=                     # Recipient for admin notification emails
 NEXT_PUBLIC_BASE_URL=            # Public site URL (used in emails and PDF links)
 ADMIN_RANGE_BOOKING_ENABLED=true # Enables the range-based booking flow
+NEXT_PUBLIC_BOOKING_TIME_ZONE=America/New_York # Business timezone (IANA id)
 ```
+
+### Business Timezone
+
+`NEXT_PUBLIC_BOOKING_TIME_ZONE` is the single business timezone used throughout
+the application (default `America/New_York`):
+
+- All timestamps continue to be **stored in UTC** — this value never affects persistence.
+- Customer-facing and admin-facing dates/times (emails, PDFs, calendar invites,
+  dashboards, business-day analytics) are rendered in this timezone via the shared
+  helpers in `src/lib/formatters.ts`, sourced from `BOOKING_TIME_ZONE` in
+  `src/lib/booking-policy.ts`.
+- The value is inlined into the client bundle at build time, so **changing it
+  requires a rebuild** and should be treated as an operational configuration
+  change, not a runtime toggle.
 
 ### Booking Workflow Flags
 

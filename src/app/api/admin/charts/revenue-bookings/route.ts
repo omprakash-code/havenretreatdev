@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { formatInTimeZone } from "date-fns-tz";
 import { PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { toBookingDate } from "@/lib/booking-range";
+import { formatCalendarDate, formatVenueDateKey } from "@/lib/formatters";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 
-const IST_TIMEZONE = "Asia/Kolkata";
 const VALID_RANGES = ["today", "7d", "30d", "90d", "1y"] as const;
 type RangeKey = (typeof VALID_RANGES)[number];
 
@@ -21,12 +21,18 @@ function getRangeDays(range: RangeKey): number {
 }
 
 function getRangeLabel(key: string, range: RangeKey): string {
-  const date = new Date(`${key}T00:00:00+05:30`);
   if (range === "today") return "Today";
   if (range === "30d" || range === "90d" || range === "1y") {
-    return formatInTimeZone(date, IST_TIMEZONE, "dd MMM");
+    return formatCalendarDate(key, "dd MMM");
   }
-  return formatInTimeZone(date, IST_TIMEZONE, "EEE");
+  return formatCalendarDate(key, "EEE");
+}
+
+// Pure calendar arithmetic on "yyyy-MM-dd" keys; DST-proof because the
+// venue-time boundaries are derived per key via toBookingDate.
+function addDaysToDateKey(key: string, days: number) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
 export async function GET(req: Request) {
@@ -44,19 +50,17 @@ export async function GET(req: Request) {
     const range: RangeKey = isRangeKey(rawRange) ? rawRange : "7d";
     const days = getRangeDays(range);
 
-    const todayKey = formatInTimeZone(new Date(), IST_TIMEZONE, "yyyy-MM-dd");
-    const endDayStartIST = new Date(`${todayKey}T00:00:00+05:30`);
-    const startDayStartIST = new Date(endDayStartIST);
-    startDayStartIST.setUTCDate(startDayStartIST.getUTCDate() - (days - 1));
-    const endExclusiveIST = new Date(endDayStartIST);
-    endExclusiveIST.setUTCDate(endExclusiveIST.getUTCDate() + 1);
+    const todayKey = formatVenueDateKey(new Date());
+    const startKey = addDaysToDateKey(todayKey, -(days - 1));
+    const rangeStart = toBookingDate(startKey);
+    const rangeEndExclusive = toBookingDate(addDaysToDateKey(todayKey, 1));
 
     const bookings = await prisma.booking.findMany({
       where: {
         paymentStatus: PaymentStatus.PAID,
         createdAt: {
-          gte: startDayStartIST,
-          lt: endExclusiveIST,
+          gte: rangeStart,
+          lt: rangeEndExclusive,
         },
       },
       select: {
@@ -71,9 +75,7 @@ export async function GET(req: Request) {
     >();
 
     for (let i = 0; i < days; i += 1) {
-      const d = new Date(startDayStartIST);
-      d.setUTCDate(d.getUTCDate() + i);
-      const key = formatInTimeZone(d, IST_TIMEZONE, "yyyy-MM-dd");
+      const key = addDaysToDateKey(startKey, i);
       rows.set(key, {
         key,
         label: getRangeLabel(key, range),
@@ -85,7 +87,7 @@ export async function GET(req: Request) {
     for (const booking of bookings) {
       const scheduleDate = booking.createdAt ?? null;
       if (!scheduleDate) continue;
-      const key = formatInTimeZone(scheduleDate, IST_TIMEZONE, "yyyy-MM-dd");
+      const key = formatVenueDateKey(scheduleDate);
       const row = rows.get(key);
       if (!row) continue;
 

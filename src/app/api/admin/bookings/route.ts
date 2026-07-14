@@ -14,7 +14,7 @@ import {
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 
-import { ADMIN_SOFT_DELETE_REASON } from "@/lib/booking-policy";
+import { ADMIN_SOFT_DELETE_REASON, BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 const DEFAULT_PAGE_SIZE = 40;
 const MAX_PAGE_SIZE = 200;
 
@@ -320,7 +320,7 @@ export async function GET(req: Request) {
         theatre: {
           id: b.venue?.id ?? "",
           name: b.venue?.name ?? (b.packageSnapshot as { name?: string } | null)?.name ?? "Haven Retreat",
-          timezone: 'America/New_York' as string | null,
+          timezone: BOOKING_TIME_ZONE as string | null,
           locationName: 'Miami' as string | null,
         },
         package: {

@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { formatInTimeZone } from "date-fns-tz";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 
-const BOOKING_REFERENCE_TIMEZONE = "America/New_York";
 const MAX_YEARLY_BOOKINGS = 99_999;
 
 type CounterRow = {
@@ -22,11 +22,11 @@ export async function allocateBookingRef(
   now = new Date()
 ) {
   const year = Number(
-    formatInTimeZone(now, BOOKING_REFERENCE_TIMEZONE, "yyyy")
+    formatInTimeZone(now, BOOKING_TIME_ZONE, "yyyy")
   );
   const datePart = formatInTimeZone(
     now,
-    BOOKING_REFERENCE_TIMEZONE,
+    BOOKING_TIME_ZONE,
     "MMddyyyy"
   );
 

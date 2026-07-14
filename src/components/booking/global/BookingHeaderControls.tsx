@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatWallDate } from "@/lib/formatters";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Calendar, MapPin } from "@/components/icons";
 import { Timer } from "lucide-react";
@@ -35,7 +37,6 @@ type BookingByRefHeaderResponse = {
   locationName?: unknown;
 };
 
-const DEFAULT_VENUE_TIMEZONE = "America/New_York";
 
 function parseDateKey(dateKey: string): Date {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -45,11 +46,7 @@ function parseDateKey(dateKey: string): Date {
 }
 
 function formatBookingDate(date: Date) {
-  return date.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return formatWallDate(date, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function isLocationOption(value: unknown): value is LocationOption {
@@ -497,7 +494,7 @@ export default function BookingHeaderControls({
                 variant="inline"
                 availableDates={availableDateKeys}
                 selectedDate={booking.date}
-                timezone={DEFAULT_VENUE_TIMEZONE}
+                timezone={BOOKING_TIME_ZONE}
                 onSelect={(date) => void handleDateSelect(date)}
                 onClose={() => setDateMenuOpen(false)}
               />

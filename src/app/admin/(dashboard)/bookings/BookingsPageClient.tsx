@@ -14,10 +14,10 @@ import type { DatePreset } from "@/types/admin/filters";
 import { CalendarCheck, Plus, Search } from "@/components/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 import AdminEmptyState from "@/components/admin/shared/AdminEmptyState";
 
 const PAGE_SIZE = 40;
-const ET_TIMEZONE = "America/New_York";
 
 function shiftDateKey(dateKey: string, deltaDays: number) {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -35,11 +35,11 @@ function getEtDayRange(dateKey: string) {
   if (!year || !month || !day) return null;
   const startUtc = fromZonedTime(
     new Date(year, month - 1, day, 0, 0, 0, 0),
-    ET_TIMEZONE
+    BOOKING_TIME_ZONE
   );
   const endUtc = fromZonedTime(
     new Date(year, month - 1, day + 1, 0, 0, 0, 0),
-    ET_TIMEZONE
+    BOOKING_TIME_ZONE
   );
   return {
     dateFrom: startUtc.toISOString(),
@@ -49,7 +49,7 @@ function getEtDayRange(dateKey: string) {
 
 function getPresetRange(preset: DatePreset) {
   if (preset === "CUSTOM") return null;
-  const todayKey = formatInTimeZone(new Date(), ET_TIMEZONE, "yyyy-MM-dd");
+  const todayKey = formatInTimeZone(new Date(), BOOKING_TIME_ZONE, "yyyy-MM-dd");
 
   if (preset === "YESTERDAY") {
     const fromKey = shiftDateKey(todayKey, -1);

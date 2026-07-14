@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Calendar } from "@/components/icons";
 import { LOCATIONS } from "@/constants/locations";
-import { formatISTDate } from "@/lib/formatters";
+import { formatCalendarDate } from "@/lib/formatters";
 
 type WaitlistApiResponse = {
     success: boolean;
@@ -365,5 +365,5 @@ function getFormattedDate(value: string) {
     if (!value) return "Preferred Date";
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return "Invalid date";
-    return formatISTDate(parsed);
+    return formatCalendarDate(parsed);
 }
