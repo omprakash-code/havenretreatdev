@@ -6,6 +6,7 @@ import PageHeader from "@/components/admin/page/PageHeader";
 import AdminDrawer from "@/components/admin/drawer/AdminDrawer";
 import { formatVenueDateTime } from "@/lib/formatters";
 import { resolveAdminProfileImage } from "@/lib/admin-profile-image";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { toast } from "sonner";
 import {
   Activity,
@@ -99,8 +100,11 @@ function validateProfileField(
 
   if (field === "phone") {
     if (!value.trim()) return "Phone number is required.";
-    const valid = /^\+?[0-9\s-]{10,16}$/.test(value.trim());
-    if (!valid) return "Enter a valid phone number.";
+    // Same rule as the API: strip formatting, then require 10 digits. Anything
+    // stricter here rejects values the server would accept, e.g. "(786) ...".
+    if (!isValidPhone(normalizePhone(value))) {
+      return "Enter a valid 10-digit phone number.";
+    }
   }
 
   if (field === "role" && !form.role) {
@@ -212,12 +216,29 @@ export default function AdminProfilePage() {
     setDrawerOpen(true);
   }
 
+  function updateDrawerField(field: "fullName" | "email" | "phone", value: string) {
+    setDrawerForm((prev) => ({ ...prev, [field]: value }));
+    setDrawerErrors((prev) =>
+      prev[field] ? { ...prev, [field]: undefined } : prev
+    );
+  }
+
+  function updatePasswordField(field: keyof PasswordForm, value: string) {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+    setPasswordErrors((prev) =>
+      prev[field] ? { ...prev, [field]: undefined } : prev
+    );
+  }
+
   async function handleSaveDrawerProfile() {
     const nextErrors = validateProfileForm(drawerForm);
     setDrawerErrors(nextErrors);
 
     const hasError = Object.values(nextErrors).some(Boolean);
-    if (hasError) return;
+    if (hasError) {
+      toast.error("Please fix the highlighted fields.");
+      return;
+    }
 
     setSavingDrawer(true);
     try {
@@ -261,7 +282,10 @@ export default function AdminProfilePage() {
     setPasswordErrors(nextErrors);
 
     const hasError = Object.values(nextErrors).some(Boolean);
-    if (hasError) return;
+    if (hasError) {
+      toast.error("Please fix the highlighted fields.");
+      return;
+    }
 
     setSavingPassword(true);
     try {
@@ -413,25 +437,19 @@ export default function AdminProfilePage() {
                   label="Full Name"
                   value={drawerForm.fullName}
                   error={drawerErrors.fullName}
-                  onChange={(value) =>
-                    setDrawerForm((prev) => ({ ...prev, fullName: value }))
-                  }
+                  onChange={(value) => updateDrawerField("fullName", value)}
                 />
                 <Field
                   label="Email"
                   value={drawerForm.email}
                   error={drawerErrors.email}
-                  onChange={(value) =>
-                    setDrawerForm((prev) => ({ ...prev, email: value }))
-                  }
+                  onChange={(value) => updateDrawerField("email", value)}
                 />
                 <Field
                   label="Phone"
                   value={drawerForm.phone}
                   error={drawerErrors.phone}
-                  onChange={(value) =>
-                    setDrawerForm((prev) => ({ ...prev, phone: value }))
-                  }
+                  onChange={(value) => updateDrawerField("phone", value)}
                 />
                 <Field
                   label="Role"
@@ -466,10 +484,7 @@ export default function AdminProfilePage() {
                   error={passwordErrors.currentPassword}
                   type="password"
                   onChange={(value) =>
-                    setPasswordForm((prev) => ({
-                      ...prev,
-                      currentPassword: value,
-                    }))
+                    updatePasswordField("currentPassword", value)
                   }
                 />
                 <Field
@@ -477,12 +492,7 @@ export default function AdminProfilePage() {
                   value={passwordForm.newPassword}
                   error={passwordErrors.newPassword}
                   type="password"
-                  onChange={(value) =>
-                    setPasswordForm((prev) => ({
-                      ...prev,
-                      newPassword: value,
-                    }))
-                  }
+                  onChange={(value) => updatePasswordField("newPassword", value)}
                 />
                 <Field
                   label="Confirm New Password"
@@ -490,10 +500,7 @@ export default function AdminProfilePage() {
                   error={passwordErrors.confirmPassword}
                   type="password"
                   onChange={(value) =>
-                    setPasswordForm((prev) => ({
-                      ...prev,
-                      confirmPassword: value,
-                    }))
+                    updatePasswordField("confirmPassword", value)
                   }
                 />
 
