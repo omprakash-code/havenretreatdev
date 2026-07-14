@@ -6,13 +6,23 @@ import PageHeader from "@/components/admin/page/PageHeader";
 import { toast } from "sonner";
 import { InfoTooltipButton } from "@/components/admin/coupons/drawer/fields";
 import AdminEmptyState from "@/components/admin/shared/AdminEmptyState";
-import { Plus, Settings } from "@/components/icons";
+import {
+  BadgeDollarSign,
+  Check,
+  Clock3,
+  Loader2,
+  Plus,
+  Save,
+  Settings,
+  Timer,
+  Wallet,
+} from "@/components/icons";
+import type { LucideIcon } from "lucide-react";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import {
   APP_SETTING_META,
   normalizeAppSettingValue,
   sortAppSettings,
-  type SettingMeta,
   validateAppSetting,
   type AppSettingItem,
 } from "@/lib/app-settings";
@@ -56,10 +66,12 @@ function shouldValidateSetting(item: AppSettingItem, _draftMap: Record<string, s
   return true;
 }
 
-function getSettingInfoContent(key: string, meta?: SettingMeta) {
-  if (meta?.description) return meta.description;
-  return `Setting key: ${key}`;
-}
+const SETTING_ICONS: Record<string, LucideIcon> = {
+  ADVANCE_PAYMENT_AMOUNT: Wallet,
+  BOOKING_LOCK_MINUTES: Timer,
+  MINIMUM_BOOKING_DURATION_HOURS: Clock3,
+  EXTRA_HOURLY_RATE: BadgeDollarSign,
+};
 
 function cloneCouponWidgetSettings(payload: HomeCouponWidgetSettingsPayload) {
   return JSON.parse(JSON.stringify(payload)) as HomeCouponWidgetSettingsPayload;
@@ -91,7 +103,7 @@ function formatNumberForInput(value: number) {
 }
 
 const SETTINGS_FIELD_BASE_CLASS =
-  "w-full rounded-md border bg-slate-50 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:bg-white";
+  "w-full rounded-md border bg-white text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300";
 
 const SETTINGS_FIELD_CLASS = `${SETTINGS_FIELD_BASE_CLASS} mt-1 h-10 px-3`;
 const SETTINGS_SMALL_FIELD_CLASS = `${SETTINGS_FIELD_BASE_CLASS} mt-1 h-9 px-2.5`;
@@ -103,6 +115,16 @@ export default function SettingsPageClient() {
   const [draftMap, setDraftMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const savedResetTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savedResetTimerRef.current !== null) {
+        window.clearTimeout(savedResetTimerRef.current);
+      }
+    };
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [showAdvanceConfirm, setShowAdvanceConfirm] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<AppSettingItem[] | null>(
@@ -288,6 +310,14 @@ export default function SettingsPageClient() {
       setSettings(json.data);
       setDraftMap(toMap(json.data));
       toast.success("Settings updated successfully.");
+      setJustSaved(true);
+      if (savedResetTimerRef.current !== null) {
+        window.clearTimeout(savedResetTimerRef.current);
+      }
+      savedResetTimerRef.current = window.setTimeout(() => {
+        setJustSaved(false);
+        savedResetTimerRef.current = null;
+      }, 2500);
     } catch (saveError) {
       const message =
         saveError instanceof Error
@@ -422,39 +452,48 @@ export default function SettingsPageClient() {
           />
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {visibleSettings.map((item) => {
                 const meta = APP_SETTING_META[item.key];
                 const value = draftMap[item.key] ?? "";
                 const inputType = meta?.type ?? "text";
                 const validationError = validationErrors[item.key];
+                const SettingIcon = SETTING_ICONS[item.key];
 
                 return (
                   <div
                     key={item.key}
-                    className="rounded-lg border border-neutral-200 bg-white p-4"
+                    className="flex h-full flex-col rounded-lg border border-neutral-200 bg-white p-4"
                   >
-                    <div className="mb-2 flex items-center gap-1.5">
+                    <div className="mb-2 flex items-center gap-2">
+                      {SettingIcon ? (
+                        <SettingIcon
+                          size={16}
+                          className="shrink-0 text-slate-500"
+                          aria-hidden="true"
+                        />
+                      ) : null}
                       <p className="text-sm font-medium text-slate-900">
                         {meta?.label ?? item.key}
                       </p>
                       <InfoTooltipButton
                         label={meta?.label ?? item.key}
-                        content={getSettingInfoContent(item.key, meta)}
+                        content={meta?.description ?? `Setting key: ${item.key}`}
                       />
                     </div>
 
                     {!meta && (
-                      <p className="mb-2 inline-flex rounded bg-neutral-100 px-2 py-1 font-mono text-[11px] text-neutral-700">
+                      <p className="mb-2 inline-flex self-start rounded bg-neutral-100 px-2 py-1 font-mono text-[11px] text-neutral-700">
                         {item.key}
                       </p>
                     )}
 
+                    <div className="mt-auto">
                     {inputType === "select" ? (
                       <select
                         value={value}
                         onChange={(e) => updateDraft(item.key, e.target.value)}
-                        className={`${SETTINGS_FIELD_CLASS} ${validationError ? "border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100" : "border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"}`}
+                        className={`${SETTINGS_FIELD_CLASS} ${validationError ? "border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100" : "border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"}`}
                       >
                         {(meta?.options ?? []).map((option) => (
                           <option key={option.value} value={option.value}>
@@ -477,25 +516,44 @@ export default function SettingsPageClient() {
                         min={inputType === "number" ? meta?.min : undefined}
                         max={inputType === "number" ? meta?.max : undefined}
                         step={inputType === "number" ? meta?.step ?? 1 : undefined}
-                        className={`${SETTINGS_FIELD_CLASS} ${validationError ? "border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100" : "border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"}`}
+                        className={`${SETTINGS_FIELD_CLASS} ${validationError ? "border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100" : "border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"}`}
                       />
                     )}
                     {validationError ? (
                       <p className="mt-1 text-xs text-red-600">{validationError}</p>
                     ) : null}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-end gap-2 pt-4">
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-3 pt-4">
+              {hasChanges && !saving ? (
+                <p className="text-xs text-slate-500">You have unsaved changes</p>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void saveSettings()}
                 disabled={!hasChanges || saving || Object.keys(validationErrors).length > 0}
-                className="cursor-pointer rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {saving ? "Saving..." : "Save Changes"}
+                {saving ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                    Saving...
+                  </>
+                ) : justSaved && !hasChanges ? (
+                  <>
+                    <Check size={16} aria-hidden="true" />
+                    Saved
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} aria-hidden="true" />
+                    Save Changes
+                  </>
+                )}
               </button>
             </div>
           </>
@@ -632,7 +690,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                       placeholder="Available Coupons"
                     />
                   </label>
@@ -656,7 +714,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                       placeholder="Copy and save instantly"
                     />
                   </label>
@@ -680,7 +738,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     >
                       <option value="right">Right</option>
                       <option value="left">Left</option>
@@ -708,7 +766,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     >
                       <option value="bottom-right">Bottom Right</option>
                       <option value="bottom-left">Bottom Left</option>
@@ -734,7 +792,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                       placeholder="View Coupons"
                     />
                   </label>
@@ -800,7 +858,7 @@ export default function SettingsPageClient() {
                                   };
                                 })
                               }
-                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                             />
                           </label>
 
@@ -833,7 +891,7 @@ export default function SettingsPageClient() {
                                   };
                                 })
                               }
-                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                             />
                           </label>
 
@@ -867,7 +925,7 @@ export default function SettingsPageClient() {
                                   };
                                 })
                               }
-                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                             />
                           </label>
 
@@ -937,7 +995,7 @@ export default function SettingsPageClient() {
                                   };
                                 })
                               }
-                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                             />
                           </label>
 
@@ -970,7 +1028,7 @@ export default function SettingsPageClient() {
                                   };
                                 })
                               }
-                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                              className={`${SETTINGS_SMALL_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                             />
                           </label>
                         </div>
@@ -1057,7 +1115,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     />
                   </label>
 
@@ -1080,7 +1138,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     />
                   </label>
 
@@ -1103,7 +1161,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     />
                   </label>
 
@@ -1159,7 +1217,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     >
                       <option value="bottom">Bottom</option>
                     </select>
@@ -1188,7 +1246,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     >
                       <option value="space-between">Space Between</option>
                       <option value="right">Right</option>
@@ -1217,7 +1275,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     />
                   </label>
 
@@ -1244,7 +1302,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     />
                   </label>
 
@@ -1267,7 +1325,7 @@ export default function SettingsPageClient() {
                           },
                         }))
                       }
-                      className={`${SETTINGS_FIELD_CLASS} border-slate-300 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
+                      className={`${SETTINGS_FIELD_CLASS} border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200`}
                     />
                   </label>
                 </div>
@@ -1306,7 +1364,7 @@ export default function SettingsPageClient() {
               Confirm Advance Amount Change
             </h3>
             <p className="mt-2 text-sm text-slate-600">
-              You are changing the Advance Payment Amount. This affects the
+              You are changing the Default Advance Payment Amount. This affects the
               complete booking system and all new bookings will pay this
               advance amount. Are you sure you want to continue?
             </p>

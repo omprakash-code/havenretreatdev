@@ -72,6 +72,11 @@ export {
   Phone,
   Share2,
   LogOut,
+  Wallet,
+  Clock3,
+  Timer,
+  BadgeDollarSign,
+  Save,
 } from "lucide-react";
 
 export { WhatsAppIcon } from "./WhatsApp";

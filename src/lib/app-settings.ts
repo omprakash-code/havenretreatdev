@@ -45,9 +45,9 @@ export const PRIORITY_SETTING_KEYS = [
 
 export const APP_SETTING_META: Record<string, SettingMeta> = {
   [ADVANCE_PAYMENT_AMOUNT_KEY]: {
-    label: "Advance Payment Amount",
+    label: "Default Advance Payment Amount",
     description:
-      "Amount collected at the time of booking confirmation. This is the minimum payment required to secure a slot. Example: $750.",
+      "The amount customers are asked to pay after their booking request has been approved.",
     type: "number",
     placeholder: "750",
     defaultValue: "750",
@@ -55,9 +55,9 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
     step: 1,
   },
   [BOOKING_LOCK_MINUTES_KEY]: {
-    label: "Slot Lock Duration (minutes)",
+    label: "Booking Hold Duration (minutes)",
     description:
-      "How long a customer slot reservation stays active before auto-expiry. After this duration, the slot becomes available to other customers. Example: 10 minutes.",
+      "How long a booking request temporarily reserves the selected date and time before it becomes available again.",
     type: "number",
     placeholder: String(DEFAULT_BOOKING_LOCK_MINUTES),
     defaultValue: String(DEFAULT_BOOKING_LOCK_MINUTES),
@@ -67,8 +67,7 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
   },
   [MINIMUM_BOOKING_DURATION_HOURS_KEY]: {
     label: "Minimum Booking Duration (hours)",
-    description:
-      "Shortest time range customers can request before viewing packages. The booking entry picker supports 30-minute increments. Example: 4 hours.",
+    description: "The shortest event duration customers can book.",
     type: "number",
     placeholder: String(DEFAULT_MINIMUM_BOOKING_DURATION_HOURS),
     defaultValue: String(DEFAULT_MINIMUM_BOOKING_DURATION_HOURS),
@@ -77,9 +76,9 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
     step: 0.5,
   },
   [EXTRA_HOURLY_RATE_KEY]: {
-    label: "Extra Hourly Rate",
+    label: "Default Extra Hourly Rate",
     description:
-      "Additional amount charged per hour when a customer books beyond the included minimum duration. Supports 30-minute increments. Example: $120/hour.",
+      "Hourly rate applied when a package doesn't have its own extra-hour pricing.",
     type: "number",
     placeholder: String(DEFAULT_EXTRA_HOURLY_RATE),
     defaultValue: String(DEFAULT_EXTRA_HOURLY_RATE),
