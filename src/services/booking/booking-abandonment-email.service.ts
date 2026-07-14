@@ -204,7 +204,7 @@ async function sendAbandonmentNotificationForBooking(
   );
   const abandonedAt = formatVenueDateTime(
     booking.cancelledAt ?? new Date(),
-    "EEE, dd MMM yyyy, hh:mm a zzz"
+    "EEE, dd MMM yyyy, hh:mm a"
   );
 
   let customerEmailSent = false;

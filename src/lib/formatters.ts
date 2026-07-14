@@ -60,12 +60,12 @@ export function formatVenueDate(input: Date | string, pattern = "dd MMM yyyy") {
 }
 
 /**
- * Date and time of a UTC instant in venue time with the seasonal timezone
- * abbreviation, e.g. "14 Jul 2026, 05:27 PM EDT".
+ * Date and time of a UTC instant in venue time, e.g. "14 Jul 2026, 05:27 PM".
+ * No timezone suffix: all business times are venue time by convention.
  */
 export function formatVenueDateTime(
   input: Date | string,
-  pattern = "dd MMM yyyy, hh:mm a zzz"
+  pattern = "dd MMM yyyy, hh:mm a"
 ) {
   return formatInTimeZone(toDate(input), BOOKING_TIME_ZONE, pattern);
 }
