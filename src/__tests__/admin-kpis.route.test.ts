@@ -44,13 +44,17 @@ describe("GET /api/admin/kpis", () => {
     prismaMock.$queryRaw.mockResolvedValue([
       {
         revenue_lifetime: 12345,
-        confirmed_lifetime: 40,
+        approved_lifetime: 40,
+        pending_review: 5,
+        rejected_lifetime: 2,
         abandoned_lifetime: 7,
         live_bookings: 3,
         revenue_current: 0,
         revenue_previous: 0,
-        confirmed_current: 0,
-        confirmed_previous: 0,
+        approved_current: 0,
+        approved_previous: 0,
+        rejected_current: 0,
+        rejected_previous: 0,
         abandoned_current: 0,
         abandoned_previous: 0,
       },
@@ -84,8 +88,8 @@ describe("GET /api/admin/kpis", () => {
     });
   });
 
-  it("returns coupon ops health alongside existing KPI payload", async () => {
-    const res = await GET();
+  it("returns only visible dashboard KPI payload by default", async () => {
+    const res = await GET(new Request("http://localhost/api/admin/kpis"));
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -93,8 +97,42 @@ describe("GET /api/admin/kpis", () => {
     expect(body.data).toMatchObject({
       revenueLifetime: 12345,
       confirmedLifetime: 40,
+      approvedLifetime: 40,
+      pendingReview: 5,
+      rejectedLifetime: 2,
       abandonedLifetime: 7,
       liveBookings: 3,
+    });
+    expect(body.data).not.toHaveProperty("couponHealth");
+    expect(body.data).not.toHaveProperty("couponOps");
+
+    expect(getCouponAuditReportMock).not.toHaveBeenCalled();
+    expect(assessCouponHealthMock).not.toHaveBeenCalled();
+
+    const [queryParts] = prismaMock.$queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    const sql = Array.from(queryParts).join(" ");
+    expect(sql).toContain(
+      `b."bookingStatus" IN ('INCOMPLETE', 'AWAITING_PAYMENT', 'PAYMENT_PROCESSING')`
+    );
+    expect(sql).toContain(`b."bookingStatus" IN ('APPROVED', 'CONFIRMED')`);
+    expect(sql).toContain(`b."bookingStatus" = 'PENDING_REVIEW'`);
+    expect(sql).toContain(`b."bookingStatus" = 'REJECTED'`);
+    expect(sql).not.toContain('"Slot"');
+    expect(sql).not.toContain('"BookingLock"');
+  });
+
+  it("includes coupon ops health only when requested", async () => {
+    const res = await GET(
+      new Request("http://localhost/api/admin/kpis?includeCouponOps=true")
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data).toMatchObject({
       couponHealth: {
         staleReservedCount: 1,
         mismatchCount: 2,
@@ -120,23 +158,12 @@ describe("GET /api/admin/kpis", () => {
         mismatchCount: 2,
       })
     );
-
-    const [queryParts] = prismaMock.$queryRaw.mock.calls[0] as [
-      TemplateStringsArray,
-      ...unknown[],
-    ];
-    const sql = Array.from(queryParts).join(" ");
-    expect(sql).toContain(
-      `b."bookingStatus" IN ('INCOMPLETE', 'AWAITING_PAYMENT', 'PAYMENT_PROCESSING')`
-    );
-    expect(sql).not.toContain('"Slot"');
-    expect(sql).not.toContain('"BookingLock"');
   });
 
   it("returns 401 when admin is not authenticated", async () => {
     getAuthenticatedAdminIdFromCookiesMock.mockResolvedValue(null);
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/admin/kpis"));
     const body = await res.json();
 
     expect(res.status).toBe(401);

@@ -25,7 +25,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function fetchBookings() {
       try {
-        const res = await fetch("/api/admin/bookings");
+        const res = await fetch("/api/admin/bookings?page=1&pageSize=10&includeFilterOptions=false");
         const json = await res.json();
 
         if (json.success) {

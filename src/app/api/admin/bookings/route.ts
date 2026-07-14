@@ -23,6 +23,7 @@ const MAX_PAGE_SIZE = 200;
  * Query:
  * - type=active|live|abandoned
  * - page, pageSize (optional; enables server pagination)
+ * - includeFilterOptions=false to skip dropdown metadata
  * - search, package, timeRange (optional server filters)
  * - dateFrom, dateTo (optional event-date range on startsAtUtc: [dateFrom, dateTo))
  */
@@ -43,6 +44,9 @@ export async function GET(req: Request) {
     const timeRange = String(searchParams.get("timeRange") ?? "").trim();
     const dateFromRaw = String(searchParams.get("dateFrom") ?? "").trim();
     const dateToRaw = String(searchParams.get("dateTo") ?? "").trim();
+    const includeFilterOptionsParam =
+      String(searchParams.get("includeFilterOptions") ?? "true").toLowerCase() !==
+      "false";
 
     const pageParam = Number(searchParams.get("page") ?? "");
     const pageSizeParam = Number(searchParams.get("pageSize") ?? "");
@@ -228,7 +232,8 @@ export async function GET(req: Request) {
     // Filter dropdown options are derived from the unfiltered base set, so they
     // never change between pages. Only compute them on the first page (or when
     // pagination is off) to avoid re-scanning on every page change / search.
-    const includeFilterOptions = !paginationRequested || page === 1;
+    const includeFilterOptions =
+      includeFilterOptionsParam && (!paginationRequested || page === 1);
 
     const [total, bookings] = await prisma.$transaction([
       prisma.booking.count({ where }),

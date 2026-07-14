@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import Link from "next/link";
 import { TrendingUp, TrendingDown } from "@/components/icons";
 
 type KpiCardProps = {
@@ -11,6 +12,7 @@ type KpiCardProps = {
   tone?: "good" | "bad" | "neutral";
   icon: ReactNode;
   accent: "green" | "blue" | "amber" | "red";
+  href?: string;
 };
 
 const accentMap = {
@@ -28,6 +30,7 @@ export default function KpiCard({
   tone,
   icon,
   accent,
+  href,
 }: KpiCardProps) {
   const hasDelta = delta.trim().length > 0;
   const resolvedTone =
@@ -39,7 +42,7 @@ export default function KpiCard({
       ? "text-rose-600"
       : "text-gray-500";
 
-  return (
+  const card = (
     <div className="min-h-[94px] rounded-2xl border border-gray-100 bg-white p-2 shadow-sm transition-shadow hover:shadow-md sm:min-h-[120px] sm:p-4 lg:p-5">
       <div className="flex items-start justify-between gap-1.5">
         <div className="min-w-0 flex-1 pr-1 sm:pr-2">
@@ -72,5 +75,13 @@ export default function KpiCard({
         </div>
       ) : null}
     </div>
+  );
+
+  if (!href) return card;
+
+  return (
+    <Link href={href} className="block rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2">
+      {card}
+    </Link>
   );
 }

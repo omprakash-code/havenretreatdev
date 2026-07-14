@@ -5,7 +5,9 @@ import {
   IndianRupee,
   CalendarCheck,
   Activity,
+  ClipboardCheck,
   ShoppingCart,
+  X,
 } from "@/components/icons";
 import KpiCard from "./KpiCard";
 
@@ -13,7 +15,10 @@ const SHOW_LIVE_AND_ABANDONED_KPIS = false;
 
 type KpiData = {
   revenueLifetime: number;
+  approvedLifetime: number;
   confirmedLifetime: number;
+  pendingReview: number;
+  rejectedLifetime: number;
   abandonedLifetime: number;
   liveBookings: number;
   trends?: {
@@ -26,6 +31,20 @@ type KpiData = {
       previous: number;
     };
     confirmed: {
+      direction: "up" | "down" | "neutral";
+      percentChange: number | null;
+      absoluteChange: number;
+      current: number;
+      previous: number;
+    };
+    approved?: {
+      direction: "up" | "down" | "neutral";
+      percentChange: number | null;
+      absoluteChange: number;
+      current: number;
+      previous: number;
+    };
+    rejected: {
       direction: "up" | "down" | "neutral";
       percentChange: number | null;
       absoluteChange: number;
@@ -113,7 +132,58 @@ export default function KpiGrid() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 lg:gap-5">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 lg:gap-5 xl:grid-cols-4">
+      <KpiCard
+        title="Pending Bookings"
+        value={String(data.pendingReview)}
+        delta={data.pendingReview > 0 ? "Awaiting admin review" : "All caught up"}
+        trend="neutral"
+        tone={data.pendingReview > 0 ? "bad" : "good"}
+        accent="amber"
+        icon={<ClipboardCheck className="h-5 w-5" />}
+        href="/admin/bookings/pending"
+      />
+
+      <KpiCard
+        title="Approved Bookings"
+        value={String(data.approvedLifetime ?? data.confirmedLifetime)}
+        delta={formatTrendDelta(
+          data.trends?.approved ?? data.trends?.confirmed,
+          data.trends?.periodDays ?? 7,
+          "All time"
+        )}
+        trend={data.trends?.approved?.direction ?? data.trends?.confirmed.direction ?? "neutral"}
+        tone={
+          (data.trends?.approved?.direction ?? data.trends?.confirmed.direction) === "neutral"
+            ? "neutral"
+            : (data.trends?.approved?.direction ?? data.trends?.confirmed.direction) === "up"
+            ? "good"
+            : "bad"
+        }
+        accent="blue"
+        icon={<CalendarCheck className="h-5 w-5" />}
+      />
+
+      <KpiCard
+        title="Rejected Bookings"
+        value={String(data.rejectedLifetime)}
+        delta={formatTrendDelta(
+          data.trends?.rejected,
+          data.trends?.periodDays ?? 7,
+          "All time"
+        )}
+        trend={data.trends?.rejected.direction ?? "neutral"}
+        tone={
+          data.trends?.rejected.direction === "neutral"
+            ? "neutral"
+            : data.trends?.rejected.direction === "down"
+              ? "good"
+              : "bad"
+        }
+        accent="red"
+        icon={<X className="h-5 w-5" />}
+      />
+
       <KpiCard
         title="Total Revenue"
         value={`$${data.revenueLifetime.toLocaleString()}`}
@@ -133,26 +203,6 @@ export default function KpiGrid() {
         }
         accent="green"
         icon={<IndianRupee className="h-5 w-5" />}
-      />
-
-      <KpiCard
-        title="Confirmed Bookings"
-        value={String(data.confirmedLifetime)}
-        delta={formatTrendDelta(
-          data.trends?.confirmed,
-          data.trends?.periodDays ?? 7,
-          "All time"
-        )}
-        trend={data.trends?.confirmed.direction ?? "neutral"}
-        tone={
-          data.trends?.confirmed.direction === "neutral"
-            ? "neutral"
-            : data.trends?.confirmed.direction === "up"
-            ? "good"
-            : "bad"
-        }
-        accent="blue"
-        icon={<CalendarCheck className="h-5 w-5" />}
       />
 
       {SHOW_LIVE_AND_ABANDONED_KPIS ? (
