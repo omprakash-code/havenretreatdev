@@ -69,6 +69,9 @@ const EMPTY_PASSWORD_FORM: PasswordForm = {
   confirmPassword: "",
 };
 
+const PROFILE_FIELD_BASE_CLASS =
+  "h-10 w-full rounded-md border bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300";
+
 function toProfileForm(profile: AdminProfileData): ProfileForm {
   return {
     fullName: profile.fullName,
@@ -573,14 +576,14 @@ function Field({
           readOnly={readOnly}
           onBlur={onBlur}
           onChange={(e) => onChange(e.target.value)}
-          className={`h-10 w-full rounded-md border px-3 text-sm text-slate-900 outline-none transition ${
+          className={`${PROFILE_FIELD_BASE_CLASS} ${
             isPassword ? "pr-10" : ""
           } ${
             readOnly
-              ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-600"
+              ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-600 hover:border-slate-200"
               : error
-              ? "border-red-300 bg-red-50 focus:border-red-400"
-              : "border-slate-200 bg-white focus:border-slate-300"
+              ? "border-red-300 bg-red-50 focus:border-red-400 focus:ring-2 focus:ring-red-100"
+              : "border-slate-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
           }`}
         />
 
@@ -608,7 +611,7 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
     </div>

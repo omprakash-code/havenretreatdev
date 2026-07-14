@@ -226,7 +226,7 @@ export function BookingSummarySection({
           ) : null}
 
           {guidanceMessage ? (
-            <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-amber-700">
+            <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-[#2e7d7a]">
               <ArrowRight size={14} className="shrink-0" />
               <p>{guidanceMessage}</p>
             </div>
