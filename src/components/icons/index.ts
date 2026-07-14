@@ -40,6 +40,7 @@ export {
   Menu,
  LayoutDashboard,
   CalendarCheck,
+  ClipboardX,
   ClipboardCheck,
   Monitor,
   Package,

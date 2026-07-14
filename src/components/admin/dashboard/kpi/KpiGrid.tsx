@@ -6,8 +6,8 @@ import {
   CalendarCheck,
   Activity,
   ClipboardCheck,
+  ClipboardX,
   ShoppingCart,
-  X,
 } from "@/components/icons";
 import KpiCard from "./KpiCard";
 
@@ -138,8 +138,6 @@ export default function KpiGrid() {
         value={String(data.pendingReview)}
         delta={data.pendingReview > 0 ? "Awaiting admin review" : "All caught up"}
         trend="neutral"
-        tone={data.pendingReview > 0 ? "bad" : "good"}
-        accent="amber"
         icon={<ClipboardCheck className="h-5 w-5" />}
         href="/admin/bookings/pending"
       />
@@ -153,14 +151,6 @@ export default function KpiGrid() {
           "All time"
         )}
         trend={data.trends?.approved?.direction ?? data.trends?.confirmed.direction ?? "neutral"}
-        tone={
-          (data.trends?.approved?.direction ?? data.trends?.confirmed.direction) === "neutral"
-            ? "neutral"
-            : (data.trends?.approved?.direction ?? data.trends?.confirmed.direction) === "up"
-            ? "good"
-            : "bad"
-        }
-        accent="blue"
         icon={<CalendarCheck className="h-5 w-5" />}
       />
 
@@ -173,15 +163,7 @@ export default function KpiGrid() {
           "All time"
         )}
         trend={data.trends?.rejected.direction ?? "neutral"}
-        tone={
-          data.trends?.rejected.direction === "neutral"
-            ? "neutral"
-            : data.trends?.rejected.direction === "down"
-              ? "good"
-              : "bad"
-        }
-        accent="red"
-        icon={<X className="h-5 w-5" />}
+        icon={<ClipboardX className="h-5 w-5" />}
       />
 
       <KpiCard
@@ -194,14 +176,6 @@ export default function KpiGrid() {
           (amount) => `$${amount.toLocaleString()}`
         )}
         trend={data.trends?.revenue.direction ?? "neutral"}
-        tone={
-          data.trends?.revenue.direction === "neutral"
-            ? "neutral"
-            : data.trends?.revenue.direction === "up"
-            ? "good"
-            : "bad"
-        }
-        accent="green"
         icon={<IndianRupee className="h-5 w-5" />}
       />
 
@@ -212,7 +186,6 @@ export default function KpiGrid() {
             value={String(data.liveBookings)}
             delta={data.liveBookings > 0 ? "In progress" : ""}
             trend="neutral"
-            accent="amber"
             icon={<Activity className="h-5 w-5" />}
           />
 
@@ -225,14 +198,6 @@ export default function KpiGrid() {
               "All time"
             )}
             trend={data.trends?.abandoned.direction ?? "neutral"}
-            tone={
-              data.trends?.abandoned.direction === "neutral"
-                ? "neutral"
-                : data.trends?.abandoned.direction === "down"
-                  ? "good"
-                  : "bad"
-            }
-            accent="red"
             icon={<ShoppingCart className="h-5 w-5" />}
           />
         </>

@@ -9,17 +9,8 @@ type KpiCardProps = {
   value: string;
   delta: string;
   trend: "up" | "down" | "neutral";
-  tone?: "good" | "bad" | "neutral";
   icon: ReactNode;
-  accent: "green" | "blue" | "amber" | "red";
   href?: string;
-};
-
-const accentMap = {
-  green: "bg-emerald-50 text-emerald-600",
-  blue: "bg-indigo-50 text-indigo-600",
-  amber: "bg-amber-50 text-amber-600",
-  red: "bg-rose-50 text-rose-600",
 };
 
 export default function KpiCard({
@@ -27,20 +18,11 @@ export default function KpiCard({
   value,
   delta,
   trend,
-  tone,
   icon,
-  accent,
   href,
 }: KpiCardProps) {
   const hasDelta = delta.trim().length > 0;
-  const resolvedTone =
-    tone ?? (trend === "up" ? "good" : trend === "down" ? "bad" : "neutral");
-  const trendColorClass =
-    resolvedTone === "good"
-      ? "text-emerald-600"
-      : resolvedTone === "bad"
-      ? "text-rose-600"
-      : "text-gray-500";
+  const trendColorClass = "text-slate-500";
 
   const card = (
     <div className="min-h-[94px] rounded-2xl border border-gray-100 bg-white p-2 shadow-sm transition-shadow hover:shadow-md sm:min-h-[120px] sm:p-4 lg:p-5">
@@ -55,7 +37,7 @@ export default function KpiCard({
         </div>
 
         <div
-          className={`flex h-7 w-7 min-w-7 shrink-0 items-center justify-center rounded-lg ${accentMap[accent]} [&_svg]:h-3.5 [&_svg]:w-3.5 sm:h-10 sm:w-10 sm:min-w-10 sm:rounded-xl sm:[&_svg]:h-5 sm:[&_svg]:w-5`}
+          className="flex h-7 w-7 min-w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 [&_svg]:h-3.5 [&_svg]:w-3.5 sm:h-10 sm:w-10 sm:min-w-10 sm:rounded-xl sm:[&_svg]:h-5 sm:[&_svg]:w-5"
         >
           {icon}
         </div>
@@ -80,7 +62,7 @@ export default function KpiCard({
   if (!href) return card;
 
   return (
-    <Link href={href} className="block rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2">
+    <Link href={href} className="block rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2">
       {card}
     </Link>
   );

@@ -33,6 +33,9 @@ type Props = {
   range: RangeKey;
 };
 
+const CHART_NEUTRAL = "#94a3b8";
+const BRAND_TEAL = "#347f7c";
+
 function formatCompactCurrency(value: number) {
   if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
@@ -174,8 +177,8 @@ export default function RevenueBookingsChart({ range }: Props) {
             yAxisId="revenue"
             type="monotone"
             dataKey="revenue"
-            stroke="#111827"
-            strokeWidth={2.5}
+            stroke={CHART_NEUTRAL}
+            strokeWidth={2}
             dot={false}
           />
 
@@ -183,8 +186,8 @@ export default function RevenueBookingsChart({ range }: Props) {
             yAxisId="bookings"
             type="monotone"
             dataKey="bookings"
-            stroke="#D4AF37"
-            strokeWidth={2}
+            stroke={BRAND_TEAL}
+            strokeWidth={2.5}
             dot={false}
           />
         </LineChart>

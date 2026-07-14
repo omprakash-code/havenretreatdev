@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import LiveBookingsTable from "./LiveBookingsTable";
 import BookingDrawer from "@/components/admin/bookings/drawer/BookingDrawer";
+import { ArrowRight } from "@/components/icons";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 
 type Props = {
@@ -48,9 +49,10 @@ export default function LiveBookingsCard({
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/admin/bookings"
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-900 transition hover:text-[#347f7c]"
             >
-              View all →
+              <span>View all</span>
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>
