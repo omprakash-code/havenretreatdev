@@ -651,9 +651,14 @@ const APP_SETTINGS = [
   { key: "BOOKING_LOCK_MINUTES", value: "20" },
   { key: "MINIMUM_BOOKING_DURATION_HOURS", value: "4" },
   { key: "EXTRA_HOURLY_RATE", value: "120" },
-  { key: "SLOT_EXPIRY_MODE", value: "START_TIME" },
-  { key: "SLOT_EXPIRY_GRACE_MINUTES", value: "30" },
-  { key: "SPECIAL_SLOT_TEXT", value: "Special Price" },
+];
+
+// Settings removed from the application; deleted on seed so previously
+// seeded databases stop surfacing them in the admin settings page.
+const RETIRED_APP_SETTING_KEYS = [
+  "SLOT_EXPIRY_MODE",
+  "SLOT_EXPIRY_GRACE_MINUTES",
+  "SPECIAL_SLOT_TEXT",
 ];
 
 /* --------------------------------
@@ -996,6 +1001,10 @@ async function seedAppSettings() {
       create: setting,
     });
   }
+
+  await prisma.appSetting.deleteMany({
+    where: { key: { in: RETIRED_APP_SETTING_KEYS } },
+  });
 
   console.log("Application settings seeded", {
     appSettings: APP_SETTINGS.length,
