@@ -53,7 +53,8 @@ describe("buildBookingConfirmationPdfAttachment", () => {
       successUrl: "https://example.com/booking/success?t=token",
     });
 
-    expect(attachment.filename).toBe("ds-book-123.pdf");
+    // Booking refs keep their original casing in the PDF filename (641a22b).
+    expect(attachment.filename).toBe("DS-BOOK-123.pdf");
     expect(attachment.contentType).toBe("application/pdf");
     expect(attachment.content.length).toBeGreaterThan(0);
 
