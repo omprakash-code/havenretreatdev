@@ -30,12 +30,12 @@ export const ACTIVE_RANGE_HOLD_STATUSES = [
  * Statuses whose range is reserved until an admin decision, independent of
  * `holdExpiresAt`. A submitted request holds its date the same way an approved
  * booking does; the hold is released by rejection or cancellation.
- * CONFIRMED is the legacy equivalent of APPROVED.
+ * COMPLETED is absent on purpose: completion requires the event to be over,
+ * so its range can no longer conflict with a future booking.
  */
 export const RESERVED_RANGE_STATUSES = [
   "PENDING_REVIEW",
   "APPROVED",
-  "CONFIRMED",
 ] as const;
 
 export function isReservedRangeStatus(status: string | null | undefined) {

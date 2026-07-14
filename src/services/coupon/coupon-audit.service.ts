@@ -57,7 +57,7 @@ function getStaleReservedWhere(staleBefore: Date): Prisma.CouponUsageWhereInput 
     },
     booking: {
       bookingStatus: {
-        not: BookingStatus.CONFIRMED,
+        not: BookingStatus.APPROVED,
       },
       OR: [
         {

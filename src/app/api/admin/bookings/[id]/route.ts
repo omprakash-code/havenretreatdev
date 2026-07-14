@@ -69,12 +69,14 @@ import {
 } from "@/lib/booking-policy";
 
 // PENDING_REVIEW and APPROVED bookings stay admin-editable (with conflict
-// validation); a rejected request is a closed decision.
+// validation); a rejected request is a closed decision, and a completed
+// event is history.
 const NON_EDITABLE_BOOKING_STATUSES: BookingStatus[] = [
   BookingStatus.CANCELLED,
   BookingStatus.ABANDONED,
   BookingStatus.PAID_EXPIRED,
   BookingStatus.REJECTED,
+  BookingStatus.COMPLETED,
 ];
 
 function resolveDisplayPaymentStatus(
@@ -767,11 +769,13 @@ export async function PATCH(
     }
 
     if (paymentAmountMode === "ADVANCE") {
-      if (!Number.isFinite(customAdvanceAmount) || customAdvanceAmount <= 0) {
+      // Zero is a valid edit: an approved booking awaiting payment can be
+      // updated without collecting anything.
+      if (!Number.isFinite(customAdvanceAmount) || customAdvanceAmount < 0) {
         throw new AdminBookingEditError(
           400,
           "INVALID_REQUEST",
-          "Advance amount must be a positive number."
+          "Advance amount must be zero or a positive number."
         );
       }
     }
@@ -1275,13 +1279,15 @@ export async function PATCH(
         0
       );
 
+      // No fallback to the minimum here: zero means "collect nothing with this
+      // edit", which must persist as zero.
       const desiredAdvance =
         paymentAmountMode === "FULL"
           ? totalAfterDiscount
-          : Math.trunc(customAdvanceAmount || minAdvanceAmount);
+          : Math.max(Math.trunc(customAdvanceAmount), 0);
 
       if (paymentAmountMode === "ADVANCE" && nextPaymentStatus !== PaymentStatus.PAID) {
-        if (desiredAdvance < minAdvanceAmount) {
+        if (desiredAdvance > 0 && desiredAdvance < minAdvanceAmount) {
           throw new AdminBookingEditError(
             400,
             "ADVANCE_AMOUNT_TOO_LOW",
@@ -1325,7 +1331,7 @@ export async function PATCH(
       const shouldCollectOnlineNow =
         paymentType === "ONLINE" &&
         additionalAmountToCollect > 0 &&
-        booking.bookingStatus === BookingStatus.CONFIRMED &&
+        booking.bookingStatus === BookingStatus.APPROVED &&
         (booking.paymentStatus ?? PaymentStatus.INITIALIZED) === PaymentStatus.PAID;
       // Offline money is in the admin's hand the moment they record it, exactly
       // as it is for an offline booking created by an admin. Without this the
@@ -1350,18 +1356,21 @@ export async function PATCH(
         };
       }
 
-      // Recording payment never approves a booking. Legacy payment-first
-      // bookings keep auto-confirming on full payment; a review-workflow booking
-      // only changes status when an admin approves or rejects it.
+      // Recording payment never changes a review-workflow booking's status.
+      // Legacy payment-first bookings (AWAITING_PAYMENT etc.) still normalize
+      // to APPROVED when fully settled by an admin.
       const nextBookingStatus =
         effectivePaymentStatus === PaymentStatus.PAID &&
         !isReviewWorkflowBookingStatus(booking.bookingStatus)
-          ? BookingStatus.CONFIRMED
+          ? BookingStatus.APPROVED
           : booking.bookingStatus;
 
+      // APPROVED bookings hold their stock from the moment of approval
+      // (approveBooking and the admin create both decrement it), independent
+      // of payment. Getting this wrong double-decrements when a payment is
+      // recorded on an approved booking.
       const wasStockDeducted =
-        booking.paymentStatus === PaymentStatus.PAID &&
-        booking.bookingStatus === BookingStatus.CONFIRMED;
+        booking.bookingStatus === BookingStatus.APPROVED;
 
       const oldQtyByVariant = new Map<string, number>();
       if (wasStockDeducted) {
@@ -1381,7 +1390,20 @@ export async function PATCH(
         );
       });
 
-      if (effectivePaymentStatus === PaymentStatus.PAID) {
+      // An approved booking keeps holding stock even when no payment is
+      // collected with this edit, so item changes still reconcile inventory.
+      //
+      // TODO(stock): recording a payment on a PENDING_REVIEW booking deducts
+      // stock here (effectivePaymentStatus === PAID with wasStockDeducted
+      // false), and approveBooking() deducts the same items again on approval.
+      // Unreachable in the supported workflows (admins approve before
+      // collecting payment), but any new pay-before-approval flow must
+      // reconcile with approveBooking's decrement first.
+      const willHoldStock =
+        effectivePaymentStatus === PaymentStatus.PAID ||
+        nextBookingStatus === BookingStatus.APPROVED;
+
+      if (willHoldStock) {
         const variantIdsForStock = [
           ...new Set([
             ...Array.from(oldQtyByVariant.keys()),
@@ -1557,8 +1579,13 @@ export async function PATCH(
         bookingId: booking.id,
         userId: linkedUserId ?? null,
         coupons: couponResult.coupons,
+        // Approval confirms coupon usage in the review workflow, so an edit of
+        // an approved-but-unpaid booking must not downgrade it to RESERVED.
         status:
-          effectivePaymentStatus === PaymentStatus.PAID ? "CONFIRMED" : "RESERVED",
+          effectivePaymentStatus === PaymentStatus.PAID ||
+          nextBookingStatus === BookingStatus.APPROVED
+            ? "CONFIRMED"
+            : "RESERVED",
         now: couponSyncAt,
         mode: "replace",
       });

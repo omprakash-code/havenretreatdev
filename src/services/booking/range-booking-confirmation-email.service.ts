@@ -154,7 +154,7 @@ export async function sendRangeBookingConfirmationEmails({
     },
   });
 
-  if (!booking || booking.bookingStatus !== "CONFIRMED") return;
+  if (!booking || booking.bookingStatus !== "APPROVED") return;
 
   const schedule = resolvePresentedBookingSchedule({
     eventDate: booking.eventDate,

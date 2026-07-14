@@ -104,7 +104,7 @@ export async function POST(req: Request) {
             );
         }
 
-        if (booking.bookingStatus === "CONFIRMED") {
+        if (booking.bookingStatus === "APPROVED") {
             return bookingErrorResponse(
                 409,
                 "BOOKING_FINALIZED",

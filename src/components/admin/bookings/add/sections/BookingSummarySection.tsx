@@ -29,6 +29,8 @@ type BookingSummarySectionProps = {
   pricing: PricingSummary | null;
   selectedProductItems: SelectedProductSummaryItem[];
   paymentAmountMode: "ADVANCE" | "FULL" | "REMAINING";
+  /** Create-mode only: booking is created approved, with no payment recorded. */
+  collectPaymentLater?: boolean;
   paymentStatus?:
   | "INITIALIZED"
   | "AWAITING_PAYMENT"
@@ -86,6 +88,7 @@ export function BookingSummarySection({
   pricing,
   selectedProductItems,
   paymentAmountMode,
+  collectPaymentLater = false,
   paymentStatus = "AWAITING_PAYMENT",
   alreadyPaidAmount = 0,
   amountToCollectNow = 0,
@@ -167,6 +170,8 @@ export function BookingSummarySection({
   const createCtaLabel =
     pendingOnlineBookingRef
       ? `Retry Payment (${pendingOnlineBookingRef})`
+      : collectPaymentLater
+      ? "Create Approved Booking"
       : createCollectAmount > 0
       ? `Collect ${formatCurrencySymbol(createCollectAmount)} & Create Booking`
       : "Create Booking";
@@ -399,6 +404,20 @@ export function BookingSummarySection({
                         />
                       </div>
                     ) : null}
+                  </>
+                ) : collectPaymentLater ? (
+                  <>
+                    <SummaryRow
+                      label="Payment Pending"
+                      value={formatCurrency(totalAmount)}
+                      valueClassName="text-sm font-bold text-slate-900"
+                    />
+                    <div className="mt-1 border-t border-slate-200 pt-1">
+                      <p className="text-xs font-medium text-slate-600">
+                        Booking will be approved and awaiting payment. No payment
+                        is recorded now.
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <>

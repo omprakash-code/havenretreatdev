@@ -30,7 +30,10 @@ type PaymentModeSectionProps = {
   couponError?: string | null;
   disablePaymentAmountMode?: boolean;
   lockPaymentSection?: boolean;
+  /** Create-mode only: whether the admin records a payment with this booking. */
+  collectPaymentNow?: boolean;
   errors: Record<string, string>;
+  onCollectPaymentNowChange?: (value: boolean) => void;
   onPaymentTypeChange: (value: "OFFLINE" | "ONLINE") => void;
   onPaymentAmountModeChange: (value: "ADVANCE" | "FULL" | "REMAINING") => void;
   onAmountPayNowChange: (value: number) => void;
@@ -53,7 +56,9 @@ export function PaymentModeSection({
   offlineReference,
   disablePaymentAmountMode = false,
   lockPaymentSection = false,
+  collectPaymentNow = true,
   errors,
+  onCollectPaymentNowChange,
   onPaymentAmountModeChange,
   onAmountPayNowChange,
   onOfflineMethodChange,
@@ -61,11 +66,16 @@ export function PaymentModeSection({
 }: PaymentModeSectionProps) {
   // The customer pays nothing during booking, so the first payment an admin
   // records is the choice: an advance, or the full amount. Once an advance
-  // exists, the only thing left to collect is the balance.
+  // exists, follow-up collections are a typed partial amount or the balance —
+  // and an edit may collect nothing at all (amount left empty).
   const hasAdvancePaid = advancePaidAlready > 0;
-  const isAdvanceEntryMode = !hasAdvancePaid && paymentAmountMode === "ADVANCE";
+  const isAdvanceEntryMode = paymentAmountMode === "ADVANCE";
   const amountInputDisabled = !isAdvanceEntryMode;
   const amountInputValue = amountPayNow <= 0 ? "" : amountPayNow;
+  // A new booking can be created without any payment (phone/email bookings paid
+  // later via Zelle). Edits always show the collection fields as before.
+  const showCollectionToggle = mode === "create" && Boolean(onCollectPaymentNowChange);
+  const collapseCollectionFields = showCollectionToggle && !collectPaymentNow;
 
   return (
     <section className={sectionClass}>
@@ -73,7 +83,53 @@ export function PaymentModeSection({
       <p className="mt-1 text-xs text-slate-500">
         Select collection mode and amount details for this booking.
       </p>
-      {lockPaymentSection ? (
+      {showCollectionToggle ? (
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+              !collectPaymentNow
+                ? "border-black bg-slate-50 font-medium text-slate-900"
+                : "border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <input
+              type="radio"
+              name="payment-collection-mode"
+              checked={!collectPaymentNow}
+              onChange={() => onCollectPaymentNowChange?.(false)}
+              className="accent-black"
+            />
+            <span>
+              Collect payment later{" "}
+              <span className="font-normal text-slate-500">(Recommended)</span>
+            </span>
+          </label>
+          <label
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+              collectPaymentNow
+                ? "border-black bg-slate-50 font-medium text-slate-900"
+                : "border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <input
+              type="radio"
+              name="payment-collection-mode"
+              checked={collectPaymentNow}
+              onChange={() => onCollectPaymentNowChange?.(true)}
+              className="accent-black"
+            />
+            <span>Record payment now</span>
+          </label>
+        </div>
+      ) : null}
+      {collapseCollectionFields ? (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <p className="text-xs font-medium text-slate-700">
+            Booking will be created as Approved with payment pending. Record the
+            payment later from Edit Booking once it is received.
+          </p>
+        </div>
+      ) : lockPaymentSection ? (
         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
           <p className="text-xs font-medium text-slate-700">
             Payment completed. No collection required.
@@ -85,7 +141,7 @@ export function PaymentModeSection({
             <label className="mb-1 block text-xs font-medium text-slate-700">Amount Type</label>
             <select
               value={paymentAmountMode}
-              disabled={disablePaymentAmountMode || hasAdvancePaid}
+              disabled={disablePaymentAmountMode}
               onChange={(event) =>
                 onPaymentAmountModeChange(
                   event.target.value as "ADVANCE" | "FULL" | "REMAINING"
@@ -94,7 +150,10 @@ export function PaymentModeSection({
               className={selectableInputClass}
             >
               {hasAdvancePaid ? (
-                <option value="REMAINING">Remaining</option>
+                <>
+                  <option value="ADVANCE">Partial Amount</option>
+                  <option value="REMAINING">Remaining Balance</option>
+                </>
               ) : (
                 <>
                   <option value="ADVANCE">Advance</option>
@@ -104,8 +163,9 @@ export function PaymentModeSection({
             </select>
             {hasAdvancePaid ? (
               <p className="mt-1 text-xs text-slate-500">
-                An advance is already recorded, so only the balance is left to
-                collect.
+                ${advancePaidAlready.toLocaleString()} already collected. Enter a
+                partial amount, pick the remaining balance, or leave empty to
+                collect nothing.
               </p>
             ) : null}
             {errors.paymentAmountMode && (
@@ -116,7 +176,7 @@ export function PaymentModeSection({
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">
               Amount to Collect Now
-              {isAdvanceEntryMode ? (
+              {isAdvanceEntryMode && !hasAdvancePaid ? (
                 <span className="ml-1 font-normal text-slate-500">
                   (Min ${minimumAdvanceAmount})
                 </span>

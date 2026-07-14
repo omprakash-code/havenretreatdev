@@ -66,7 +66,7 @@ export async function GET() {
                 lockOwner,
                 lockVersion: payload.lockVersion,
             });
-            if (booking.bookingStatus === "CONFIRMED") {
+            if (booking.bookingStatus === "APPROVED") {
                 return NextResponse.json({
                     success: false,
                     alreadyConfirmed: true,
@@ -155,7 +155,7 @@ export async function GET() {
         return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    if (booking.bookingStatus === "CONFIRMED") {
+    if (booking.bookingStatus === "APPROVED") {
         return NextResponse.json({
             success: false,
             alreadyConfirmed: true,

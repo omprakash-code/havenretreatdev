@@ -14,7 +14,7 @@ function mapEmailDataToBookingSuccessData(
 ): BookingSuccessData {
   return {
     bookingRef: data.bookingRef,
-    bookingStatus: "CONFIRMED",
+    bookingStatus: "APPROVED",
     paymentStatus: data.paymentStatus ?? null,
     payment: {
       provider: data.paymentType ?? null,

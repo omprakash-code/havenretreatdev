@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     return bookingErrorResponse(404, "BOOKING_NOT_FOUND", "Booking not found.");
   }
 
-  if (booking.bookingStatus === "CONFIRMED" && booking.paymentStatus === "PAID") {
+  if (booking.bookingStatus === "APPROVED" && booking.paymentStatus === "PAID") {
     return terminalStatusResponse({
       success: true,
       status: "CONFIRMED",

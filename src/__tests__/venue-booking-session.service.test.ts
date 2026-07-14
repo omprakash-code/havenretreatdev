@@ -277,7 +277,7 @@ describe("createOrReplaceVenueBookingSession", () => {
     const tx = makeTxClient();
     tx.booking.findUnique.mockResolvedValueOnce({
       id: "booking-1",
-      bookingStatus: "CONFIRMED",
+      bookingStatus: "APPROVED",
       lockVersion: 1,
       holdExpiresAt: null,
       payment: [],

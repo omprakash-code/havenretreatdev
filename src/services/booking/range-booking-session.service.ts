@@ -52,7 +52,7 @@ export async function requireActiveRangeBookingSession(
       "Booking not found."
     );
   }
-  if (booking.bookingStatus === "CONFIRMED") {
+  if (booking.bookingStatus === "APPROVED") {
     return { booking };
   }
   // A submitted or decided booking is finished, not expired. Callers must be

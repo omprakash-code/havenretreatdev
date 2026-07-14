@@ -83,7 +83,7 @@ export async function GET(req: Request) {
       bookingStatus: {
         in: [
           BookingStatus.APPROVED,
-          BookingStatus.CONFIRMED,
+          BookingStatus.COMPLETED,
           BookingStatus.REJECTED,
           BookingStatus.CANCELLED,
           BookingStatus.PAID_EXPIRED,

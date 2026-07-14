@@ -373,23 +373,26 @@ model BookingReferenceCounter {
 // Values are appended, never reordered or removed: PostgreSQL enum values are
 // positional and existing rows depend on them.
 //
-// Active workflow: INCOMPLETE (draft) -> PENDING_REVIEW -> APPROVED | REJECTED,
-// with CANCELLED reachable from PENDING_REVIEW/APPROVED.
+// Lifecycle: INCOMPLETE (draft) -> PENDING_REVIEW -> APPROVED | REJECTED,
+// then APPROVED -> COMPLETED once the event has finished, with CANCELLED
+// reachable from PENDING_REVIEW/APPROVED. Payment progress lives exclusively
+// on PaymentStatus — the two axes are independent.
 //
 // Legacy (payment-first) values retained so historic rows stay readable:
-// AWAITING_PAYMENT, PAYMENT_PROCESSING, CONFIRMED (displayed as Approved),
-// PAID_EXPIRED. The public flow must not write these.
+// AWAITING_PAYMENT, PAYMENT_PROCESSING, PAID_EXPIRED. The public flow must
+// not write these. (CONFIRMED was removed; its rows were migrated to
+// APPROVED.)
 enum BookingStatus {
   INCOMPLETE
   AWAITING_PAYMENT
   PAYMENT_PROCESSING
-  CONFIRMED
   CANCELLED
   ABANDONED
   PAID_EXPIRED
   PENDING_REVIEW
   APPROVED
   REJECTED
+  COMPLETED
 }
 
 enum PaymentStatus {

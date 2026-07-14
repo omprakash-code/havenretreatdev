@@ -21,6 +21,7 @@ export type BookingReviewErrorCode =
   | "BOOKING_INVALID_STATE"
   | "BOOKING_CONFLICT"
   | "BOOKING_INCOMPLETE"
+  | "BOOKING_EVENT_NOT_FINISHED"
   | "PRODUCT_UNAVAILABLE"
   | "REASON_REQUIRED";
 
@@ -395,6 +396,11 @@ export async function approveBooking(input: {
 
     for (const item of items) {
       // Only decrement tracked inventory; unlimited (null) stock is left untouched.
+      // TODO(stock): this decrement assumes nothing was deducted while the
+      // booking was PENDING_REVIEW. The admin edit route deducts stock when a
+      // payment is recorded, so paying a pending booking and then approving it
+      // would deduct twice. Unreachable in the supported workflows; see the
+      // matching TODO in src/app/api/admin/bookings/[id]/route.ts.
       await tx.productVariant.updateMany({
         where: { id: item.variantId, stock: { not: null } },
         data: { stock: { decrement: item.quantity } },
@@ -515,6 +521,91 @@ export async function rejectBooking(input: {
       bookingRef: updated.bookingRef,
       bookingStatus: "REJECTED" as const,
       alreadyDecided: false,
+    };
+  });
+}
+
+export type CompleteBookingResult = {
+  bookingId: string;
+  bookingRef: string;
+  bookingStatus: "COMPLETED";
+  /** True when the booking was already completed. */
+  alreadyCompleted: boolean;
+};
+
+/**
+ * Marks an approved booking's event as done. Completion is a lifecycle fact,
+ * not a payment one: it never touches PaymentStatus, stock (held since
+ * approval), or coupons (confirmed at approval). Only allowed once the event
+ * has actually ended.
+ */
+export async function completeBooking(input: {
+  bookingId: string;
+  adminId: string;
+  now?: Date;
+}): Promise<CompleteBookingResult> {
+  const now = input.now ?? new Date();
+
+  return prisma.$transaction(async (tx) => {
+    await lockBookingRow(tx, input.bookingId);
+
+    const booking = await tx.booking.findUnique({
+      where: { id: input.bookingId },
+      select: {
+        id: true,
+        bookingRef: true,
+        bookingStatus: true,
+        endsAtUtc: true,
+      },
+    });
+
+    if (!booking) {
+      throw new BookingReviewError(
+        "BOOKING_NOT_FOUND",
+        "Booking not found.",
+        404
+      );
+    }
+
+    if (booking.bookingStatus === "COMPLETED") {
+      return {
+        bookingId: booking.id,
+        bookingRef: booking.bookingRef,
+        bookingStatus: "COMPLETED" as const,
+        alreadyCompleted: true,
+      };
+    }
+
+    if (!canTransitionBookingStatus(booking.bookingStatus, "COMPLETED")) {
+      throw new BookingReviewError(
+        "BOOKING_INVALID_STATE",
+        "Only an approved booking can be marked completed.",
+        409,
+        { bookingStatus: booking.bookingStatus }
+      );
+    }
+
+    if (!booking.endsAtUtc || booking.endsAtUtc.getTime() > now.getTime()) {
+      throw new BookingReviewError(
+        "BOOKING_EVENT_NOT_FINISHED",
+        "This event has not finished yet. A booking can be completed only after its end time.",
+        409
+      );
+    }
+
+    const updated = await tx.booking.update({
+      where: { id: booking.id },
+      data: {
+        bookingStatus: "COMPLETED",
+      },
+      select: { id: true, bookingRef: true },
+    });
+
+    return {
+      bookingId: updated.id,
+      bookingRef: updated.bookingRef,
+      bookingStatus: "COMPLETED" as const,
+      alreadyCompleted: false,
     };
   });
 }

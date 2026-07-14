@@ -24,7 +24,7 @@ type TimelineStep = {
  */
 function buildTimeline(bookingStatus?: string | null): TimelineStep[] {
   const isApproved =
-    bookingStatus === "APPROVED" || bookingStatus === "CONFIRMED";
+    bookingStatus === "APPROVED" || bookingStatus === "COMPLETED";
 
   if (isApproved) {
     return [
@@ -51,7 +51,7 @@ function resolveCopy(data: BookingSuccessData) {
     };
   }
 
-  if (data.bookingStatus === "APPROVED" || data.bookingStatus === "CONFIRMED") {
+  if (data.bookingStatus === "APPROVED" || data.bookingStatus === "COMPLETED") {
     return {
       title: BOOKING_APPROVED_TITLE,
       message: BOOKING_APPROVED_MESSAGE,

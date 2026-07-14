@@ -13,7 +13,7 @@ type TrailStep = {
  * status card instead — so this renders nothing for it.
  */
 function buildTrail(bookingStatus?: string | null): TrailStep[] {
-  if (bookingStatus === "APPROVED" || bookingStatus === "CONFIRMED") {
+  if (bookingStatus === "APPROVED" || bookingStatus === "COMPLETED") {
     return [
       { label: "Booking Submitted", state: "done" },
       { label: "Under Review", state: "done" },
@@ -34,7 +34,7 @@ export default function ReviewStatusTrail({
 }) {
   const isPendingReview = bookingStatus === "PENDING_REVIEW";
   const isApproved =
-    bookingStatus === "APPROVED" || bookingStatus === "CONFIRMED";
+    bookingStatus === "APPROVED" || bookingStatus === "COMPLETED";
 
   if (!isPendingReview && !isApproved) return null;
 

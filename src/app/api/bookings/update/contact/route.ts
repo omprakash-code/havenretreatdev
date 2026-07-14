@@ -155,7 +155,7 @@ export async function POST(req: Request) {
         throw new Error("BOOKING_NOT_FOUND");
       }
 
-      if (booking.bookingStatus === "CONFIRMED") {
+      if (booking.bookingStatus === "APPROVED") {
         throw new Error("BOOKING_FINALIZED");
       }
 

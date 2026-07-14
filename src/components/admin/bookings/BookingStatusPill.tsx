@@ -74,9 +74,7 @@ export default function BookingStatusPill({
     baseClassName;
 
   const cls =
-  status === "CONFIRMED"
-    ? "bg-emerald-50 text-emerald-800 border border-emerald-300"
-    : status === "AWAITING_PAYMENT"
+  status === "AWAITING_PAYMENT"
     ? "bg-amber-50 text-amber-800 border border-amber-300"
     : status === "INCOMPLETE"
     ? "bg-slate-50 text-slate-700 border border-slate-300"

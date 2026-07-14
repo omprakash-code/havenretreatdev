@@ -11,6 +11,74 @@ import { derivePaymentLifecycle } from "@/lib/booking-status";
 import type { AdminBooking } from "@/types/admin/booking-admin";
 
 /**
+ * One-click "Mark Completed" bar for an approved booking whose event has
+ * ended. Completion only advances the lifecycle — payment, stock, and coupons
+ * are untouched.
+ */
+function BookingCompleteAction({
+  booking,
+  onCompleted,
+}: {
+  booking: AdminBooking;
+  onCompleted?: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const markCompleted = async () => {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/complete`, {
+        method: "POST",
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        setError(
+          json?.message ?? "Unable to complete this booking. Please try again."
+        );
+        return;
+      }
+
+      toast.success(`Booking ${booking.bookingRef} marked completed.`);
+      onCompleted?.();
+    } catch {
+      setError("Unable to complete this booking. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">
+            Event finished
+          </h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Mark this booking completed to close out its lifecycle. Payment
+            records stay as they are.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void markCompleted()}
+          disabled={loading}
+          className="h-9 shrink-0 cursor-pointer rounded-md border border-[#347f7c] bg-[#347f7c] px-3 text-sm font-medium text-white transition hover:bg-[#2f7370] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loading ? "Completing..." : "Mark Completed"}
+        </button>
+      </div>
+      {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
+    </section>
+  );
+}
+
+/**
  * Approve/reject bar for a booking awaiting review. Approving and rejecting are
  * the only two decisions here; recording payment stays in the payment section,
  * because approval and payment are independent.
@@ -25,6 +93,14 @@ export default function BookingReviewActions({
   const [decision, setDecision] = useState<ReviewDecision | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const eventEnded = booking.endsAtUtc
+    ? new Date(booking.endsAtUtc).getTime() <= Date.now()
+    : false;
+
+  if (booking.bookingStatus === "APPROVED" && eventEnded) {
+    return <BookingCompleteAction booking={booking} onCompleted={onReviewed} />;
+  }
 
   if (booking.bookingStatus !== "PENDING_REVIEW") return null;
 

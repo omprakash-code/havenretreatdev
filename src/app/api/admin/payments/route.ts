@@ -47,7 +47,7 @@ function deriveAttemptReason(input: {
   if (input.paymentStatus !== PaymentStatus.FAILED) return null;
 
   if (
-    input.bookingStatus === "CONFIRMED" &&
+    input.bookingStatus === "APPROVED" &&
     input.bookingPaymentStatus === "PAID" &&
     input.bookingPaymentTransactionId &&
     input.transactionId &&
@@ -56,11 +56,11 @@ function deriveAttemptReason(input: {
     return "Duplicate payment attempt. This booking was already paid from another session.";
   }
 
-  if (input.slotStatus === "BOOKED" && input.bookingStatus !== "CONFIRMED") {
+  if (input.slotStatus === "BOOKED" && input.bookingStatus !== "APPROVED") {
     return "Slot was already booked before this payment could be confirmed.";
   }
 
-  if (input.slotStatus !== "LOCKED" && input.bookingStatus !== "CONFIRMED") {
+  if (input.slotStatus !== "LOCKED" && input.bookingStatus !== "APPROVED") {
     return "Reservation lock expired before payment verification completed.";
   }
 

@@ -196,7 +196,7 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     },
   });
 
-  if (!booking || booking.bookingStatus !== "CONFIRMED") {
+  if (!booking || booking.bookingStatus !== "APPROVED") {
     return { sentCount: 0 };
   }
 

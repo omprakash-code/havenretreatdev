@@ -216,7 +216,7 @@ function StatusBadge({
     INCOMPLETE: { label: "Incomplete", className: "border border-slate-200 bg-white text-slate-700" },
     AWAITING_PAYMENT: { label: "Awaiting Payment", className: "border border-amber-200 bg-white text-amber-700" },
     PAYMENT_PROCESSING: { label: "Payment Processing", className: "border border-sky-200 bg-white text-sky-700" },
-    CONFIRMED: { label: "Confirmed", className: "border border-emerald-200 bg-white text-emerald-700" },
+    COMPLETED: { label: "Completed", className: "border border-slate-300 bg-white text-slate-700" },
     CANCELLED: { label: "Cancelled", className: "border border-red-200 bg-white text-red-700" },
     ABANDONED: { label: "Abandoned", className: "border border-slate-200 bg-white text-slate-600" },
     PAID_EXPIRED: { label: "PAID - EXPIRED", className: "border border-amber-200 bg-white text-amber-800" },

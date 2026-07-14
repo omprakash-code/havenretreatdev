@@ -73,6 +73,11 @@ const REVIEW_STATUS_STYLES: Partial<Record<BookingStatus, BadgeStyle>> = {
     title: "Rejected by admin",
     className: "bg-rose-50 text-rose-800 border border-rose-300",
   },
+  COMPLETED: {
+    label: "COMPLETED",
+    title: "Event finished",
+    className: "bg-slate-100 text-slate-700 border border-slate-300",
+  },
 };
 
 /**

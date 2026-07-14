@@ -1,6 +1,23 @@
 # Haven Retreat Booking Workflow Refactor
 
-Status: implementation planning only. Do not begin production code changes until this document is reviewed and accepted.
+Status: implemented. Revised 2026-07-15 after the follow-up status cleanup: `CONFIRMED` was removed from `BookingStatus` (existing rows migrated to `APPROVED`) and `COMPLETED` was added for finished events. This document has been updated to describe the shipped architecture; sections describing the pre-refactor system are explicitly marked as historical.
+
+## Current Booking Lifecycle (as shipped)
+
+```text
+INCOMPLETE (public draft)          PENDING_REVIEW
+        └── customer submits ──────────┘
+                                       ↓ admin approves        ↓ admin rejects
+                                   APPROVED                REJECTED
+                                       ↓ event finishes
+                                   COMPLETED
+```
+
+Admin-created bookings start directly at `APPROVED` (pay now or pay later). `CANCELLED` is reachable from `PENDING_REVIEW` and `APPROVED`. `COMPLETED` is terminal and only allowed once the event's end time has passed.
+
+Payment is tracked independently through `PaymentStatus` plus `advancePaid` / `remainingPayable` — recording a payment never changes `bookingStatus`. Supported combinations include Approved + Unpaid, Approved + Partially Paid, Approved + Paid, and Completed + Paid.
+
+Legacy statuses `AWAITING_PAYMENT`, `PAYMENT_PROCESSING`, and `PAID_EXPIRED` remain readable for historic rows from the payment-first era; nothing in the active flows writes them. `CONFIRMED` no longer exists (migration `20260715000000_remove_confirmed_booking_status`).
 
 ## Objective
 
@@ -35,9 +52,11 @@ Read first:
 
 Note: the requested "Sandy Toes implementation analysis" was not present in this repository under that name. The architecture adopted here is the approval-workflow direction from the refactor brief, adapted to Haven Retreat's current schema, admin booking flow, pricing, coupons, locks, agreements, email, and Square integration.
 
-## 1. Current Architecture
+## 1. Pre-Refactor Architecture (historical)
 
-The current public booking flow creates a real `Booking` early, holds a time range, gathers customer details, stores agreement acceptance, then sends the customer to Square.
+> Historical section. It describes the payment-first system this refactor replaced, including the retired `CONFIRMED` status. Kept for context; nothing here reflects current behavior.
+
+The pre-refactor public booking flow created a real `Booking` early, held a time range, gathered customer details, stored agreement acceptance, then sent the customer to Square.
 
 ```mermaid
 flowchart TD
@@ -101,21 +120,21 @@ Important current files:
   - `SignedAgreement`
   - `CouponUsage`
 
-Current booking statuses:
+Booking statuses at the time (since revised — see "Current Booking Lifecycle" above):
 
 ```prisma
 enum BookingStatus {
   INCOMPLETE
   AWAITING_PAYMENT
   PAYMENT_PROCESSING
-  CONFIRMED
+  CONFIRMED // retired 2026-07-15; rows migrated to APPROVED
   CANCELLED
   ABANDONED
   PAID_EXPIRED
 }
 ```
 
-Current payment statuses:
+Payment statuses (unchanged by the refactor):
 
 ```prisma
 enum PaymentStatus {
@@ -130,19 +149,19 @@ enum PaymentStatus {
 }
 ```
 
-Current admin flow:
+Admin flow at the time (today the admin flow writes `APPROVED` and supports pay-now and pay-later):
 
 ```mermaid
 flowchart TD
   A[Admin add booking] --> B[Validate range]
   B --> C[Calculate price and coupons]
   C --> D[Record offline payment]
-  D --> E[BookingStatus CONFIRMED]
+  D --> E[BookingStatus CONFIRMED - retired, now APPROVED]
   E --> F[PaymentStatus PAID]
   F --> G[Customer/Admin confirmation emails]
 ```
 
-The admin flow already supports offline/manual collection and must remain stable.
+The admin flow already supported offline/manual collection and remained stable through the refactor.
 
 ## 2. New Architecture
 
@@ -176,8 +195,10 @@ stateDiagram-v2
   PendingReview --> Rejected: admin rejects with reason
   PendingReview --> Cancelled: admin cancels/voids
   Approved --> Cancelled: admin cancels later
+  Approved --> Completed: admin marks done after the event ends
   Rejected --> [*]
   Cancelled --> [*]
+  Completed --> [*]
 ```
 
 Payment lifecycle remains separate:
@@ -197,7 +218,7 @@ Key design choices:
 - Public booking submission does not call Square.
 - `Payment` records are optional and only created when payment is actually recorded.
 - Public bookings enter `PENDING_REVIEW` with `UNPAID`.
-- Admin-created bookings may still be created as `APPROVED`/`CONFIRMED` with manual payment according to current admin behavior.
+- Admin-created bookings are created as `APPROVED`, with payment recorded now (`PAID`) or collected later (`INITIALIZED`).
 - Existing Square routes remain in place behind feature flags.
 - Future payment providers should plug into the existing payment layer without changing the booking approval workflow.
 
@@ -253,7 +274,7 @@ Recommended approach:
 - Keep legacy statuses readable for backward compatibility.
 - Avoid data migrations whose only purpose is cosmetic naming.
 
-Minimum booking statuses for this refactor:
+Booking statuses as shipped (after the 2026-07-15 cleanup):
 
 ```prisma
 enum BookingStatus {
@@ -262,30 +283,30 @@ enum BookingStatus {
   APPROVED
   REJECTED
   CANCELLED
+  COMPLETED
 
-  // Existing legacy/current compatibility
+  // Legacy compatibility (historic rows only; never written by active flows)
   AWAITING_PAYMENT
   PAYMENT_PROCESSING
-  CONFIRMED
   ABANDONED
   PAID_EXPIRED
 }
 ```
 
-Additional lifecycle states can be introduced later if business requirements change. Do not add speculative future statuses in this refactor.
+`CONFIRMED` initially remained as a legacy value and was later removed once all rows were migrated to `APPROVED`. `COMPLETED` was added at the same time for events that have finished.
 
 Internal/display/business mapping:
 
 | Internal status | Display label | Business meaning | Status type |
 | --- | --- | --- | --- |
 | `INCOMPLETE` | Draft / In progress | Active public booking before submit; current lock/session behavior | Implemented now |
-| `PENDING_REVIEW` | Pending Review | Customer submitted signed booking; admin decision required | Implement in this refactor |
-| `APPROVED` | Approved | Admin accepted request | Implement in this refactor |
-| `REJECTED` | Rejected | Admin rejected request with reason | Implement in this refactor |
-| `CANCELLED` | Cancelled | Booking cancelled/voided | Implemented now |
+| `PENDING_REVIEW` | Pending Review | Customer submitted signed booking; admin decision required | Implemented |
+| `APPROVED` | Approved | Admin accepted request | Implemented |
+| `COMPLETED` | Completed | Event finished; terminal lifecycle state | Implemented (2026-07-15) |
+| `REJECTED` | Rejected | Admin rejected request with reason | Implemented |
+| `CANCELLED` | Cancelled | Booking cancelled/voided | Implemented |
 | `AWAITING_PAYMENT` | Awaiting Payment | Legacy/future payment collection state | Legacy compatibility |
 | `PAYMENT_PROCESSING` | Payment Processing | Legacy Square checkout in progress | Legacy compatibility |
-| `CONFIRMED` | Confirmed / Approved | Existing confirmed booking | Legacy compatibility |
 | `ABANDONED` | Abandoned | Expired or abandoned booking session | Legacy compatibility |
 | `PAID_EXPIRED` | Payment Incident | Payment captured after booking expiry | Legacy compatibility |
 
@@ -396,18 +417,14 @@ Keep `provider` as `String` for now unless the implementation team wants a stric
 
 ### Migration Strategy
 
-Phase migration should be additive:
+The migration was phased and additive, and has been executed in full:
 
-1. Add only necessary new enum values: `PENDING_REVIEW`, `APPROVED`, `REJECTED`.
-2. Add review fields.
-3. Backfill current records:
-   - `CONFIRMED` remains readable as approved. Do not migrate it only for naming.
-   - `INCOMPLETE` active holds can remain as legacy drafts until expiry.
-   - `AWAITING_PAYMENT` records with signed agreement and no Square attempt should become `PENDING_REVIEW`.
-   - `PAYMENT_PROCESSING` with active Square attempts should remain legacy until resolved.
-4. Update application code to write new statuses.
-5. Update admin filters and UI to read both new and legacy statuses during rollout.
-6. Later cleanup: remove unused enum values only after production data has no rows using them and payment incident routes are safely archived.
+1. Added the new enum values: `PENDING_REVIEW`, `APPROVED`, `REJECTED` (migration `20260712000000_add_booking_review_workflow`). Done.
+2. Added review fields. Done.
+3. Backfilled current records; `INCOMPLETE` active holds remained legacy drafts until expiry. Done.
+4. Updated application code to write the new statuses. Done.
+5. Updated admin filters and UI. Done.
+6. Final cleanup (2026-07-15, migration `20260715000000_remove_confirmed_booking_status`): migrated all `CONFIRMED` rows to `APPROVED`, removed `CONFIRMED` from the enum, and added `COMPLETED`. Done.
 
 ## 5. Booking Lifecycle
 
@@ -417,18 +434,16 @@ Phase migration should be additive:
 | --- | --- | --- | --- | --- |
 | `INCOMPLETE` | Draft / In progress | Temporary public booking with held range | Public flow | Yes, while hold active |
 | `PENDING_REVIEW` | Pending Review | Customer submitted signed booking; admin must approve/reject | Public submit | Admin editable only |
-| `APPROVED` | Approved | Admin accepted booking request | Admin approval | Admin editable with guardrails |
+| `APPROVED` | Approved | Admin accepted booking request | Admin approval or admin create | Admin editable with guardrails |
+| `COMPLETED` | Completed | Event finished; lifecycle closed | Admin "Mark Completed" after event end | No |
 | `REJECTED` | Rejected | Admin rejected request with required reason | Admin rejection | No, except notes/resubmission later if added |
 | `CANCELLED` | Cancelled | Booking cancelled/voided | Admin/system | No standard edit |
 
 Legacy compatibility:
 
 - Treat `INCOMPLETE` as the in-progress/draft display state.
-- Treat `CONFIRMED` like `APPROVED`.
 - Treat `ABANDONED` as expired draft/legacy abandoned.
 - Treat `PAID_EXPIRED` as payment incident/legacy.
-
-Additional lifecycle states can be introduced later if business requirements change. They are outside this refactor.
 
 ### Transitions
 
@@ -441,6 +456,7 @@ Additional lifecycle states can be introduced later if business requirements cha
 | `PENDING_REVIEW` | `REJECTED` | Admin reject | Reason required |
 | `PENDING_REVIEW` | `CANCELLED` | Admin cancel/void | Reason recommended |
 | `APPROVED` | `CANCELLED` | Admin cancellation | Reason required/recommended |
+| `APPROVED` | `COMPLETED` | Admin marks event done | Event end time (`endsAtUtc`) must be in the past; terminal |
 
 ### Hold Behavior
 
@@ -453,27 +469,31 @@ Recommended behavior:
 - `APPROVED`: range blocks bookings permanently unless cancelled.
 - `REJECTED`/`CANCELLED`: range released.
 
-Update conflict queries to consider:
+Conflict queries consider:
 
 ```text
-blocking statuses = PENDING_REVIEW + APPROVED + legacy CONFIRMED + active INCOMPLETE holds
+blocking statuses = PENDING_REVIEW + APPROVED + active INCOMPLETE holds
 ```
+
+`COMPLETED` does not block: completion requires the event to be over, so its range can no longer conflict with a future booking (see `RESERVED_RANGE_STATUSES` in `src/lib/booking-policy.ts`).
 
 Do not leave `PENDING_REVIEW` dependent on `holdExpiresAt` unless the business wants pending requests to auto-expire. If auto-expiry is desired, add a specific `reviewExpiresAt` instead of overloading `holdExpiresAt`.
 
 ## 6. Payment Lifecycle
 
-### Current
+### Before (historical)
 
-Public payment is Square-first:
+Public payment was Square-first:
 
 ```text
 accept terms -> AWAITING_PAYMENT/INITIALIZED
 create checkout -> PAYMENT_PROCESSING/AWAITING_PAYMENT
-Square finalize -> CONFIRMED/PAID
+Square finalize -> booking approved + PAID
 ```
 
-Admin payment is already offline/manual:
+(The Square finalizer code is retained behind feature flags; where it used to write `CONFIRMED` it now writes `APPROVED`.)
+
+Admin payment is offline/manual:
 
 ```text
 admin create/edit -> OFFLINE Payment row -> booking advancePaid/remainingPayable updated
@@ -581,13 +601,14 @@ Recommended: create `POST /api/bookings/submit` instead of mutating `accept-term
 
 | API | Current behavior | New behavior |
 | --- | --- | --- |
-| `GET /api/admin/bookings` | Tabs active/live/abandoned; main tab mostly `CONFIRMED` | Add pending review filter/tab and include `PENDING_REVIEW` |
+| `GET /api/admin/bookings` | Tabs active/live/abandoned | Pending review tab added; main tab lists `APPROVED`/`COMPLETED`/`REJECTED`/`CANCELLED`/`PAID_EXPIRED` |
 | `GET /api/admin/bookings/[id]?view=drawer` | Drawer details | Include review fields and rejection reason |
 | `PATCH /api/admin/bookings/[id]` | Edit booking and manual payment | Preserve; allow edits for `PENDING_REVIEW` and `APPROVED`, block `REJECTED`/`CANCELLED` |
 | `DELETE /api/admin/bookings/[id]` if present | Soft delete/cancel | Preserve; avoid conflating with reject |
 | New `POST /api/admin/bookings/[id]/approve` | N/A | Approves pending booking, sends emails |
 | New `POST /api/admin/bookings/[id]/reject` | N/A | Rejects pending booking, requires reason, sends email |
-| `POST /api/admin/bookings/create` | Creates offline/manual confirmed booking | Preserve; optionally write `APPROVED` instead of `CONFIRMED` |
+| New `POST /api/admin/bookings/[id]/complete` | N/A | Marks an approved booking `COMPLETED` after its event end time; no email, no payment/stock/coupon changes |
+| `POST /api/admin/bookings/create` | Creates offline/manual booking | Writes `APPROVED`; supports pay-now (`PAID`) and pay-later (`INITIALIZED`) |
 | `POST /api/admin/bookings/coupon-preview` | Coupon preview | Preserve |
 | `GET /api/admin/payments` | Payment log | Preserve; update labels for unpaid/partial/paid |
 
@@ -705,7 +726,7 @@ Approval action:
 
 1. Lock booking row.
 2. Validate current status is `PENDING_REVIEW`.
-3. Re-check overlapping bookings against `PENDING_REVIEW`, `APPROVED`, and legacy `CONFIRMED`, excluding the current booking.
+3. Re-check overlapping bookings against `PENDING_REVIEW` and `APPROVED`, excluding the current booking.
 4. Confirm products are still available if products use stock.
 5. Decrement stock only on approval if not already decremented earlier.
 6. Set:
@@ -1090,7 +1111,7 @@ This architecture supports future payments without another major refactor becaus
 - Admin edits pending booking: allowed with conflict validation.
 - Admin records payment on pending booking: decide business rule. Recommended allow only with warning that payment does not approve.
 - Admin deletes pending booking: use cancel/void, not reject, unless customer-visible reason is required.
-- Legacy confirmed booking appears: display as approved.
+- Marking completed before the event ends: blocked server-side (`BOOKING_EVENT_NOT_FINISHED`).
 
 ### API
 
@@ -1106,7 +1127,7 @@ This architecture supports future payments without another major refactor becaus
 
 - Use row lock on booking during submit/approve/reject.
 - Use venue/date advisory lock for range conflict checks.
-- Conflict checks must include `PENDING_REVIEW`, `APPROVED`, legacy `CONFIRMED`, and active `INCOMPLETE` holds.
+- Conflict checks must include `PENDING_REVIEW`, `APPROVED`, and active `INCOMPLETE` holds.
 - Stock decrement must happen once, preferably on approval.
 - Coupon confirmation/release must be transactionally consistent with status changes.
 
@@ -1322,20 +1343,15 @@ Validation:
 - Public booking smoke test.
 - Admin review smoke test.
 
-## Open Decisions
-
-Resolve before production code:
+## Open Decisions (all resolved)
 
 1. Should `PENDING_REVIEW` block the selected range indefinitely until admin decision, or auto-expire after an SLA?
+   **Resolved:** pending review blocks the range until the admin decides.
 2. Should existing `CONFIRMED` rows be migrated to `APPROVED`, or displayed as approved while retaining legacy value?
+   **Resolved:** displayed as approved first, then fully migrated to `APPROVED` and the enum value removed (2026-07-15).
 3. Should admin be allowed to record payment before approval?
+   **Resolved:** allowed; recording payment never changes booking status.
 4. Should coupon usage become `CONFIRMED` on submission or only on approval?
+   **Resolved:** confirmed on approval, released on rejection/cancellation. (This `CONFIRMED` is `CouponUsageStatus`, unrelated to the retired booking status.)
 5. Should approval send payment instructions now, or only say Haven Retreat will contact the customer?
-
-Recommended defaults:
-
-1. Pending review blocks the range until admin decision.
-2. Display legacy `CONFIRMED` as approved first; migrate later.
-3. Allow admin payment before approval with a warning, but do not couple it to approval.
-4. Confirm coupon on approval, release on rejection/cancellation.
-5. Keep approval payment instructions neutral in this phase.
+   **Resolved:** the approved email includes Zelle deposit instructions (added July 2026).

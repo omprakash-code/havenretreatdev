@@ -117,7 +117,7 @@ describe("GET /api/admin/kpis", () => {
     expect(sql).toContain(
       `b."bookingStatus" IN ('INCOMPLETE', 'AWAITING_PAYMENT', 'PAYMENT_PROCESSING')`
     );
-    expect(sql).toContain(`b."bookingStatus" IN ('APPROVED', 'CONFIRMED')`);
+    expect(sql).toContain(`b."bookingStatus" IN ('APPROVED', 'COMPLETED')`);
     expect(sql).toContain(`b."bookingStatus" = 'PENDING_REVIEW'`);
     expect(sql).toContain(`b."bookingStatus" = 'REJECTED'`);
     expect(sql).not.toContain('"Slot"');

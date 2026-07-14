@@ -87,7 +87,7 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: "18:00",
         startsAtUtc: null,
         occupiedUntilUtc: null,
-        bookingStatus: "CONFIRMED",
+        bookingStatus: "APPROVED",
         bufferMinutes: 30,
       },
     ]);
@@ -125,7 +125,7 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: "22:45",
         startsAtUtc: null,
         occupiedUntilUtc: null,
-        bookingStatus: "CONFIRMED",
+        bookingStatus: "APPROVED",
         bufferMinutes: 30,
       },
     ]);
@@ -144,7 +144,7 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: null,
         startsAtUtc: new Date("2030-07-15T18:00:00.000Z"), // 14:00 EDT
         occupiedUntilUtc: new Date("2030-07-15T22:30:00.000Z"), // 18:30 EDT (with buffer already)
-        bookingStatus: "CONFIRMED",
+        bookingStatus: "APPROVED",
         bufferMinutes: 30,
       },
     ]);
@@ -163,7 +163,7 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: null,
         startsAtUtc: null,
         occupiedUntilUtc: null,
-        bookingStatus: "CONFIRMED",
+        bookingStatus: "APPROVED",
         bufferMinutes: 30,
       },
     ]);
@@ -193,7 +193,7 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: "14:00",
         startsAtUtc: null,
         occupiedUntilUtc: null,
-        bookingStatus: "CONFIRMED",
+        bookingStatus: "APPROVED",
         bufferMinutes: 30,
       },
       {
@@ -201,7 +201,7 @@ describe("GET /api/availability/time-ranges", () => {
         eventEndTime: "21:00",
         startsAtUtc: null,
         occupiedUntilUtc: null,
-        bookingStatus: "CONFIRMED",
+        bookingStatus: "APPROVED",
         bufferMinutes: 30,
       },
     ]);

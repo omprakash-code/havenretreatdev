@@ -96,7 +96,7 @@ export async function GET(req: Request) {
     const [aggregateMetrics] = await prisma.$queryRaw<AggregateRow[]>`
         SELECT
           COALESCE(SUM(b."totalAmount") FILTER (WHERE b."paymentStatus" = 'PAID'), 0) AS revenue_lifetime,
-          COUNT(*) FILTER (WHERE b."bookingStatus" IN ('APPROVED', 'CONFIRMED')) AS approved_lifetime,
+          COUNT(*) FILTER (WHERE b."bookingStatus" IN ('APPROVED', 'COMPLETED')) AS approved_lifetime,
           COUNT(*) FILTER (WHERE b."bookingStatus" = 'PENDING_REVIEW') AS pending_review,
           COUNT(*) FILTER (WHERE b."bookingStatus" = 'REJECTED') AS rejected_lifetime,
           COUNT(*) FILTER (WHERE b."bookingStatus" = 'ABANDONED') AS abandoned_lifetime,
@@ -114,12 +114,12 @@ export async function GET(req: Request) {
               AND b."createdAt" < ${currentStart}
           ), 0) AS revenue_previous,
           COUNT(*) FILTER (
-            WHERE b."bookingStatus" IN ('APPROVED', 'CONFIRMED')
+            WHERE b."bookingStatus" IN ('APPROVED', 'COMPLETED')
               AND b."createdAt" >= ${currentStart}
               AND b."createdAt" < ${now}
           ) AS approved_current,
           COUNT(*) FILTER (
-            WHERE b."bookingStatus" IN ('APPROVED', 'CONFIRMED')
+            WHERE b."bookingStatus" IN ('APPROVED', 'COMPLETED')
               AND b."createdAt" >= ${previousStart}
               AND b."createdAt" < ${currentStart}
           ) AS approved_previous,

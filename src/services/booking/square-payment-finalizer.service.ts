@@ -109,7 +109,7 @@ async function markPaidExpired(
 
 // Applies an admin-generated "balance" payment link to an already-confirmed
 // booking. Unlike the primary checkout, this increments the amount already
-// paid instead of flipping the booking from AWAITING_PAYMENT to CONFIRMED.
+// paid instead of flipping the booking from AWAITING_PAYMENT to APPROVED.
 async function finalizeSquareTopUpPayment(
   input: {
     orderId: string;
@@ -271,7 +271,7 @@ export async function finalizeSquarePayment(input: {
     }
 
     if (
-      booking.bookingStatus === "CONFIRMED" &&
+      booking.bookingStatus === "APPROVED" &&
       booking.paymentStatus === "PAID"
     ) {
       if (!booking.paymentTransactionId) {
@@ -348,7 +348,7 @@ export async function finalizeSquarePayment(input: {
       where: { id: booking.id },
       data: {
         paymentStatus: "PAID",
-        bookingStatus: "CONFIRMED",
+        bookingStatus: "APPROVED",
         paymentProvider: "SQUARE",
         paymentOrderId: input.orderId,
         paymentTransactionId: input.paymentId,

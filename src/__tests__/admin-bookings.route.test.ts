@@ -168,7 +168,7 @@ describe("GET /api/admin/bookings", () => {
               bookingStatus: {
                 in: [
                   "APPROVED",
-                  "CONFIRMED",
+                  "COMPLETED",
                   "REJECTED",
                   "CANCELLED",
                   "PAID_EXPIRED",

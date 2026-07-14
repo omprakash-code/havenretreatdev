@@ -21,9 +21,9 @@ describe("booking status labels", () => {
     expect(getBookingStatusLabel("REJECTED")).toBe("Rejected");
   });
 
-  it("displays legacy CONFIRMED bookings as approved", () => {
-    expect(getBookingStatusLabel("CONFIRMED")).toBe("Approved");
-    expect(isApprovedBookingStatus("CONFIRMED")).toBe(true);
+  it("treats a completed booking as an approved one", () => {
+    expect(getBookingStatusLabel("COMPLETED")).toBe("Completed");
+    expect(isApprovedBookingStatus("COMPLETED")).toBe(true);
     expect(isApprovedBookingStatus("APPROVED")).toBe(true);
     expect(isApprovedBookingStatus("PENDING_REVIEW")).toBe(false);
   });
@@ -102,13 +102,21 @@ describe("booking status transitions", () => {
   it("blocks approving a draft that was never submitted", () => {
     expect(canTransitionBookingStatus("INCOMPLETE", "APPROVED")).toBe(false);
   });
+
+  it("completes only from approved, and completion is terminal", () => {
+    expect(canTransitionBookingStatus("APPROVED", "COMPLETED")).toBe(true);
+    expect(canTransitionBookingStatus("PENDING_REVIEW", "COMPLETED")).toBe(false);
+    expect(canTransitionBookingStatus("COMPLETED", "CANCELLED")).toBe(false);
+    expect(canTransitionBookingStatus("COMPLETED", "APPROVED")).toBe(false);
+  });
 });
 
 describe("range conflict policy", () => {
-  it("reserves ranges for pending review, approved, and legacy confirmed", () => {
+  it("reserves ranges for pending review and approved only", () => {
     expect(isReservedRangeStatus("PENDING_REVIEW")).toBe(true);
     expect(isReservedRangeStatus("APPROVED")).toBe(true);
-    expect(isReservedRangeStatus("CONFIRMED")).toBe(true);
+    // A completed event is in the past; it cannot conflict with new bookings.
+    expect(isReservedRangeStatus("COMPLETED")).toBe(false);
     expect(isReservedRangeStatus("INCOMPLETE")).toBe(false);
     expect(isReservedRangeStatus("REJECTED")).toBe(false);
     expect(isReservedRangeStatus("CANCELLED")).toBe(false);
@@ -119,7 +127,7 @@ describe("range conflict policy", () => {
     const [reserved, held] = buildRangeConflictFilter(now);
 
     expect(reserved).toMatchObject({
-      bookingStatus: { in: ["PENDING_REVIEW", "APPROVED", "CONFIRMED"] },
+      bookingStatus: { in: ["PENDING_REVIEW", "APPROVED"] },
     });
     expect(reserved).not.toHaveProperty("holdExpiresAt");
     expect(held).toMatchObject({ holdExpiresAt: { gt: now } });

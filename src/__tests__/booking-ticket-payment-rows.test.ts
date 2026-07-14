@@ -8,7 +8,7 @@ function makeBookingData(
 ): BookingSuccessData {
   return {
     bookingRef: "HR0617202600001",
-    bookingStatus: "CONFIRMED",
+    bookingStatus: "APPROVED",
     paymentStatus: "OFFLINE",
     createdByRole: "ADMIN",
     contact: {

@@ -26,7 +26,7 @@ export async function releaseStaleReservedCoupons(): Promise<{
           // rejection/cancellation. Without this guard the `updatedAt` staleness
           // branch below would release them mid-review and zero the discount.
           bookingStatus: {
-            notIn: ["CONFIRMED", "PENDING_REVIEW", "APPROVED"],
+            notIn: ["PENDING_REVIEW", "APPROVED", "COMPLETED"],
           },
           OR: [
             {

@@ -22,6 +22,7 @@ import { createSuccessToken } from "@/services/booking/successToken.server";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { sendBookingConfirmationWhatsApp } from "@/services/whatsapp.service";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
+import { sendBookingApprovedEmail } from "@/services/booking/booking-review-email.service";
 import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
 import {
@@ -113,6 +114,11 @@ type CreateBookingPayload = {
     amountMode?: PaymentAmountMode;
     advanceAmount?: number;
     offlineAmountMode?: PaymentAmountMode;
+    /**
+     * false = no payment collected with this booking: it is created APPROVED
+     * and awaiting payment, with no payment record. Defaults to true.
+     */
+    collectNow?: boolean;
   };
   createdByAdminId?: string;
 };
@@ -419,8 +425,11 @@ export async function POST(req: Request) {
       body.payment.amountMode ?? body.payment.offlineAmountMode ?? "ADVANCE";
     const offlineReference = body.payment.offlineReference?.trim() ?? "";
     const customAdvanceAmount = Number(body.payment.advanceAmount ?? 0);
+    // Pay-later bookings (phone/email, Zelle paid later) are created approved
+    // and awaiting payment; the collection fields are not required for them.
+    const collectPaymentNow = body.payment.collectNow !== false;
 
-    if (paymentType === "OFFLINE") {
+    if (paymentType === "OFFLINE" && collectPaymentNow) {
       if (!OFFLINE_METHODS.includes(offlineMethod as OfflineMethod)) {
         throw new AdminBookingError(
           400,
@@ -452,7 +461,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (paymentAmountMode === "ADVANCE") {
+    if (collectPaymentNow && paymentAmountMode === "ADVANCE") {
       if (!Number.isFinite(customAdvanceAmount) || customAdvanceAmount <= 0) {
         throw new AdminBookingError(
           400,
@@ -902,12 +911,13 @@ export async function POST(req: Request) {
         0
       );
 
-      const desiredAdvance =
-        paymentAmountMode === "FULL"
-          ? totalAfterDiscount
-          : Math.trunc(customAdvanceAmount || minAdvanceAmount);
+      const desiredAdvance = !collectPaymentNow
+        ? 0
+        : paymentAmountMode === "FULL"
+        ? totalAfterDiscount
+        : Math.trunc(customAdvanceAmount || minAdvanceAmount);
 
-      if (paymentAmountMode === "ADVANCE") {
+      if (collectPaymentNow && paymentAmountMode === "ADVANCE") {
         if (desiredAdvance < minAdvanceAmount) {
           throw new AdminBookingError(
             400,
@@ -1028,8 +1038,12 @@ export async function POST(req: Request) {
         decorationAmount: pricing.decorationAmount,
         advancePaid: pricing.advancePaid,
         remainingPayable: pricing.remainingPayable,
-        paymentStatus: paymentType === "OFFLINE" ? "PAID" : "INITIALIZED",
-        bookingStatus: paymentType === "OFFLINE" ? "CONFIRMED" : "AWAITING_PAYMENT",
+        // Booking status answers "where in the lifecycle"; payment status
+        // answers "how much was paid". An admin create is an approval either
+        // way — pay-now vs pay-later differs only on the payment axis.
+        paymentStatus:
+          paymentType === "OFFLINE" && collectPaymentNow ? "PAID" : "INITIALIZED",
+        bookingStatus: paymentType === "OFFLINE" ? "APPROVED" : "AWAITING_PAYMENT",
         termsAcceptedAt: now,
         createdByRole: "ADMIN",
         createdByAdminId,
@@ -1044,7 +1058,7 @@ export async function POST(req: Request) {
         });
       }
 
-      if (paymentType === "OFFLINE") {
+      if (paymentType === "OFFLINE" && collectPaymentNow) {
         await tx.payment.create({
           data: {
             bookingId: booking.id,
@@ -1074,6 +1088,7 @@ export async function POST(req: Request) {
         bookingId: booking.id,
         bookingRef: booking.bookingRef,
         paymentType,
+        awaitingPayment: paymentType === "OFFLINE" && !collectPaymentNow,
         lockOwner,
         abandonedBookingIds: Array.from(abandonedBookingIds),
         successToken:
@@ -1094,6 +1109,7 @@ export async function POST(req: Request) {
         bookingId: result.bookingId,
         bookingRef: result.bookingRef,
         paymentType: result.paymentType,
+        awaitingPayment: result.awaitingPayment,
         successToken: result.successToken,
         redirectUrl:
           result.paymentType === "ONLINE"
@@ -1130,7 +1146,13 @@ export async function POST(req: Request) {
       }
     }
 
-    if (result.paymentType === "OFFLINE") {
+    if (result.awaitingPayment) {
+      // No payment was collected: the customer gets the "approved" email (with
+      // payment instructions), not the paid-confirmation email.
+      void sendBookingApprovedEmail(result.bookingId).catch((error) => {
+        console.error("ADMIN_PAY_LATER_APPROVED_EMAIL_FAILED", error);
+      });
+    } else if (result.paymentType === "OFFLINE") {
       const bookingForNotification = await prisma.booking.findUnique({
         where: { id: result.bookingId },
         include: {

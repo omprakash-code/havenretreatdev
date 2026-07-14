@@ -244,6 +244,12 @@ export function AdminAddBookingForm({
 
   const isEditMode = mode === "edit";
 
+  // Create-mode default is "collect payment later": the booking is approved and
+  // awaits payment (phone/email bookings, Zelle paid later). Edits keep the
+  // existing collection flow, so the flag only applies to create.
+  const [collectPaymentNow, setCollectPaymentNow] = useState(false);
+  const payLater = !isEditMode && !collectPaymentNow;
+
   const [paymentType, setPaymentType] = useState<"OFFLINE" | "ONLINE">("OFFLINE");
   const [paymentAmountMode, setPaymentAmountMode] = useState<"ADVANCE" | "FULL" | "REMAINING">("ADVANCE");
   const [offlineMethod, setOfflineMethod] = useState<"CASH" | "BANK">("CASH");
@@ -450,13 +456,10 @@ export function AdminAddBookingForm({
         // Online collection has been removed from admin; edits always collect
         // offline so Method/Reference stay available and consistent with create.
         setPaymentType("OFFLINE");
-        // Nothing collected yet means the admin still chooses advance or full;
-        // an advance on record leaves only the balance to collect.
-        setPaymentAmountMode(
-          Math.max(Number(booking.pricing.advancePaid ?? 0), 0) > 0
-            ? "REMAINING"
-            : "ADVANCE"
-        );
+        // An edit collects nothing by default: ADVANCE with an empty amount.
+        // The admin explicitly types a partial amount or picks the remaining
+        // balance — saving other details must never record a payment on its own.
+        setPaymentAmountMode("ADVANCE");
         setCustomAdvanceAmount(0);
 
         const normalizedOfflineMethod = booking.payment.offlineMethod;
@@ -1245,13 +1248,6 @@ export function AdminAddBookingForm({
     return Math.max(totalAfterDiscount - editAdvancePaidAlready, 0);
   }, [isEditMode, totalAfterDiscount, editAdvancePaidAlready]);
 
-  // Once an advance is on record, the balance is the only thing left to collect,
-  // so the choice between advance and full no longer applies.
-  useEffect(() => {
-    if (!isEditMode || editAdvancePaidAlready <= 0) return;
-    setPaymentAmountMode((prev) => (prev === "REMAINING" ? prev : "REMAINING"));
-  }, [isEditMode, editAdvancePaidAlready]);
-
   const pricing = useMemo<PricingSummary | null>(() => {
     if (!selectedTheatre || !startTime || !endTime || !pricingBase) return null;
 
@@ -1272,6 +1268,9 @@ export function AdminAddBookingForm({
         editAdvancePaidAlready + additionalToCollect,
         totalAfterDiscount
       );
+    } else if (payLater) {
+      // No payment is recorded with the booking; the full amount stays payable.
+      desiredAdvance = 0;
     } else {
       desiredAdvance =
         paymentAmountMode === "FULL"
@@ -1305,6 +1304,7 @@ export function AdminAddBookingForm({
     guestCount,
     productsAmount,
     isEditMode,
+    payLater,
     totalAfterDiscount,
     editAdvancePaidAlready,
     editRemainingBeforeCollection,
@@ -1321,10 +1321,12 @@ export function AdminAddBookingForm({
       if (!pricing) return normalizedAdvanceInput;
       return Math.max(pricing.advancePaid - editAdvancePaidAlready, 0);
     }
+    if (payLater) return 0;
     if (paymentAmountMode === "FULL") return pricing?.totalAmount ?? 0;
     return normalizedAdvanceInput;
   }, [
     isEditMode,
+    payLater,
     paymentAmountMode,
     pricing,
     customAdvanceAmount,
@@ -1982,15 +1984,20 @@ export function AdminAddBookingForm({
       });
     }
 
-    if (!isPaymentSectionLocked && paymentAmountMode === "ADVANCE") {
+    if (!isPaymentSectionLocked && !payLater && paymentAmountMode === "ADVANCE") {
       if (isEditMode) {
         if (enforceAdvanceNumeric && (!Number.isFinite(amountPayNow) || amountPayNow < 0)) {
           nextErrors.amountPayNow = "Enter a valid amount to collect.";
         } else if (amountPayNow > editRemainingBeforeCollection) {
           nextErrors.amountPayNow = "Amount to collect cannot exceed remaining amount.";
-        } else if (amountPayNow > 0 && amountPayNow < minimumAdvanceAmount) {
+        } else if (
+          editAdvancePaidAlready <= 0 &&
+          amountPayNow > 0 &&
+          amountPayNow < minimumAdvanceAmount
+        ) {
           // Collecting nothing stays valid — an edit does not have to take money.
-          // An advance that is taken still has to clear the configured minimum.
+          // The first advance still has to clear the configured minimum; later
+          // partial top-ups can be any amount (the deposit floor is already met).
           nextErrors.amountPayNow = `Advance cannot be lower than $${minimumAdvanceAmount}.`;
         }
       } else {
@@ -2010,6 +2017,7 @@ export function AdminAddBookingForm({
 
     if (
       !isPaymentSectionLocked &&
+      !payLater &&
       paymentType === "OFFLINE" &&
       offlineMethod === "BANK" &&
       !offlineReference.trim()
@@ -2176,7 +2184,11 @@ export function AdminAddBookingForm({
         const successToken = String(json.data?.successToken ?? "");
 
         if (paymentFlowType === "OFFLINE") {
-          toast.success(`Booking ${bookingRef} confirmed successfully.`);
+          toast.success(
+            json.data?.awaitingPayment
+              ? `Booking ${bookingRef} created and approved. Payment pending.`
+              : `Booking ${bookingRef} created and approved. Payment recorded.`
+          );
           const successUrl =
             redirectUrl ||
             (successToken
@@ -2304,6 +2316,9 @@ export function AdminAddBookingForm({
           // Admin collection is always offline; always send the method/reference.
           offlineMethod,
           offlineReference: offlineReference.trim() || undefined,
+          // false = create the booking approved and awaiting payment, without
+          // recording any payment.
+          collectNow: !payLater,
         },
       };
 
@@ -2459,7 +2474,9 @@ export function AdminAddBookingForm({
           couponError={couponError}
           disablePaymentAmountMode={initialFullPaid && !hasPriceImpactingChanges}
           lockPaymentSection={isPaymentSectionLocked}
+          collectPaymentNow={collectPaymentNow}
           errors={errors}
+          onCollectPaymentNowChange={setCollectPaymentNow}
           onPaymentTypeChange={setPaymentType}
           onPaymentAmountModeChange={handlePaymentAmountModeChange}
           onAmountPayNowChange={setCustomAdvanceAmount}
@@ -2517,6 +2534,7 @@ export function AdminAddBookingForm({
           pricing={pricing}
           selectedProductItems={selectedProductItems}
           paymentAmountMode={paymentAmountMode}
+          collectPaymentLater={payLater}
           paymentStatus={paymentStatus}
           alreadyPaidAmount={isEditMode ? editAdvancePaidAlready : undefined}
           amountToCollectNow={isEditMode ? amountPayNow : undefined}

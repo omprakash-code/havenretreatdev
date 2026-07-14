@@ -350,7 +350,7 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
     data.remainingPayable > 0;
   const isAdminAdvanceFlow =
     data.createdByRole === "ADMIN" &&
-    data.bookingStatus === "CONFIRMED" &&
+    data.bookingStatus === "APPROVED" &&
     data.advancePaid > 0 &&
     data.remainingPayable > 0;
   const showRemainingRow =

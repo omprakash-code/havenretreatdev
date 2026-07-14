@@ -76,7 +76,7 @@ export async function reconcileCouponDiscountMismatches(
 
     const bookingWhere: Prisma.BookingWhereInput = {
       id: { in: bookingIds },
-      ...(includeConfirmed ? {} : { bookingStatus: { not: BookingStatus.CONFIRMED } }),
+      ...(includeConfirmed ? {} : { bookingStatus: { not: BookingStatus.APPROVED } }),
     };
 
     const bookings = await tx.booking.findMany({

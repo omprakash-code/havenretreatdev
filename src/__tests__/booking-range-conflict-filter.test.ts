@@ -7,7 +7,7 @@ import {
 
 /**
  * Deleting a booking is a soft delete: the row keeps its `bookingStatus`, so
- * PENDING_REVIEW / APPROVED / CONFIRMED would otherwise keep holding the date
+ * PENDING_REVIEW / APPROVED would otherwise keep holding the date
  * forever. Every conflict branch must exclude deleted bookings.
  */
 describe("buildRangeConflictFilter", () => {
@@ -22,7 +22,7 @@ describe("buildRangeConflictFilter", () => {
     const [reservedBranch] = buildRangeConflictFilter(new Date());
 
     expect(reservedBranch.bookingStatus).toEqual({
-      in: ["PENDING_REVIEW", "APPROVED", "CONFIRMED"],
+      in: ["PENDING_REVIEW", "APPROVED"],
     });
     expect(reservedBranch.AND).toEqual([notSoftDeleted]);
   });

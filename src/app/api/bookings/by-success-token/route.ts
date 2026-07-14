@@ -33,10 +33,10 @@ export async function GET(req: Request) {
     const booking = await loadBookingWithSuccessRelations(bookingId);
 
     // Statuses a success link may show: a submitted request and its outcome,
-    // plus legacy CONFIRMED bookings. A draft has no success link.
-    const isViewableBooking =
-      isReviewWorkflowBookingStatus(booking?.bookingStatus) ||
-      booking?.bookingStatus === "CONFIRMED";
+    // including a completed event. A draft has no success link.
+    const isViewableBooking = isReviewWorkflowBookingStatus(
+      booking?.bookingStatus
+    );
 
     if (!booking || !isViewableBooking || booking.bookingRef !== bookingRef) {
       return bookingErrorResponse(

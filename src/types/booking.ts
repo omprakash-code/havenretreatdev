@@ -4,7 +4,10 @@ export type BookingStatus =
   | "INCOMPLETE"
   | "AWAITING_PAYMENT"
   | "PAYMENT_PROCESSING"
-  | "CONFIRMED"
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "COMPLETED"
   | "ABANDONED"
   | "PAID_EXPIRED"
   | "CANCELLED";

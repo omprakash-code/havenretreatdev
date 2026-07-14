@@ -28,7 +28,7 @@ describe("Square payment status route", () => {
     findUniqueMock.mockResolvedValue({
       id: "booking-1",
       bookingRef: "HR-001",
-      bookingStatus: "CONFIRMED",
+      bookingStatus: "APPROVED",
       paymentStatus: "PAID",
       cancelledReason: null,
     });

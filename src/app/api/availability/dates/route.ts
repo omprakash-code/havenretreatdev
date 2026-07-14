@@ -63,8 +63,8 @@ export async function GET(req: Request) {
   const nowInVenue = toZonedTime(now, BOOKING_TIME_ZONE);
   const todayInVenue = startOfDay(nowInVenue);
 
-  // Find dates that are fully blocked (CONFIRMED booking occupies entire day window)
-  // For simplicity, mark a date unavailable only if a CONFIRMED booking spans the
+  // Find dates that are fully blocked (an approved booking occupies the entire day window)
+  // For simplicity, mark a date unavailable only if an approved booking spans the
   // entire business hours window (09:00–23:00) on that date.
   // The caller's own held booking must not block dates for them.
   const ownedBookingId = await getOwnedBookingIdFromCookies();

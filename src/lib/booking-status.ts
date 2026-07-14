@@ -13,13 +13,13 @@ const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   INCOMPLETE: "Draft",
   PENDING_REVIEW: "Pending Review",
   APPROVED: "Approved",
+  COMPLETED: "Completed",
   REJECTED: "Rejected",
   CANCELLED: "Cancelled",
   ABANDONED: "Abandoned",
   // Legacy payment-first values.
   AWAITING_PAYMENT: "Awaiting Payment",
   PAYMENT_PROCESSING: "Payment Processing",
-  CONFIRMED: "Approved",
   PAID_EXPIRED: "Payment Incident",
 };
 
@@ -30,11 +30,11 @@ export function getBookingStatusLabel(
   return BOOKING_STATUS_LABELS[status as BookingStatus] ?? String(status);
 }
 
-/** Legacy CONFIRMED bookings are approved bookings created before this workflow. */
+/** A completed booking was approved; completion only marks the event as done. */
 export function isApprovedBookingStatus(
   status: BookingStatus | string | null | undefined
 ) {
-  return status === "APPROVED" || status === "CONFIRMED";
+  return status === "APPROVED" || status === "COMPLETED";
 }
 
 export function isPendingReviewBookingStatus(
@@ -53,7 +53,7 @@ export function isCustomerEditableBookingStatus(
 /**
  * Statuses owned by the review workflow. Their booking status is decided by an
  * admin approving or rejecting — never as a side effect of recording a payment.
- * Legacy payment-first statuses are excluded so their existing auto-confirm on
+ * Legacy payment-first statuses are excluded so their existing normalize-on-
  * payment behavior is preserved.
  */
 export function isReviewWorkflowBookingStatus(
@@ -62,6 +62,7 @@ export function isReviewWorkflowBookingStatus(
   return (
     status === "PENDING_REVIEW" ||
     status === "APPROVED" ||
+    status === "COMPLETED" ||
     status === "REJECTED"
   );
 }
@@ -117,8 +118,8 @@ export const APPROVAL_NOTES_MAX_LENGTH = 2000;
 const ALLOWED_TRANSITIONS: Partial<Record<BookingStatus, BookingStatus[]>> = {
   INCOMPLETE: ["PENDING_REVIEW", "ABANDONED", "CANCELLED"],
   PENDING_REVIEW: ["APPROVED", "REJECTED", "CANCELLED"],
-  APPROVED: ["CANCELLED"],
-  CONFIRMED: ["CANCELLED"],
+  // COMPLETED is terminal: it records that the event happened.
+  APPROVED: ["CANCELLED", "COMPLETED"],
 };
 
 export function canTransitionBookingStatus(

@@ -75,7 +75,7 @@ async function getRangeConflicts(
     where: {
       id: { not: input.bookingId },
       venueId: input.venueId,
-      bookingStatus: "CONFIRMED",
+      bookingStatus: "APPROVED",
       startsAtUtc: { lt: input.occupiedUntilUtc },
       occupiedUntilUtc: { gt: input.startsAtUtc },
     },
@@ -373,7 +373,7 @@ export async function finalizeRangePayment(input: {
     if (
       payment.providerPaymentId === input.providerPaymentId &&
       payment.status === "PAID" &&
-      booking.bookingStatus === "CONFIRMED"
+      booking.bookingStatus === "APPROVED"
     ) {
       return {
         status: "ALREADY_CONFIRMED",
@@ -383,7 +383,7 @@ export async function finalizeRangePayment(input: {
       };
     }
     if (
-      booking.bookingStatus === "CONFIRMED" &&
+      booking.bookingStatus === "APPROVED" &&
       booking.paymentStatus === "PAID" &&
       payment.providerPaymentId !== input.providerPaymentId
     ) {
@@ -529,7 +529,7 @@ export async function finalizeRangePayment(input: {
     const updated = await tx.booking.update({
       where: { id: booking.id },
       data: {
-        bookingStatus: "CONFIRMED",
+        bookingStatus: "APPROVED",
         holdExpiresAt: null,
         paymentStatus: "PAID",
         paymentProvider: input.provider,

@@ -21,7 +21,7 @@ function resolveBookingStatusAfterPayment(input: {
 }): BookingStatus {
   return input.paymentStatus === PaymentStatus.PAID &&
     !isReviewWorkflowBookingStatus(input.bookingStatus)
-    ? BookingStatus.CONFIRMED
+    ? BookingStatus.APPROVED
     : input.bookingStatus;
 }
 
@@ -35,7 +35,7 @@ describe("recording payment never approves a booking", () => {
     ).toBe(BookingStatus.PENDING_REVIEW);
   });
 
-  it("keeps an approved booking approved rather than rewriting it to confirmed", () => {
+  it("keeps an approved booking approved after payment is recorded", () => {
     expect(
       resolveBookingStatusAfterPayment({
         bookingStatus: BookingStatus.APPROVED,
@@ -44,21 +44,30 @@ describe("recording payment never approves a booking", () => {
     ).toBe(BookingStatus.APPROVED);
   });
 
-  it("preserves legacy auto-confirm for payment-first bookings", () => {
-    // Existing admin behavior must not regress.
+  it("normalizes legacy payment-first bookings to approved when settled", () => {
+    // CONFIRMED is gone from the lifecycle; legacy statuses settle as APPROVED.
     expect(
       resolveBookingStatusAfterPayment({
         bookingStatus: BookingStatus.AWAITING_PAYMENT,
         paymentStatus: PaymentStatus.PAID,
       })
-    ).toBe(BookingStatus.CONFIRMED);
+    ).toBe(BookingStatus.APPROVED);
 
     expect(
       resolveBookingStatusAfterPayment({
         bookingStatus: BookingStatus.PAYMENT_PROCESSING,
         paymentStatus: PaymentStatus.PAID,
       })
-    ).toBe(BookingStatus.CONFIRMED);
+    ).toBe(BookingStatus.APPROVED);
+  });
+
+  it("keeps a completed booking completed after a payment is recorded", () => {
+    expect(
+      resolveBookingStatusAfterPayment({
+        bookingStatus: BookingStatus.COMPLETED,
+        paymentStatus: PaymentStatus.PAID,
+      })
+    ).toBe(BookingStatus.COMPLETED);
   });
 
   it("does not confirm a booking on a partial payment", () => {
