@@ -193,7 +193,7 @@ export async function sendBookingApprovedEmail(bookingId: string) {
       booking.contactEmail!,
       `Your booking for ${base.date} has been approved [${booking.bookingRef}]`,
       base,
-      { actionUrl: successUrl, actionLabel: "View Booking" }
+      { actionUrl: successUrl, actionLabel: "View Your Booking" }
     );
   } catch (error) {
     console.error("BOOKING_APPROVED_CUSTOMER_EMAIL_FAILED", error);

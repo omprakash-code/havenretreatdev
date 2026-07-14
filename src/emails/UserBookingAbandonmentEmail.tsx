@@ -107,7 +107,7 @@ export default function UserBookingAbandonmentEmail({
           <BookingEmailHeader
             eyebrow="Haven Retreat"
             title={emailTitle}
-            backgroundColor={bookingEmailColors.brandAccent}
+            backgroundColor="#ffffff"
             textColor={accentTextColor}
             logoBorder={logoBorder}
           />

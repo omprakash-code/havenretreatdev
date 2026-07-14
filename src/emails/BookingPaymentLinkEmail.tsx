@@ -77,7 +77,7 @@ export default function BookingPaymentLinkEmail({
           <BookingEmailHeader
             eyebrow="Haven Retreat"
             title="Complete Your Payment"
-            backgroundColor={bookingEmailColors.brandAccent}
+            backgroundColor="#ffffff"
             textColor={accentTextColor}
             logoBorder={logoBorder}
           />

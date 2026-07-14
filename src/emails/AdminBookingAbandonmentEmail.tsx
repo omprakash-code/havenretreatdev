@@ -59,7 +59,7 @@ export default function AdminBookingAbandonmentEmail({
     resolvedTheme === "light"
       ? bookingEmailColors.light
       : bookingEmailColors.admin;
-  const dangerHeaderText = "#ffffff";
+  const dangerHeaderText = "#dc2626";
   const referenceText = resolvedTheme === "light" ? "#b91c1c" : "#FCA5A5";
   const logoBorder =
     resolvedTheme === "light"
@@ -101,7 +101,7 @@ export default function AdminBookingAbandonmentEmail({
           <BookingEmailHeader
             eyebrow="Operations Update"
             title={headerTitle}
-            backgroundColor="#EF4444"
+            backgroundColor="#ffffff"
             textColor={dangerHeaderText}
             logoBorder={logoBorder}
             fallbackBackgroundColor={dangerHeaderText}

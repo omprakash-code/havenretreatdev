@@ -81,13 +81,22 @@ describe("BookingReviewEmail template", () => {
     expect(html).toContain("Signed");
   });
 
-  it("keeps approval payment instructions neutral", async () => {
+  it("asks the approved customer for the Zelle advance deposit", async () => {
     const html = await render(
       BookingReviewEmail({ ...baseProps, variant: "APPROVED" })
     );
 
-    expect(html).toContain("approved");
-    expect(html).toContain("contact you with the next steps");
+    expect(html).toContain("Your booking has been approved");
+    expect(html).toContain("$150");
+    expect(html).toContain("Zelle");
+    expect(html).toContain("Send Payment To");
+    expect(html).toContain("jessika111190@gmail.com");
+    expect(html).toContain("Payment Reference");
+    expect(html).toContain("HR0712202600001");
+    expect(html).toContain("Zelle payment note");
+    expect(html).toContain("Awaiting Payment");
+    expect(html).toContain("payment confirmation email");
+    expect(html).toContain("View Your Booking");
   });
 
   it("includes the rejection reason for the customer", async () => {

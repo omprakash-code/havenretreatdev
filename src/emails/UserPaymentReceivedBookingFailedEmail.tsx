@@ -96,7 +96,7 @@ export default function UserPaymentReceivedBookingFailedEmail({
           <BookingEmailHeader
             eyebrow="Haven Retreat"
             title="Payment Received, Booking Not Confirmed"
-            backgroundColor={bookingEmailColors.brandAccent}
+            backgroundColor="#ffffff"
             textColor={accentTextColor}
             logoBorder={logoBorder}
           />

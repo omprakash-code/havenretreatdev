@@ -142,6 +142,7 @@ type ActionButtonProps = {
   label: string;
   backgroundColor: string;
   textColor: string;
+  uppercase?: boolean;
 };
 
 export function BookingEmailCenteredActionButton({
@@ -149,6 +150,7 @@ export function BookingEmailCenteredActionButton({
   label,
   backgroundColor,
   textColor,
+  uppercase = true,
 }: ActionButtonProps) {
   return (
     <table
@@ -182,9 +184,9 @@ export function BookingEmailCenteredActionButton({
                         color: textColor,
                         textDecoration: "none",
                         fontSize: 12,
-                        fontWeight: 800,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
+                        fontWeight: 600,
+                        letterSpacing: uppercase ? "0.08em" : "0.02em",
+                        textTransform: uppercase ? ("uppercase" as const) : ("none" as const),
                       }}
                     >
                       {label}

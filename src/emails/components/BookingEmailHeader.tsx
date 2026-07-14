@@ -108,11 +108,12 @@ export default function BookingEmailHeader({
                           <img
                             src={BOOKING_EMAIL_BRAND_LOGO_URL}
                             alt=""
-                            width={72}
-                            height={72}
+                            width={144}
+                            height={144}
                             style={{
-                              width: 72,
-                              height: 72,
+                              width: 144,
+                              height: 144,
+                              margin: "-36px 0",
                               display: "block",
                               borderRadius: 100,
                               border: logoBorder,

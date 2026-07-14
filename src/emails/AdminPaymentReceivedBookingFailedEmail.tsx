@@ -44,7 +44,7 @@ const color =
   resolvedTheme === "light"
     ? bookingEmailColors.light
     : bookingEmailColors.admin;
-const dangerHeaderText = "#ffffff";
+const dangerHeaderText = "#dc2626";
 const failureReferenceText = resolvedTheme === "light" ? "#b91c1c" : "#FCA5A5";
 const logoBorder =
   resolvedTheme === "light"
@@ -96,7 +96,7 @@ export default function AdminPaymentReceivedBookingFailedEmail({
           <BookingEmailHeader
             eyebrow="Operations Update"
             title="Payment Captured, Booking Failed"
-            backgroundColor="#ef4444"
+            backgroundColor="#ffffff"
             textColor={dangerHeaderText}
             logoBorder={logoBorder}
             fallbackBackgroundColor={dangerHeaderText}

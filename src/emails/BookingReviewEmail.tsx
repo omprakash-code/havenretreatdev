@@ -7,7 +7,6 @@ import {
 } from "@/emails/components/BookingEmailContent";
 import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import {
-  BOOKING_APPROVED_MESSAGE,
   BOOKING_PAYMENT_NOT_REQUIRED_VALUE,
   BOOKING_REJECTED_MESSAGE,
   BOOKING_REVIEW_TITLE,
@@ -60,8 +59,9 @@ function resolveVariantCopy(props: BookingReviewEmailProps) {
     case "APPROVED":
       return {
         eyebrow: "Booking Approved",
-        title: "Your event is approved",
-        message: BOOKING_APPROVED_MESSAGE,
+        title: "Your booking has been approved! 🎉",
+        message:
+          "To secure your reservation, please submit your $150 advance deposit via Zelle using the payment details below.",
         note: null,
       };
     case "REJECTED":
@@ -95,6 +95,7 @@ function resolveVariantCopy(props: BookingReviewEmailProps) {
 export default function BookingReviewEmail(props: BookingReviewEmailProps) {
   const copy = resolveVariantCopy(props);
   const isAdmin = props.variant === "ADMIN_SUBMITTED";
+  const isApproved = props.variant === "APPROVED";
   const amountLabel = isAdmin ? "Total Estimate" : "Estimated Total";
   const rejectionReason =
     props.variant === "REJECTED" ? props.rejectionReason?.trim() : null;
@@ -130,13 +131,25 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
             title={props.bookingRef}
             referenceTitle
             eyebrow={copy.eyebrow}
-            backgroundColor={bookingEmailColors.brandAccent}
-            textColor={color.textPrimary}
+            backgroundColor="#ffffff"
+            textColor={bookingEmailColors.dark.textStrong}
             logoBorder={color.logoBorder}
           />
 
           <tr>
             <td style={{ padding: "16px 12px" }}>
+              {isApproved && (
+                <p
+                  style={{
+                    margin: "0 0 6px",
+                    fontSize: 12,
+                    lineHeight: "20px",
+                    color: color.textMuted,
+                  }}
+                >
+                  Hi {props.customerName},
+                </p>
+              )}
               <p
                 style={{
                   margin: 0,
@@ -155,7 +168,21 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                   color: color.textMuted,
                 }}
               >
-                {isAdmin ? copy.message : `Hi ${props.customerName}, ${copy.message}`}
+                {isApproved ? (
+                  <>
+                    To secure your reservation, please submit your{" "}
+                    <strong style={{ color: color.textPrimary }}>
+                      $150 advance deposit
+                    </strong>{" "}
+                    via{" "}
+                    <strong style={{ color: color.textPrimary }}>Zelle</strong>{" "}
+                    using the payment details below.
+                  </>
+                ) : isAdmin ? (
+                  copy.message
+                ) : (
+                  `Hi ${props.customerName}, ${copy.message}`
+                )}
               </p>
 
               {copy.note && (
@@ -173,6 +200,113 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                 >
                   {copy.note}
                 </p>
+              )}
+
+              {isApproved && (
+                <>
+                  <table
+                    role="presentation"
+                    cellPadding={0}
+                    cellSpacing={0}
+                    style={{ width: "100%", marginTop: 6 }}
+                  >
+                    <tbody>
+                      <BookingEmailSectionLabel textColor={color.textMuted}>
+                        Payment Instructions
+                      </BookingEmailSectionLabel>
+                    </tbody>
+                  </table>
+
+                  <BookingEmailSummaryPanel
+                    palette={{
+                      textSecondary: color.textSecondary,
+                      borderLine: color.borderLine,
+                      cardBg: color.panelBg,
+                    }}
+                  >
+                    <table
+                      role="presentation"
+                      cellPadding={0}
+                      cellSpacing={0}
+                      style={{ width: "100%" }}
+                    >
+                      <tbody>
+                        <BookingEmailDataRow
+                          label="Advance Deposit"
+                          value="$150"
+                          labelColor={color.textSecondary}
+                          valueColor={color.textPrimary}
+                          valueWeight={700}
+                        />
+                        <BookingEmailDataRow
+                          label="Payment Method"
+                          value="Zelle"
+                          labelColor={color.textSecondary}
+                          valueColor={color.textPrimary}
+                          valueWeight={700}
+                        />
+                        <BookingEmailDataRow
+                          label="Send Payment To"
+                          value="jessika111190@gmail.com"
+                          labelColor={color.textSecondary}
+                          valueColor={color.textPrimary}
+                          valueWeight={700}
+                          last
+                        />
+                      </tbody>
+                    </table>
+                  </BookingEmailSummaryPanel>
+
+                  <div style={{ margin: "0 0 14px" }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase" as const,
+                        color: color.textMuted,
+                      }}
+                    >
+                      Payment Reference
+                    </p>
+                    <p
+                      style={{
+                        margin: "4px 0 0",
+                        fontSize: 14,
+                        fontWeight: 700,
+                        fontFamily: bookingEmailFonts.mono,
+                        letterSpacing: "0.04em",
+                        color: color.textPrimary,
+                      }}
+                    >
+                      {props.bookingRef}
+                    </p>
+                    <p
+                      style={{
+                        margin: "6px 0 0",
+                        fontSize: 11,
+                        lineHeight: "18px",
+                        color: color.textSubtle,
+                      }}
+                    >
+                      Please include this reference in your Zelle payment note
+                      so we can match your payment quickly.
+                    </p>
+                  </div>
+
+                  <p
+                    style={{
+                      margin: "0 0 6px",
+                      fontSize: 12,
+                      lineHeight: "20px",
+                      color: color.textMuted,
+                    }}
+                  >
+                    Once your payment is received, we&apos;ll confirm your
+                    reservation and send you a payment confirmation email.
+                  </p>
+                </>
               )}
 
               {rejectionReason && (
@@ -279,7 +413,7 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                       valueColor={color.textPrimary}
                     />
                     <BookingEmailDataRow
-                      label="Agreement"
+                      label="Rental Agreement"
                       value={props.agreementSigned ? "Signed" : "Not signed"}
                       labelColor={color.textSecondary}
                       valueColor={
@@ -296,11 +430,16 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                       valueColor={color.textPrimary}
                       valueWeight={700}
                     />
-                    {/* Approval and payment are separate lifecycles: nothing is
-                        owed until Haven Retreat records a payment. */}
+                    {/* Approval asks for the advance deposit; every other
+                        variant owes nothing until Haven Retreat records a
+                        payment. */}
                     <BookingEmailDataRow
-                      label="Payment"
-                      value={BOOKING_PAYMENT_NOT_REQUIRED_VALUE}
+                      label={isApproved ? "Payment Status" : "Payment"}
+                      value={
+                        isApproved
+                          ? "Awaiting Payment"
+                          : BOOKING_PAYMENT_NOT_REQUIRED_VALUE
+                      }
                       labelColor={color.textSecondary}
                       valueColor={color.textPrimary}
                       last
@@ -356,9 +495,13 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
               {props.actionUrl && (
                 <BookingEmailCenteredActionButton
                   href={props.actionUrl}
-                  label={props.actionLabel ?? "View Booking"}
+                  label={
+                    props.actionLabel ??
+                    (isApproved ? "View Your Booking" : "View Booking")
+                  }
                   backgroundColor={bookingEmailColors.brandAccent}
                   textColor={color.textPrimary}
+                  uppercase={!isApproved}
                 />
               )}
             </td>

@@ -257,7 +257,7 @@ export default function BookingConfirmationEmailLight({
       >
         <tbody>
           <tr>
-            <td style={{ backgroundColor: bookingEmailColors.brandAccent, padding: "14px 12px 12px" }}>
+            <td style={{ backgroundColor: "#ffffff", padding: "14px 12px 12px" }}>
               <table
                 role="presentation"
                 cellPadding={0}
@@ -321,11 +321,12 @@ export default function BookingConfirmationEmailLight({
                                 <img
                                   src={BRAND_LOGO_URL}
                                   alt=""
-                                  width={72}
-                                  height={72}
+                                  width={144}
+                                  height={144}
                                   style={{
-                                    width: 72,
-                                    height: 72,
+                                    width: 144,
+                                    height: 144,
+                                    margin: "-36px 0",
                                     display: "block",
                                     borderRadius: 100,
                                     border: color.logoBorder,
