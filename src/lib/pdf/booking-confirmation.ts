@@ -44,6 +44,8 @@ function mapEmailDataToBookingSuccessData(
     packageAmount: data.baseAmount ?? 0,
     extrasAmount: data.extrasAmount ?? 0,
     decorationAmount: data.decorationAmount ?? 0,
+    additionalChargeAmount: data.additionalChargeAmount ?? 0,
+    additionalChargeReason: data.additionalChargeReason ?? null,
     totalAmount: data.totalAmount,
     advancePaid: data.advancePaid,
     remainingPayable: data.remainingPayable,

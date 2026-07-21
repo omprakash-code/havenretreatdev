@@ -80,6 +80,7 @@ export default function AnimatedTicketCard({
   const discountAmount = data.discountAmount ?? 0;
   const subtotalBeforeDiscount = data.totalAmount + discountAmount;
   const showDiscountBreakdown = discountAmount > 0;
+  const additionalChargeAmount = data.additionalChargeAmount ?? 0;
   // A booking under review has no payment yet: approval and payment are
   // separate lifecycles, so show what is owed rather than a $0 "paid" row.
   const hasCollectedPayment = data.advancePaid > 0;
@@ -410,6 +411,16 @@ ${shareUrl}`;
                 label="Discount"
                 value={`-${formatCurrency(discountAmount)}`}
                 highlight
+              />
+            )}
+            {additionalChargeAmount > 0 && (
+              <PriceRow
+                label={
+                  data.additionalChargeReason
+                    ? `Additional Charge (${data.additionalChargeReason})`
+                    : "Additional Charge"
+                }
+                value={formatCurrency(additionalChargeAmount)}
               />
             )}
             <PriceRow

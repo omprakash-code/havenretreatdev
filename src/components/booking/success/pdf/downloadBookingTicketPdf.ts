@@ -299,6 +299,16 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
       });
     });
 
+  const additionalChargeAmount = data.additionalChargeAmount ?? 0;
+  if (additionalChargeAmount > 0) {
+    rows.push({
+      label: data.additionalChargeReason
+        ? `Additional Charge (${sanitizeDisplayText(data.additionalChargeReason)})`
+        : "Additional Charge",
+      value: formatCurrency(additionalChargeAmount),
+    });
+  }
+
   if (showDiscountBreakdown) {
     rows.push({
       label: "Subtotal (Before Discount)",

@@ -71,6 +71,8 @@ export type AdminBooking = {
     base: number;
     extras: number;
     products: number;
+    additionalChargeAmount: number;
+    additionalChargeReason: string | null;
     decoration: number;
     discount: number;
     total: number;

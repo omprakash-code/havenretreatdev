@@ -8,6 +8,7 @@ type CalculateBookingPricingInput = {
   includedDurationHours?: number | null;
   extraHourlyRate?: number | null;
   productsAmount?: number;
+  additionalChargeAmount?: number;
   discountAmount?: number;
   advancePaid?: number;
 };
@@ -20,6 +21,7 @@ export type BookingPricingBreakdown = {
   extraHoursAmount: number;
   extrasAmount: number;
   productsAmount: number;
+  additionalChargeAmount: number;
   decorationAmount: number;
   discountAmount: number;
   totalAmount: number;
@@ -58,8 +60,13 @@ export function calculateBookingPricing(
   const decorationAmount = 0;
 
   const productsAmount = toMoney(input.productsAmount ?? 0);
+  const additionalChargeAmount = toMoney(input.additionalChargeAmount ?? 0);
   const grossAmount =
-    baseAmount + extrasAmount + decorationAmount + productsAmount;
+    baseAmount +
+    extrasAmount +
+    decorationAmount +
+    productsAmount +
+    additionalChargeAmount;
   const discountAmount = Math.min(toMoney(input.discountAmount ?? 0), grossAmount);
   const totalAmount = Math.max(grossAmount - discountAmount, 0);
   const advancePaid = Math.min(toMoney(input.advancePaid ?? 0), totalAmount);
@@ -73,6 +80,7 @@ export function calculateBookingPricing(
     extraHoursAmount,
     extrasAmount,
     productsAmount,
+    additionalChargeAmount,
     decorationAmount,
     discountAmount,
     totalAmount,

@@ -143,4 +143,23 @@ describe("package extra-hour pricing", () => {
     expect(pricing.baseAmount).toBe(942);
     expect(pricing.totalAmount).toBe(942);
   });
+
+  it("includes a booking-level additional charge in totals and balance", () => {
+    const pricing = calculateBookingPricing({
+      slotBasePrice: 500,
+      slotFinalPrice: 500,
+      guestCount: 10,
+      theatreBaseGuests: 10,
+      theatreExtraPersonPrice: 25,
+      productsAmount: 75,
+      additionalChargeAmount: 50,
+      discountAmount: 25,
+      advancePaid: 100,
+    });
+
+    expect(pricing.additionalChargeAmount).toBe(50);
+    expect(pricing.totalAmount).toBe(600);
+    expect(pricing.advancePaid).toBe(100);
+    expect(pricing.remainingPayable).toBe(500);
+  });
 });

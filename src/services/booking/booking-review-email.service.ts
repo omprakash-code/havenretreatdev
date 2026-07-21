@@ -65,6 +65,8 @@ async function loadReviewEmailContext(bookingId: string) {
     guestCount: booking.guestCount,
     occasionLabel: booking.occasionLabel,
     decorationRequired: booking.decorationRequired,
+    additionalChargeAmount: booking.additionalChargeAmount,
+    additionalChargeReason: booking.additionalChargeReason,
     totalAmount: booking.totalAmount,
     agreementSigned: Boolean(signedAgreement),
     rejectionReason: booking.rejectionReason,

@@ -13,6 +13,7 @@ export function getSubmitBlockerMessage(errors: Record<string, string>) {
   if (occasionKey) return errors[occasionKey] ?? "Complete required occasion details.";
 
   if (errors.amountPayNow) return errors.amountPayNow;
+  if (errors.additionalChargeAmount) return errors.additionalChargeAmount;
   if (errors.offlineReference) return "Enter payment reference ID.";
   if (errors.paymentStatus) return errors.paymentStatus;
   if (errors.couponCode) return errors.couponCode;

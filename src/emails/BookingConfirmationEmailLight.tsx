@@ -38,6 +38,8 @@ export type BookingConfirmationEmailProps = {
   baseAmount?: number;
   extrasAmount?: number;
   productsAmount?: number;
+  additionalChargeAmount?: number;
+  additionalChargeReason?: string | null;
   decorationAmount?: number;
   discountAmount?: number;
   totalAmount: number;
@@ -209,6 +211,8 @@ export default function BookingConfirmationEmailLight({
   baseAmount = 0,
   extrasAmount = 0,
   productsAmount = 0,
+  additionalChargeAmount = 0,
+  additionalChargeReason = null,
   decorationAmount = 0,
   discountAmount = 0,
   totalAmount,
@@ -731,6 +735,18 @@ export default function BookingConfirmationEmailLight({
                               <td style={{ fontSize: 12, color: color.textSecondary, padding: "4px 0" }}>Add-ons</td>
                               <td align="right" style={{ fontSize: 12, color: color.textMuted, padding: "4px 0" }}>
                                 {formatMoney(productsAmount)}
+                              </td>
+                            </tr>
+                          ) : null}
+                          {additionalChargeAmount > 0 ? (
+                            <tr>
+                              <td style={{ fontSize: 12, color: color.textSecondary, padding: "4px 0" }}>
+                                {additionalChargeReason
+                                  ? `Additional Charge (${additionalChargeReason})`
+                                  : "Additional Charge"}
+                              </td>
+                              <td align="right" style={{ fontSize: 12, color: color.textMuted, padding: "4px 0" }}>
+                                {formatMoney(additionalChargeAmount)}
                               </td>
                             </tr>
                           ) : null}

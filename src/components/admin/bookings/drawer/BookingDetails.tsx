@@ -995,6 +995,19 @@ export default function BookingDetails({
                     </div>
                   )}
 
+                  {booking.pricing.additionalChargeAmount > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600">
+                        {booking.pricing.additionalChargeReason
+                          ? `Additional Charge (${booking.pricing.additionalChargeReason})`
+                          : "Additional Charge"}
+                      </span>
+                      <span className="text-sm font-medium text-slate-900">
+                        ${booking.pricing.additionalChargeAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
                   {booking.pricing.discount > 0 && (
                     <div className="flex justify-between items-center">
                       <div className="min-w-0">

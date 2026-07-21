@@ -124,10 +124,17 @@ export function BookingSummarySection({
     pricing?.baseAmount ?? packageAmount + billedExtraHoursAmount;
   const decorationAmount = pricing?.decorationAmount ?? 0;
   const productsAmount = pricing?.productsAmount ?? 0;
+  const additionalChargeAmount = pricing?.additionalChargeAmount ?? 0;
+  const additionalChargeReason = pricing?.additionalChargeReason?.trim();
   const extrasAmount = pricing?.extrasAmount ?? 0;
   const discountAmount = pricing?.discountAmount ?? 0;
   const totalAmount = pricing?.totalAmount ?? 0;
-  const subtotalAmount = slotAmount + decorationAmount + extrasAmount + productsAmount;
+  const subtotalAmount =
+    slotAmount +
+    decorationAmount +
+    extrasAmount +
+    productsAmount +
+    additionalChargeAmount;
   const paidAmount = Math.max(alreadyPaidAmount, 0);
   const payNowAmount =
     paymentAmountMode === "FULL" || paymentAmountMode === "REMAINING"
@@ -334,6 +341,17 @@ export function BookingSummarySection({
                     </div>
                   ) : null}
                 </div>
+              ) : null}
+
+              {additionalChargeAmount > 0 ? (
+                <SummaryRow
+                  label={
+                    additionalChargeReason
+                      ? `Additional charge (${additionalChargeReason})`
+                      : "Additional charge"
+                  }
+                  value={formatCurrency(additionalChargeAmount)}
+                />
               ) : null}
 
               {discountAmount > 0 ? (

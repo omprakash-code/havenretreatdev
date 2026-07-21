@@ -87,6 +87,8 @@ export type PricingSummary = {
   extraHoursAmount?: number;
   extrasAmount: number;
   productsAmount: number;
+  additionalChargeAmount: number;
+  additionalChargeReason?: string | null;
   decorationAmount: number;
   discountAmount: number;
   totalAmount: number;

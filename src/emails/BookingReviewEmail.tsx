@@ -35,6 +35,8 @@ export type BookingReviewEmailProps = {
   guestCount: number;
   occasionLabel?: string | null;
   decorationRequired?: boolean;
+  additionalChargeAmount?: number | null;
+  additionalChargeReason?: string | null;
   totalAmount: number;
   agreementSigned: boolean;
   rejectionReason?: string | null;
@@ -423,6 +425,18 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                       }
                       valueWeight={700}
                     />
+                    {(props.additionalChargeAmount ?? 0) > 0 && (
+                      <BookingEmailDataRow
+                        label={
+                          props.additionalChargeReason
+                            ? `Additional Charge (${props.additionalChargeReason})`
+                            : "Additional Charge"
+                        }
+                        value={formatMoney(props.additionalChargeAmount ?? 0)}
+                        labelColor={color.textSecondary}
+                        valueColor={color.textPrimary}
+                      />
+                    )}
                     <BookingEmailDataRow
                       label={amountLabel}
                       value={formatMoney(props.totalAmount)}

@@ -126,6 +126,8 @@ type UpdateBookingPayload = {
   couponCode?: string;
   couponCodes?: string[];
   items?: UpdateBookingItemPayload[];
+  additionalChargeAmount?: number;
+  additionalChargeReason?: string;
   payment?: {
     type?: PaymentType;
     amountMode?: PaymentAmountMode;
@@ -191,6 +193,26 @@ function extractLedNumbersFromOccasionData(
 
   const extracted = values.flatMap((value) => extractLedNumbers(value));
   return Array.from(new Set(extracted));
+}
+
+function normalizeAdditionalChargeAmount(value: unknown) {
+  if (value == null || String(value).trim() === "") return 0;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new AdminBookingEditError(
+      400,
+      "INVALID_REQUEST",
+      "Additional charge amount must be zero or a positive number."
+    );
+  }
+  if (!Number.isInteger(amount)) {
+    throw new AdminBookingEditError(
+      400,
+      "INVALID_REQUEST",
+      "Additional charge amount must be a whole number until decimal pricing is enabled."
+    );
+  }
+  return Math.trunc(amount);
 }
 
 export async function GET(
@@ -475,6 +497,8 @@ export async function GET(
             base: booking.baseAmount,
             extras: booking.extrasAmount,
             products: booking.productsAmount,
+            additionalChargeAmount: booking.additionalChargeAmount,
+            additionalChargeReason: booking.additionalChargeReason,
             decoration: booking.decorationAmount,
             discount: booking.discountAmount,
             total: booking.totalAmount,
@@ -658,6 +682,8 @@ export async function GET(
           baseAmount: booking.baseAmount,
           extrasAmount: booking.extrasAmount,
           productsAmount: booking.productsAmount,
+          additionalChargeAmount: booking.additionalChargeAmount,
+          additionalChargeReason: booking.additionalChargeReason,
           decorationAmount: booking.decorationAmount,
           discountAmount: booking.discountAmount,
           totalAmount: booking.totalAmount,
@@ -707,6 +733,13 @@ export async function PATCH(
     const decorationRequired = Boolean(body.decorationRequired);
     const specialInstructions =
       String(body.specialInstructions ?? "").trim() || null;
+    const additionalChargeAmount = normalizeAdditionalChargeAmount(
+      body.additionalChargeAmount
+    );
+    const additionalChargeReason =
+      additionalChargeAmount > 0
+        ? String(body.additionalChargeReason ?? "").trim() || null
+        : null;
 
     if (!customerName) {
       throw new AdminBookingEditError(
@@ -1244,6 +1277,7 @@ export async function PATCH(
         theatreBaseGuests: packageSnap?.guestLimit ?? 2,
         theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         productsAmount,
+        additionalChargeAmount,
         discountAmount: 0,
         advancePaid: 0,
       });
@@ -1278,7 +1312,8 @@ export async function PATCH(
         nonSlotAmount:
           pricingBase.extrasAmount +
           pricingBase.decorationAmount +
-          pricingBase.productsAmount,
+          pricingBase.productsAmount +
+          pricingBase.additionalChargeAmount,
         productsTotal: pricingBase.productsAmount,
         extrasTotal: pricingBase.extrasAmount,
         advanceFloor: minAdvanceAmount,
@@ -1329,6 +1364,7 @@ export async function PATCH(
         theatreBaseGuests: packageSnap?.guestLimit ?? 2,
         theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         productsAmount,
+        additionalChargeAmount,
         discountAmount: couponDiscount,
         advancePaid: desiredAdvance,
       });
@@ -1532,6 +1568,13 @@ export async function PATCH(
         }
       }
 
+      const previousPricingSnapshot =
+        booking.pricingSnapshot &&
+        typeof booking.pricingSnapshot === "object" &&
+        !Array.isArray(booking.pricingSnapshot)
+          ? (booking.pricingSnapshot as Record<string, Prisma.JsonValue>)
+          : {};
+
       const updated = await tx.booking.update({
         where: { id: booking.id },
         data: {
@@ -1554,9 +1597,23 @@ export async function PATCH(
           guestCount,
           decorationRequired: effectiveDecorationRequired,
           specialInstructions,
+          pricingSnapshot: {
+            ...previousPricingSnapshot,
+            extraGuestAmount: pricing.extrasAmount,
+            productsAmount: pricing.productsAmount,
+            additionalChargeAmount: pricing.additionalChargeAmount,
+            additionalChargeReason,
+            decorationAmount: pricing.decorationAmount,
+            discountAmount: pricing.discountAmount,
+            totalAmount: pricing.totalAmount,
+            advancePaid: persistedAdvancePaid,
+            remainingPayable: persistedRemainingPayable,
+          },
           baseAmount: pricing.baseAmount,
           extrasAmount: pricing.extrasAmount,
           productsAmount: pricing.productsAmount,
+          additionalChargeAmount: pricing.additionalChargeAmount,
+          additionalChargeReason,
           discountAmount: pricing.discountAmount,
           totalAmount: pricing.totalAmount,
           decorationAmount: pricing.decorationAmount,

@@ -259,6 +259,8 @@ export async function buildBookingSuccessData(
       extraDurationAmount > 0 ? extraDurationAmount : undefined,
     extrasAmount: booking.extrasAmount,
     decorationAmount: booking.decorationAmount,
+    additionalChargeAmount: booking.additionalChargeAmount,
+    additionalChargeReason: booking.additionalChargeReason,
     totalAmount: booking.totalAmount,
     discountAmount: booking.discountAmount,
     advancePaid: advance,

@@ -72,6 +72,8 @@ export function mapAdminBookingToSuccessData(
     extraDurationAmount: booking.pricing.extraDurationAmount ?? null,
     extrasAmount: booking.pricing.extras,
     decorationAmount: booking.pricing.decoration,
+    additionalChargeAmount: booking.pricing.additionalChargeAmount,
+    additionalChargeReason: booking.pricing.additionalChargeReason,
     totalAmount: booking.pricing.total,
     advancePaid: booking.pricing.advancePaid,
     remainingPayable: booking.pricing.remainingPayable,

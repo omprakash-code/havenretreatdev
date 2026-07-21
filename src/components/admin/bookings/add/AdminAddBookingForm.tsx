@@ -46,7 +46,9 @@ import {  isValidPhone, normalizePhone,} from "@/lib/phone";
 import {
   getSelectionKey,
   getVariantPrice,
+  inputClass,
   isValidEmail,
+  sectionClass,
   type ActiveVariantMap,
   type LedDraftMap,
   type LocationOption,
@@ -141,6 +143,8 @@ type EditBookingResponse = {
     productsAmount: number;
     decorationAmount: number;
     discountAmount: number;
+    additionalChargeAmount: number;
+    additionalChargeReason: string | null;
     totalAmount: number;
     advancePaid: number;
     remainingPayable: number;
@@ -274,6 +278,9 @@ export function AdminAddBookingForm({
   const [businessCloseTime, setBusinessCloseTime] = useState("23:00");
   const [bookingTimezone, setBookingTimezone] = useState<string>(BOOKING_TIME_ZONE);
   const [specialInstructions, setSpecialInstructions] = useState("");
+  const [additionalChargeAmountInput, setAdditionalChargeAmountInput] =
+    useState("");
+  const [additionalChargeReason, setAdditionalChargeReason] = useState("");
   const [customAdvanceAmount, setCustomAdvanceAmount] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [paymentStatus, setPaymentStatus] = useState<
@@ -419,6 +426,14 @@ export function AdminAddBookingForm({
 
         setDecorationRequired(Boolean(booking.decorationRequired));
         setSpecialInstructions(booking.specialInstructions ?? "");
+        setAdditionalChargeAmountInput(
+          Number(booking.pricing.additionalChargeAmount ?? 0) > 0
+            ? String(Number(booking.pricing.additionalChargeAmount ?? 0))
+            : ""
+        );
+        setAdditionalChargeReason(
+          booking.pricing.additionalChargeReason ?? ""
+        );
         setOccasionKey(booking.occasionKey ?? "");
         setOccasionData(normalizedOccasionData);
         const prefilledCoupons = Array.isArray(booking.appliedCoupons)
@@ -1199,6 +1214,12 @@ export function AdminAddBookingForm({
     return selectedProductItems.reduce((sum, item) => sum + item.totalPrice, 0);
   }, [selectedProductItems]);
 
+  const additionalChargeAmount = useMemo(() => {
+    if (!additionalChargeAmountInput.trim()) return 0;
+    const parsed = Number(additionalChargeAmountInput);
+    return Number.isFinite(parsed) ? Math.max(parsed, 0) : Number.NaN;
+  }, [additionalChargeAmountInput]);
+
   const pricingBase = useMemo<PricingSummary | null>(() => {
     if (!selectedTheatre) return null;
     if (!startTime || !endTime) return null;
@@ -1209,13 +1230,14 @@ export function AdminAddBookingForm({
       ? Math.max((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60, 0)
       : 0;
 
-    return calculateBookingPricing({
+    const calculated = calculateBookingPricing({
       slotBasePrice,
       slotFinalPrice,
       guestCount,
       theatreBaseGuests: selectedTheatre.baseGuests,
       theatreExtraPersonPrice: selectedTheatre.extraPersonPrice,
       productsAmount,
+      additionalChargeAmount,
       discountAmount: 0,
       advancePaid: 0,
       durationHours: bookingDurationHours,
@@ -1223,12 +1245,21 @@ export function AdminAddBookingForm({
         selectedTheatre.eventDurationHours ?? minimumBookingDurationHours,
       extraHourlyRate: selectedTheatre.hourlyRate ?? extraHourlyRate,
     });
+    return {
+      ...calculated,
+      additionalChargeReason:
+        calculated.additionalChargeAmount > 0
+          ? additionalChargeReason.trim() || null
+          : null,
+    };
   }, [
     selectedTheatre,
     startTime,
     endTime,
     guestCount,
     productsAmount,
+    additionalChargeAmount,
+    additionalChargeReason,
     minimumBookingDurationHours,
     extraHourlyRate,
   ]);
@@ -1282,13 +1313,14 @@ export function AdminAddBookingForm({
       ? Math.max((timeToMinutes(endTime) - timeToMinutes(startTime)) / 60, 0)
       : 0;
 
-    return calculateBookingPricing({
+    const calculated = calculateBookingPricing({
       slotBasePrice,
       slotFinalPrice,
       guestCount,
       theatreBaseGuests: selectedTheatre.baseGuests,
       theatreExtraPersonPrice: selectedTheatre.extraPersonPrice,
       productsAmount,
+      additionalChargeAmount,
       discountAmount: couponDiscount,
       advancePaid: desiredAdvance,
       durationHours: bookingDurationHours,
@@ -1296,6 +1328,13 @@ export function AdminAddBookingForm({
         selectedTheatre.eventDurationHours ?? minimumBookingDurationHours,
       extraHourlyRate: selectedTheatre.hourlyRate ?? extraHourlyRate,
     });
+    return {
+      ...calculated,
+      additionalChargeReason:
+        calculated.additionalChargeAmount > 0
+          ? additionalChargeReason.trim() || null
+          : null,
+    };
   }, [
     pricingBase,
     selectedTheatre,
@@ -1303,6 +1342,8 @@ export function AdminAddBookingForm({
     endTime,
     guestCount,
     productsAmount,
+    additionalChargeAmount,
+    additionalChargeReason,
     isEditMode,
     payLater,
     totalAfterDiscount,
@@ -1346,6 +1387,11 @@ export function AdminAddBookingForm({
     const guestChanged = guestCount !== editPrefill.guestCount;
     const decorationChanged =
       effectiveDecorationRequired !== Boolean(editPrefill.decorationRequired);
+    const additionalChargeChanged =
+      Math.trunc(Math.max(Number(additionalChargeAmount) || 0, 0)) !==
+        Math.max(Number(editPrefill.pricing.additionalChargeAmount ?? 0), 0) ||
+      additionalChargeReason.trim() !==
+        String(editPrefill.pricing.additionalChargeReason ?? "").trim();
 
     const initialProductQty = new Map<string, number>();
     editPrefill.items.forEach((item) => {
@@ -1392,7 +1438,14 @@ export function AdminAddBookingForm({
       initialCoupons.length !== currentCoupons.length ||
       initialCoupons.some((coupon, index) => coupon !== currentCoupons[index]);
 
-    return scheduleChanged || guestChanged || decorationChanged || productsChanged || couponsChanged;
+    return (
+      scheduleChanged ||
+      guestChanged ||
+      decorationChanged ||
+      additionalChargeChanged ||
+      productsChanged ||
+      couponsChanged
+    );
   }, [
     isEditMode,
     editPrefill,
@@ -1402,6 +1455,8 @@ export function AdminAddBookingForm({
     theatreId,
     guestCount,
     effectiveDecorationRequired,
+    additionalChargeAmount,
+    additionalChargeReason,
     selectedProductItems,
     appliedCoupons,
   ]);
@@ -1444,6 +1499,7 @@ export function AdminAddBookingForm({
       String(pricingBase?.totalAmount ?? 0),
       String(pricingBase?.productsAmount ?? 0),
       String(pricingBase?.extrasAmount ?? 0),
+      String(pricingBase?.additionalChargeAmount ?? 0),
       productSignature,
     ].join("::");
   }, [date, startTime, endTime, existingUserId, phone, pricingBase, selectedProductItems]);
@@ -1497,7 +1553,8 @@ export function AdminAddBookingForm({
           nonSlotAmount:
             pricingBase.extrasAmount +
             pricingBase.decorationAmount +
-            pricingBase.productsAmount,
+            pricingBase.productsAmount +
+            pricingBase.additionalChargeAmount,
           productsTotal: pricingBase.productsAmount,
           extrasTotal: pricingBase.extrasAmount,
         },
@@ -1976,6 +2033,13 @@ export function AdminAddBookingForm({
       nextErrors.extraGuestCount = `Total guests cannot exceed ${selectedTheatre.capacity}.`;
     }
 
+    if (!Number.isFinite(additionalChargeAmount) || additionalChargeAmount < 0) {
+      nextErrors.additionalChargeAmount = "Enter a valid additional charge amount.";
+    } else if (!Number.isInteger(additionalChargeAmount)) {
+      nextErrors.additionalChargeAmount =
+        "Additional charge must be a whole number until decimal pricing is enabled.";
+    }
+
     if (selectedOccasion) {
       selectedOccasion.fields.forEach((field) => {
         if (field.isRequired && !occasionData[field.key]?.trim()) {
@@ -2256,6 +2320,12 @@ export function AdminAddBookingForm({
         occasionKey: occasionKey || undefined,
         occasionData,
         specialInstructions: specialInstructions.trim() || undefined,
+        additionalChargeAmount:
+          additionalChargeAmount > 0 ? additionalChargeAmount : undefined,
+        additionalChargeReason:
+          additionalChargeAmount > 0
+            ? additionalChargeReason.trim() || undefined
+            : undefined,
         couponCodes: appliedCoupons.map((coupon) => coupon.code),
         items: Object.entries(productSelections)
           .map(([selectionKey, selection]) => {
@@ -2447,6 +2517,54 @@ export function AdminAddBookingForm({
           onLedDraftValueChange={setLedDraftValue}
           onLedNumberSubmit={setLedNumber}
         />
+
+        <section className={sectionClass}>
+          <h2 className="text-sm font-semibold text-slate-900">
+            Additional Charge
+          </h2>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Amount
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                inputMode="decimal"
+                value={additionalChargeAmountInput}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setAdditionalChargeAmountInput(value);
+                  if (!value || Number(value) <= 0) {
+                    setAdditionalChargeReason("");
+                  }
+                }}
+                className={inputClass}
+                placeholder="Optional"
+              />
+              {errors.additionalChargeAmount ? (
+                <p className="mt-1 text-xs text-red-600">
+                  {errors.additionalChargeAmount}
+                </p>
+              ) : null}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Reason
+              </label>
+              <input
+                value={additionalChargeReason}
+                onChange={(event) =>
+                  setAdditionalChargeReason(event.target.value)
+                }
+                disabled={additionalChargeAmount <= 0}
+                className={inputClass}
+                placeholder="Cleaning Fee"
+              />
+            </div>
+          </div>
+        </section>
 
         <PaymentModeSection
           mode={mode}

@@ -297,6 +297,8 @@ model Booking {
   baseAmount       Int
   extrasAmount     Int
   productsAmount   Int @default(0)
+  additionalChargeAmount Int @default(0)
+  additionalChargeReason String?
   discountAmount   Int
   totalAmount      Int
   decorationAmount Int @default(0)

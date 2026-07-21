@@ -107,6 +107,8 @@ type CreateBookingPayload = {
   couponCodes?: string[];
   items?: CreateBookingItemPayload[];
   specialInstructions?: string;
+  additionalChargeAmount?: number;
+  additionalChargeReason?: string;
   payment?: {
     type?: PaymentType;
     offlineMethod?: OfflineMethod;
@@ -145,6 +147,8 @@ function buildEmailData(input: {
   baseAmount: number;
   extrasAmount: number;
   productsAmount: number;
+  additionalChargeAmount: number;
+  additionalChargeReason: string | null;
   decorationAmount: number;
   discountAmount: number;
   totalAmount: number;
@@ -171,6 +175,8 @@ function buildEmailData(input: {
     baseAmount: input.baseAmount,
     extrasAmount: input.extrasAmount,
     productsAmount: input.productsAmount,
+    additionalChargeAmount: input.additionalChargeAmount,
+    additionalChargeReason: input.additionalChargeReason,
     decorationAmount: input.decorationAmount,
     discountAmount: input.discountAmount,
     totalAmount: input.totalAmount,
@@ -257,6 +263,26 @@ function buildOccasionDetails(
       value: stringifyOccasionValue(value),
     }))
     .filter((entry) => entry.value.length > 0);
+}
+
+function normalizeAdditionalChargeAmount(value: unknown) {
+  if (value == null || String(value).trim() === "") return 0;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new AdminBookingError(
+      400,
+      "INVALID_REQUEST",
+      "Additional charge amount must be zero or a positive number."
+    );
+  }
+  if (!Number.isInteger(amount)) {
+    throw new AdminBookingError(
+      400,
+      "INVALID_REQUEST",
+      "Additional charge amount must be a whole number until decimal pricing is enabled."
+    );
+  }
+  return Math.trunc(amount);
 }
 
 function extractLedNumbersFromOccasionData(
@@ -392,6 +418,13 @@ export async function POST(req: Request) {
     const guestCount = Number(body.guestCount ?? 0);
     const decorationRequired = Boolean(body.decorationRequired);
     const specialInstructions = String(body.specialInstructions ?? "").trim() || null;
+    const additionalChargeAmount = normalizeAdditionalChargeAmount(
+      body.additionalChargeAmount
+    );
+    const additionalChargeReason =
+      additionalChargeAmount > 0
+        ? String(body.additionalChargeReason ?? "").trim() || null
+        : null;
     // Online collection has been removed from admin bookings; always settle offline.
     const paymentType = "OFFLINE" as PaymentType;
     const createdByAdminId = authenticatedAdminId;
@@ -863,6 +896,7 @@ export async function POST(req: Request) {
         theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
         theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         productsAmount,
+        additionalChargeAmount,
         discountAmount: 0,
         advancePaid: 0,
         durationHours: bookingDurationHours,
@@ -900,7 +934,8 @@ export async function POST(req: Request) {
         nonSlotAmount:
           pricingBase.extrasAmount +
           pricingBase.decorationAmount +
-          pricingBase.productsAmount,
+          pricingBase.productsAmount +
+          pricingBase.additionalChargeAmount,
         productsTotal: pricingBase.productsAmount,
         extrasTotal: pricingBase.extrasAmount,
         advanceFloor: minAdvanceAmount,
@@ -950,6 +985,7 @@ export async function POST(req: Request) {
         theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
         theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         productsAmount,
+        additionalChargeAmount,
         discountAmount: couponDiscount,
         advancePaid: desiredAdvance,
         durationHours: bookingDurationHours,
@@ -1017,6 +1053,8 @@ export async function POST(req: Request) {
               extraGuestPrice: PACKAGE_EXTRA_PERSON_PRICE,
               extraGuestAmount: pricing.extrasAmount,
               productsAmount: pricing.productsAmount,
+              additionalChargeAmount: pricing.additionalChargeAmount,
+              additionalChargeReason,
               decorationAmount: pricing.decorationAmount,
               discountAmount: pricing.discountAmount,
               totalAmount: pricing.totalAmount,
@@ -1033,6 +1071,8 @@ export async function POST(req: Request) {
         baseAmount: pricing.baseAmount,
         extrasAmount: pricing.extrasAmount,
         productsAmount: pricing.productsAmount,
+        additionalChargeAmount: pricing.additionalChargeAmount,
+        additionalChargeReason,
         discountAmount: pricing.discountAmount,
         totalAmount: pricing.totalAmount,
         decorationAmount: pricing.decorationAmount,
@@ -1227,6 +1267,10 @@ export async function POST(req: Request) {
                 baseAmount: bookingForNotification.baseAmount,
                 extrasAmount: bookingForNotification.extrasAmount,
                 productsAmount: bookingForNotification.productsAmount,
+                additionalChargeAmount:
+                  bookingForNotification.additionalChargeAmount,
+                additionalChargeReason:
+                  bookingForNotification.additionalChargeReason,
                 decorationAmount: bookingForNotification.decorationAmount,
                 discountAmount: bookingForNotification.discountAmount,
                 totalAmount: bookingForNotification.totalAmount,
