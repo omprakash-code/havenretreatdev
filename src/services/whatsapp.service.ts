@@ -68,6 +68,11 @@ function resolveWhatsAppConfig(isTestMode: boolean): WhatsAppConfigState {
   return { state: "configured", phoneNumberId, accessToken, templateImageUrl };
 }
 
+export function isBookingConfirmationWhatsAppEnabled(): boolean {
+  const isTestMode = process.env.WHATSAPP_TEST_MODE === "true";
+  return resolveWhatsAppConfig(isTestMode).state === "configured";
+}
+
 function isAuthExpiredError(error: WhatsAppApiError | undefined) {
   return error?.code === 190 && error?.error_subcode === WHATSAPP_AUTH_EXPIRED_SUBCODE;
 }

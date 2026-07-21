@@ -10,6 +10,7 @@ describe("whatsapp service", () => {
   const originalEnabled = process.env.WHATSAPP_ENABLED;
 
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     vi.resetModules();
     process.env.WHATSAPP_PHONE_NUMBER_ID = "123456";
@@ -21,6 +22,7 @@ describe("whatsapp service", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     globalThis.fetch = originalFetch;
 
     if (originalPhoneNumberId === undefined) {
@@ -105,9 +107,14 @@ describe("whatsapp service", () => {
     delete process.env.WHATSAPP_TOKEN;
     delete process.env.WHATSAPP_ACCESS_TOKEN;
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
-    const { sendBookingConfirmationWhatsApp } = await import("@/services/whatsapp.service");
+    const {
+      isBookingConfirmationWhatsAppEnabled,
+      sendBookingConfirmationWhatsApp,
+    } = await import("@/services/whatsapp.service");
     const sent = await sendBookingConfirmationWhatsApp({
       phone: "919999999999",
       customerName: "Test User",
@@ -122,17 +129,25 @@ describe("whatsapp service", () => {
       bookingUrl: "https://example.com/booking/BK-1",
     });
 
+    expect(isBookingConfirmationWhatsAppEnabled()).toBe(false);
     expect(sent).toBe(false);
     expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
   });
 
   it("skips WhatsApp silently when explicitly disabled", async () => {
     process.env.WHATSAPP_ENABLED = "false";
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
-    const { sendBookingConfirmationWhatsApp } = await import("@/services/whatsapp.service");
+    const {
+      isBookingConfirmationWhatsAppEnabled,
+      sendBookingConfirmationWhatsApp,
+    } = await import("@/services/whatsapp.service");
     const sent = await sendBookingConfirmationWhatsApp({
       phone: "919999999999",
       customerName: "Test User",
@@ -147,9 +162,24 @@ describe("whatsapp service", () => {
       bookingUrl: "https://example.com/booking/BK-1",
     });
 
+    expect(isBookingConfirmationWhatsAppEnabled()).toBe(false);
     expect(sent).toBe(false);
     expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it("reports WhatsApp as enabled only when booking confirmation config is complete", async () => {
+    const { isBookingConfirmationWhatsAppEnabled } = await import("@/services/whatsapp.service");
+
+    expect(isBookingConfirmationWhatsAppEnabled()).toBe(true);
+
+    delete process.env.WHATSAPP_TEMPLATE_IMAGE_URL;
+    expect(isBookingConfirmationWhatsAppEnabled()).toBe(false);
+
+    process.env.WHATSAPP_TEST_MODE = "true";
+    expect(isBookingConfirmationWhatsAppEnabled()).toBe(true);
   });
 
   it("suppresses repeated auth-expired logs inside the cooldown window", async () => {

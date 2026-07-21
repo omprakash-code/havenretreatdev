@@ -29,7 +29,10 @@ import { createBookingSessionToken } from "@/services/booking/bookingSession.ser
 import { allocateBookingRef } from "@/services/booking/bookingId.service";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
-import { sendBookingConfirmationWhatsApp } from "@/services/whatsapp.service";
+import {
+  isBookingConfirmationWhatsAppEnabled,
+  sendBookingConfirmationWhatsApp,
+} from "@/services/whatsapp.service";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
 import { sendBookingApprovedEmail } from "@/services/booking/booking-review-email.service";
 import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
@@ -587,7 +590,11 @@ async function runAdminCreateBookingNotifications(
       );
     }
 
-    if (bookingForNotification.contactPhone && emailData) {
+    if (
+      bookingForNotification.contactPhone &&
+      emailData &&
+      isBookingConfirmationWhatsAppEnabled()
+    ) {
       notificationTasks.push(
         profiler.measure("WhatsApp send", "Non-critical", async () => {
           try {
