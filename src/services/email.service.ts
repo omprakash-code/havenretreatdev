@@ -2,8 +2,16 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 
 let resendClientCache: { apiKey: string; client: Resend } | null = null;
-const RESEND_TIMEOUT_MS =
-  process.env.NODE_ENV === "development" ? 3000 : 10000;
+const DEFAULT_RESEND_TIMEOUT_MS = 10000;
+
+export function getResendTimeoutMs() {
+  const configuredTimeoutMs = Number(process.env.RESEND_TIMEOUT_MS);
+  if (Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0) {
+    return configuredTimeoutMs;
+  }
+
+  return DEFAULT_RESEND_TIMEOUT_MS;
+}
 
 function getResendClient(apiKey: string) {
   if (resendClientCache?.apiKey === apiKey) return resendClientCache.client;
@@ -53,6 +61,7 @@ export async function sendEmail({
 
   // Resend's SDK reports API failures via the `error` field instead of
   // throwing, so an unchecked send can fail silently.
+  const timeoutMs = getResendTimeoutMs();
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const { error } = await Promise.race([
     sendPromise,
@@ -61,10 +70,10 @@ export async function sendEmail({
         () =>
           reject(
             new Error(
-              `Resend send timed out for "${subject}" after ${RESEND_TIMEOUT_MS}ms`
+              `Resend send timed out for "${subject}" after ${timeoutMs}ms`
             )
           ),
-        RESEND_TIMEOUT_MS
+        timeoutMs
       );
     }),
   ]).finally(() => {
