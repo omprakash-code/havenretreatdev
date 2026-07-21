@@ -1,4 +1,5 @@
 import BookingEmailFontStyles from "@/emails/components/BookingEmailFontStyles";
+import { BOOKING_EMAIL_BRAND_LOGO_URL } from "@/emails/theme/booking-email-branding";
 import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import {
   BOOKING_PAYMENT_APPLIED_MESSAGE,
@@ -57,26 +58,7 @@ const moneyFormatter = new Intl.NumberFormat("en-US", {
 
 const color = bookingEmailColors.light;
 
-const resolvedBaseUrl = (() => {
-  const nextPublic = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (nextPublic) return nextPublic.replace(/\/+$/, "");
-
-  const appUrl = process.env.APP_URL?.trim();
-  if (appUrl) return appUrl.replace(/\/+$/, "");
-
-  const vercel = process.env.VERCEL_URL?.trim();
-  if (vercel) return `https://${vercel.replace(/\/+$/, "")}`;
-
-  return "";
-})();
-
-const BRAND_LOGO_PATH = "/assets/email-ds-logo.png";
-const BRAND_LOGO_URL =
-  process.env.NODE_ENV === "production"
-    ? resolvedBaseUrl
-      ? `${resolvedBaseUrl}${BRAND_LOGO_PATH}`
-      : BRAND_LOGO_PATH
-    : BRAND_LOGO_PATH;
+const BRAND_LOGO_URL = BOOKING_EMAIL_BRAND_LOGO_URL;
 
 function formatMoney(value: number) {
   const amount = Math.max(0, Number(value) || 0);
@@ -273,7 +255,7 @@ export default function BookingConfirmationEmailLight({
               >
                 <tbody>
                   <tr>
-                    <td style={{ verticalAlign: "bottom", width: "60%", paddingRight: 8 }}>
+                    <td style={{ verticalAlign: "middle", width: "60%", paddingRight: 8 }}>
                       <p
                         style={{
                           margin: 0,
@@ -306,7 +288,7 @@ export default function BookingConfirmationEmailLight({
                       style={{
                         width: "40%",
                         minWidth: 56,
-                        verticalAlign: "bottom",
+                        verticalAlign: "middle",
                         textAlign: "right",
                         fontSize: 0,
                         lineHeight: 0,
@@ -327,18 +309,15 @@ export default function BookingConfirmationEmailLight({
                                 <img
                                   src={BRAND_LOGO_URL}
                                   alt=""
-                                  width={144}
-                                  height={144}
+                                  width={168}
+                                  height={95}
                                   style={{
-                                    width: 144,
-                                    height: 144,
-                                    margin: "-36px 0",
+                                    width: 168,
+                                    height: 95,
+                                    margin: 0,
                                     display: "block",
-                                    borderRadius: 100,
-                                    border: color.logoBorder,
+                                    border: 0,
                                     objectFit: "contain",
-                                    padding: 3,
-                                    boxSizing: "border-box",
                                   }}
                                 />
                               ) : (

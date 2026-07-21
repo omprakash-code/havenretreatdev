@@ -37,7 +37,7 @@ export default function BookingEmailHeader({
         >
           <tbody>
             <tr>
-              <td style={{ verticalAlign: "bottom", width: "60%", paddingRight: 8 }}>
+              <td style={{ verticalAlign: "middle", width: "60%", paddingRight: 8 }}>
                 <p
                   style={{
                     margin: 0,
@@ -87,7 +87,7 @@ export default function BookingEmailHeader({
                 style={{
                   width: "40%",
                   minWidth: 56,
-                  verticalAlign: "bottom",
+                  verticalAlign: "middle",
                   textAlign: "right",
                   fontSize: 0,
                   lineHeight: 0,
@@ -108,18 +108,15 @@ export default function BookingEmailHeader({
                           <img
                             src={BOOKING_EMAIL_BRAND_LOGO_URL}
                             alt=""
-                            width={144}
-                            height={144}
+                            width={168}
+                            height={95}
                             style={{
-                              width: 144,
-                              height: 144,
-                              margin: "-36px 0",
+                              width: 168,
+                              height: 95,
+                              margin: 0,
                               display: "block",
-                              borderRadius: 100,
-                              border: logoBorder,
+                              border: 0,
                               objectFit: "contain",
-                              padding: 3,
-                              boxSizing: "border-box",
                             }}
                           />
                         ) : (
@@ -128,6 +125,7 @@ export default function BookingEmailHeader({
                               width: 52,
                               height: 52,
                               borderRadius: 6,
+                              border: logoBorder,
                               backgroundColor: fallbackBackgroundColor,
                               display: "inline-flex",
                               alignItems: "center",

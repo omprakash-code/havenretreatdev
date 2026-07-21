@@ -12,10 +12,21 @@ const resolvedBaseUrl = (() => {
 })();
 
 const BRAND_LOGO_PATH = "/assets/email-ds-logo.png";
+const EMAIL_ASSET_BASE_URL = "https://book.havenretreatmiami.com";
+
+function canEmailClientLoadBaseUrl(baseUrl: string) {
+  try {
+    const hostname = new URL(baseUrl).hostname.toLowerCase();
+    return !["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(hostname);
+  } catch {
+    return false;
+  }
+}
+
+const emailAssetBaseUrl =
+  resolvedBaseUrl && canEmailClientLoadBaseUrl(resolvedBaseUrl)
+    ? resolvedBaseUrl
+    : EMAIL_ASSET_BASE_URL;
 
 export const BOOKING_EMAIL_BRAND_LOGO_URL =
-  process.env.NODE_ENV === "production"
-    ? resolvedBaseUrl
-      ? `${resolvedBaseUrl}${BRAND_LOGO_PATH}`
-      : BRAND_LOGO_PATH
-    : BRAND_LOGO_PATH;
+  `${emailAssetBaseUrl}${BRAND_LOGO_PATH}`;
