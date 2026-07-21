@@ -9,6 +9,7 @@ type KpiCardProps = {
   value: string;
   delta: string;
   trend: "up" | "down" | "neutral";
+  trendSentiment?: "positive" | "negative";
   icon: ReactNode;
   href?: string;
 };
@@ -18,11 +19,18 @@ export default function KpiCard({
   value,
   delta,
   trend,
+  trendSentiment = "positive",
   icon,
   href,
 }: KpiCardProps) {
   const hasDelta = delta.trim().length > 0;
-  const trendColorClass = "text-slate-500";
+  const trendColorClass =
+    trend === "neutral"
+      ? "text-slate-500"
+      : (trend === "up" && trendSentiment === "positive") ||
+          (trend === "down" && trendSentiment === "negative")
+        ? "text-emerald-600"
+        : "text-red-600";
 
   const card = (
     <div className="min-h-[112px] rounded-2xl border border-gray-100 bg-white p-3 shadow-sm transition-shadow hover:shadow-md sm:min-h-[120px] sm:p-4 lg:p-5">

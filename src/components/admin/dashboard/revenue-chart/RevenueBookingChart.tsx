@@ -98,7 +98,7 @@ export default function RevenueBookingsChart({ range }: Props) {
   );
 
   return (
-    <div className="h-[285px] w-full rounded-2xl bg-white p-3 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:h-[350px] sm:p-5">
+    <div className="h-[285px] min-w-0 w-full rounded-2xl bg-white p-3 shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:h-[350px] sm:p-5">
       {/* Summary */}
       <div className="mb-2 flex items-center gap-6 sm:mb-4">
         <div>
@@ -127,8 +127,8 @@ export default function RevenueBookingsChart({ range }: Props) {
       )}
 
       {/* Chart */}
-      <div className="h-[210px] sm:h-[220px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-[210px] min-h-[210px] min-w-0 w-full sm:h-[220px] sm:min-h-[220px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <LineChart data={rows} margin={{ top: 8, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid
               strokeDasharray="3 3"

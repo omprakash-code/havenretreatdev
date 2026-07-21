@@ -134,6 +134,20 @@ export default function KpiGrid() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-5 xl:grid-cols-4">
       <KpiCard
+        title="Total Revenue"
+        value={`$${data.revenueLifetime.toLocaleString()}`}
+        delta={formatTrendDelta(
+          data.trends?.revenue,
+          data.trends?.periodDays ?? 7,
+          "All time",
+          (amount) => `$${amount.toLocaleString()}`
+        )}
+        trend={data.trends?.revenue.direction ?? "neutral"}
+        trendSentiment="positive"
+        icon={<IndianRupee className="h-5 w-5" />}
+      />
+
+      <KpiCard
         title="Pending Bookings"
         value={String(data.pendingReview)}
         delta={data.pendingReview > 0 ? "Awaiting admin review" : "All caught up"}
@@ -151,32 +165,20 @@ export default function KpiGrid() {
           "All time"
         )}
         trend={data.trends?.approved?.direction ?? data.trends?.confirmed.direction ?? "neutral"}
+        trendSentiment="positive"
         icon={<CalendarCheck className="h-5 w-5" />}
       />
 
       <KpiCard
         title="Rejected Bookings"
         value={String(data.rejectedLifetime)}
-        delta={formatTrendDelta(
-          data.trends?.rejected,
-          data.trends?.periodDays ?? 7,
-          "All time"
-        )}
-        trend={data.trends?.rejected.direction ?? "neutral"}
+        delta={
+          data.rejectedLifetime > 0
+            ? "All-time"
+            : "No rejected bookings"
+        }
+        trend="neutral"
         icon={<ClipboardX className="h-5 w-5" />}
-      />
-
-      <KpiCard
-        title="Total Revenue"
-        value={`$${data.revenueLifetime.toLocaleString()}`}
-        delta={formatTrendDelta(
-          data.trends?.revenue,
-          data.trends?.periodDays ?? 7,
-          "All time",
-          (amount) => `$${amount.toLocaleString()}`
-        )}
-        trend={data.trends?.revenue.direction ?? "neutral"}
-        icon={<IndianRupee className="h-5 w-5" />}
       />
 
       {SHOW_LIVE_AND_ABANDONED_KPIS ? (
@@ -198,6 +200,7 @@ export default function KpiGrid() {
               "All time"
             )}
             trend={data.trends?.abandoned.direction ?? "neutral"}
+            trendSentiment="negative"
             icon={<ShoppingCart className="h-5 w-5" />}
           />
         </>

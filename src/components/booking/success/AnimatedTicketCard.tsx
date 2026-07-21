@@ -113,14 +113,14 @@ export default function AnimatedTicketCard({
         ? window.location.href
         : `${APP_URL}/booking/success`;
     const emoji = {
-      clapper: "\u{1F3AC}",
+      calendar: "\u{1F4C5}",
       sparkle: "\u2728",
     } as const;
     const celebrationLine = data.decorationRequired
-      ? `Personal screen. Custom celebration. No interruptions ${emoji.sparkle}`
-      : `Personal screen. Full vibe. No interruptions ${emoji.sparkle}`;
+      ? `Private venue experience with a custom celebration setup ${emoji.sparkle}`
+      : `Private designed venue experience at Haven Retreat ${emoji.sparkle}`;
 
-    const message = `${emoji.clapper} Just booked a Private Venue at Haven Retreat!
+    const message = `${emoji.calendar} Just booked a venue experience at Haven Retreat!
 
 ${celebrationLine}
 
