@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { toUiCouponScope } from "@/lib/coupon-scope";
+import { toMoney } from "@/lib/money";
 import { AdminCouponFormState } from "@/components/admin/coupons/types";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import {
@@ -61,8 +62,8 @@ export async function GET(
       id: coupon.id,
       code: coupon.code,
       discountType: coupon.discountType,
-      discountValue: coupon.discountValue,
-      maxDiscount: coupon.maxDiscount ?? null,
+      discountValue: toMoney(coupon.discountValue),
+      maxDiscount: coupon.maxDiscount == null ? null : toMoney(coupon.maxDiscount),
       scope: toUiCouponScope(coupon.scope),
       validFrom: coupon.validFrom.toISOString(),
       validTill: coupon.validTill ? coupon.validTill.toISOString() : null,
@@ -70,7 +71,8 @@ export async function GET(
       stackableCouponIds: coupon.stackableCouponIds ?? [],
       usageLimit: coupon.usageLimit ?? null,
       perUserUsageLimit: coupon.perUserUsageLimit ?? null,
-      minimumAmount: coupon.minimumAmount ?? null,
+      minimumAmount:
+        coupon.minimumAmount == null ? null : toMoney(coupon.minimumAmount),
       locationId: coupon.locationId ?? null,
       isActive: coupon.isActive,
       rules: coupon.rules.map((rule) => ({

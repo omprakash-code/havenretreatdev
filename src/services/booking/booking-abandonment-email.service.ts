@@ -5,6 +5,7 @@ import UserBookingAbandonmentEmail from "@/emails/UserBookingAbandonmentEmail";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { prisma } from "@/lib/db";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
+import { toMoney } from "@/lib/money";
 import { sendEmail } from "@/services/email.service";
 import { resolveAdminBookingNotificationRecipients } from "@/services/booking/booking-notification-recipients.service";
 
@@ -342,7 +343,13 @@ export async function notifyAbandonedBookingsByIds(
 
   for (const booking of bookings) {
     try {
-      await sendAbandonmentNotificationForBooking(booking);
+      await sendAbandonmentNotificationForBooking({
+        ...booking,
+        items: booking.items.map((item) => ({
+          ...item,
+          totalPrice: toMoney(item.totalPrice),
+        })),
+      });
       notifiedBookingIds.push(booking.id);
     } catch (error) {
       console.error("BOOKING_ABANDONMENT_EMAIL_FAILED", {

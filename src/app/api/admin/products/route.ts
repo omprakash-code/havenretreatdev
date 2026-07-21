@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { BookingStatus, Prisma, ProductCategory } from "@prisma/client";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/db";
+import { toMoney } from "@/lib/money";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import {
   productFormSchema,
@@ -40,12 +41,12 @@ function toAdminProductResponse(
     variants: product.variants.map((variant) => ({
       id: variant.id,
       label: variant.label,
-      regularPrice: variant.regularPrice,
+      regularPrice: toMoney(variant.regularPrice),
       salePrice:
         variant.salePrice !== null &&
         variant.salePrice !== undefined &&
-        variant.salePrice > 0
-          ? variant.salePrice
+        toMoney(variant.salePrice) > 0
+          ? toMoney(variant.salePrice)
           : null,
       stock: variant.stock,
       maxPerBooking: variant.maxPerBooking,
@@ -64,12 +65,12 @@ function normalizeProductData(input: ProductFormValues) {
   const normalizedVariants = input.variants.map((variant, index) => ({
     id: variant.id,
     label: variant.label.trim(),
-    regularPrice: variant.regularPrice,
+    regularPrice: toMoney(variant.regularPrice),
     salePrice:
       variant.salePrice !== null &&
       variant.salePrice !== undefined &&
       Number(variant.salePrice) > 0
-        ? Number(variant.salePrice)
+        ? toMoney(variant.salePrice)
         : null,
     isDefault: variant.isDefault,
     isActive: variant.isActive,
@@ -259,8 +260,8 @@ export async function POST(req: Request) {
           create: data.variants.map((variant) => ({
             ...(variant.id ? { id: variant.id } : {}),
             label: variant.label,
-            regularPrice: variant.regularPrice,
-            salePrice: variant.salePrice,
+            regularPrice: toMoney(variant.regularPrice),
+            salePrice: variant.salePrice == null ? null : toMoney(variant.salePrice),
             stock: variant.stock,
             maxPerBooking: variant.maxPerBooking,
             isDefault: variant.isDefault,
@@ -361,8 +362,8 @@ export async function PATCH(req: Request) {
           create: data.variants.map((variant) => ({
             ...(variant.id ? { id: variant.id } : {}),
             label: variant.label,
-            regularPrice: variant.regularPrice,
-            salePrice: variant.salePrice,
+            regularPrice: toMoney(variant.regularPrice),
+            salePrice: variant.salePrice == null ? null : toMoney(variant.salePrice),
             stock: variant.stock,
             maxPerBooking: variant.maxPerBooking,
             isDefault: variant.isDefault,

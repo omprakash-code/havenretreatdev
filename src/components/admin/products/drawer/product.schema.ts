@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasMoreThanTwoDecimals } from "@/lib/money";
 import type { AdminProduct } from "@/types/admin/product";
 
 export const PRODUCT_CATEGORIES = ["CAKE", "DECORATION", "GIFT"] as const;
@@ -17,17 +18,32 @@ const positiveInteger = (label: string) =>
     .int(`${label} must be a whole number`)
     .min(1, `${label} must be at least 1`);
 
+const positiveMoney = (label: string) =>
+  z
+    .number({ message: `${label} is required` })
+    .refine((value) => Number.isFinite(value), `${label} is required`)
+    .min(0.01, `${label} must be at least 0.01`)
+    .refine((value) => !hasMoreThanTwoDecimals(value), {
+      message: `${label} can have up to 2 decimal places`,
+    });
+
+const nonNegativeMoney = (label: string) =>
+  z
+    .number({ message: `${label} is invalid` })
+    .refine((value) => Number.isFinite(value), `${label} is invalid`)
+    .min(0, `${label} cannot be negative`)
+    .refine((value) => !hasMoreThanTwoDecimals(value), {
+      message: `${label} can have up to 2 decimal places`,
+    });
+
 export const productVariantSchema = z
   .object({
     // Hidden field from form array; allow empty string for new variants
     id: z.string().trim().optional().or(z.literal("")),
     label: z.string().trim().min(1, "Variation is required"),
-    regularPrice: positiveInteger("Regular price"),
+    regularPrice: positiveMoney("Regular price"),
     salePrice: z
-      .number({ message: "Sale price is invalid" })
-      .refine((value) => Number.isFinite(value), "Sale price is invalid")
-      .int("Sale price must be a whole number")
-      .min(0, "Sale price cannot be negative")
+      .union([nonNegativeMoney("Sale price"), z.null()])
       .nullable()
       .optional(),
     // null = unlimited / untracked stock

@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { resolveLocationDisplayName } from "@/lib/location-display";
+import { toMoney } from "@/lib/money";
 import { sendEmail, type EmailAttachment } from "@/services/email.service";
 import { resolveAdminBookingNotificationRecipients } from "@/services/booking/booking-notification-recipients.service";
 import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
@@ -216,7 +217,10 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
   const latestPayment = booking.payment[0];
   const signedAgreement = booking.signedAgreements[0] ?? null;
   const addonItems = buildAddonItemsWithNumberValues(
-    booking.items,
+    booking.items.map((item) => ({
+      ...item,
+      totalPrice: toMoney(item.totalPrice),
+    })),
     (booking.occasionData as Prisma.JsonValue | null) ?? null
   );
   const emailData: BookingConfirmationEmailProps = {
@@ -257,16 +261,16 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
     paymentMethod: latestPayment?.method ?? undefined,
     paymentStatus: booking.paymentStatus ?? latestPayment?.status ?? undefined,
     paymentReference: latestPayment?.transactionId ?? booking.paymentTransactionId ?? undefined,
-    baseAmount: booking.baseAmount,
-    extrasAmount: booking.extrasAmount,
-    productsAmount: booking.productsAmount,
-    additionalChargeAmount: booking.additionalChargeAmount,
+    baseAmount: toMoney(booking.baseAmount),
+    extrasAmount: toMoney(booking.extrasAmount),
+    productsAmount: toMoney(booking.productsAmount),
+    additionalChargeAmount: toMoney(booking.additionalChargeAmount),
     additionalChargeReason: booking.additionalChargeReason,
-    decorationAmount: booking.decorationAmount,
-    discountAmount: booking.discountAmount,
-    totalAmount: booking.totalAmount,
-    advancePaid: booking.advancePaid,
-    remainingPayable: booking.remainingPayable,
+    decorationAmount: toMoney(booking.decorationAmount),
+    discountAmount: toMoney(booking.discountAmount),
+    totalAmount: toMoney(booking.totalAmount),
+    advancePaid: toMoney(booking.advancePaid),
+    remainingPayable: toMoney(booking.remainingPayable),
     successUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/booking/success`,
   };
 

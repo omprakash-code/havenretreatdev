@@ -1,4 +1,6 @@
 
+import { hasMoreThanTwoDecimals, toNonNegativeMoney } from "@/lib/money";
+
 export type AppSettingItem = {
   key: string;
   value: string;
@@ -52,7 +54,7 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
     placeholder: "750",
     defaultValue: "750",
     max: ADVANCE_PAYMENT_MAX,
-    step: 1,
+    step: 0.01,
   },
   [BOOKING_LOCK_MINUTES_KEY]: {
     label: "Booking Hold Duration (minutes)",
@@ -84,7 +86,7 @@ export const APP_SETTING_META: Record<string, SettingMeta> = {
     defaultValue: String(DEFAULT_EXTRA_HOURLY_RATE),
     min: EXTRA_HOURLY_RATE_MIN,
     max: EXTRA_HOURLY_RATE_MAX,
-    step: 1,
+    step: 0.01,
   },
 };
 
@@ -94,7 +96,7 @@ export function normalizeAppSettingValue(key: string, value: string) {
   if (key === ADVANCE_PAYMENT_AMOUNT_KEY) {
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed)) return trimmed;
-    return String(Math.trunc(parsed));
+    return String(toNonNegativeMoney(parsed));
   }
 
   if (key === BOOKING_LOCK_MINUTES_KEY) {
@@ -112,7 +114,7 @@ export function normalizeAppSettingValue(key: string, value: string) {
   if (key === EXTRA_HOURLY_RATE_KEY) {
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed)) return trimmed;
-    return String(Math.trunc(parsed));
+    return String(toNonNegativeMoney(parsed));
   }
 
   return trimmed;
@@ -126,8 +128,8 @@ export function validateAppSetting(key: string, value: string) {
     if (!Number.isFinite(amount)) {
       return "Enter a valid number.";
     }
-    if (!Number.isInteger(amount)) {
-      return "Amount must be a whole number.";
+    if (hasMoreThanTwoDecimals(normalized)) {
+      return "Amount can have up to 2 decimal places.";
     }
     if (amount < ADVANCE_PAYMENT_MIN) {
       return "Amount must be at least 1.";
@@ -177,8 +179,8 @@ export function validateAppSetting(key: string, value: string) {
     if (!Number.isFinite(amount)) {
       return "Enter a valid amount.";
     }
-    if (!Number.isInteger(amount)) {
-      return "Amount must be a whole number.";
+    if (hasMoreThanTwoDecimals(normalized)) {
+      return "Amount can have up to 2 decimal places.";
     }
     if (amount < EXTRA_HOURLY_RATE_MIN) {
       return `Amount must be at least ${EXTRA_HOURLY_RATE_MIN}.`;
@@ -199,11 +201,11 @@ export function isKnownAppSettingKey(key: string) {
 export function parseAdvancePaymentAmount(value: unknown) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return null;
-  if (!Number.isInteger(amount)) return null;
+  if (hasMoreThanTwoDecimals(value)) return null;
   if (amount < ADVANCE_PAYMENT_MIN || amount > ADVANCE_PAYMENT_MAX) {
     return null;
   }
-  return Math.trunc(amount);
+  return toNonNegativeMoney(value);
 }
 
 export function parseBookingLockMinutes(value: unknown) {
@@ -232,11 +234,11 @@ export function parseMinimumBookingDurationHours(value: unknown) {
 export function parseExtraHourlyRate(value: unknown) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return null;
-  if (!Number.isInteger(amount)) return null;
+  if (hasMoreThanTwoDecimals(value)) return null;
   if (amount < EXTRA_HOURLY_RATE_MIN || amount > EXTRA_HOURLY_RATE_MAX) {
     return null;
   }
-  return Math.trunc(amount);
+  return toNonNegativeMoney(value);
 }
 
 export function mergeWithKnownAppSettings(items: AppSettingItem[]) {

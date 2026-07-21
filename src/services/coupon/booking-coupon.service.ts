@@ -1,6 +1,7 @@
 import type { Prisma, ProductCategory } from "@prisma/client";
 
 import { normalizePhone } from "@/lib/phone";
+import { toMoney } from "@/lib/money";
 import { allocateCouponsInOrder } from "@/services/coupon/coupon-allocation";
 import { buildCouponAmountsFromComponents } from "@/services/coupon/coupon-amounts";
 import { buildCouponScheduleContext } from "@/services/coupon/coupon-evaluation-context";
@@ -459,8 +460,9 @@ function mapReservedUsageToDomainCoupon(
     id: usage.coupon.id,
     code: usage.coupon.code,
     discountType: usage.coupon.discountType,
-    discountValue: usage.coupon.discountValue,
-    maxDiscount: usage.coupon.maxDiscount,
+    discountValue: toMoney(usage.coupon.discountValue),
+    maxDiscount:
+      usage.coupon.maxDiscount == null ? null : toMoney(usage.coupon.maxDiscount),
     isStackable: usage.coupon.isStackable,
     stackableCouponIds: usage.coupon.stackableCouponIds ?? [],
     validFrom: usage.coupon.validFrom,
@@ -468,7 +470,10 @@ function mapReservedUsageToDomainCoupon(
     scope: usage.coupon.scope,
     usageLimit: usage.coupon.usageLimit,
     perUserUsageLimit: usage.coupon.perUserUsageLimit,
-    minimumAmount: usage.coupon.minimumAmount,
+    minimumAmount:
+      usage.coupon.minimumAmount == null
+        ? null
+        : toMoney(usage.coupon.minimumAmount),
     locationId: usage.coupon.locationId,
     isActive: usage.coupon.isActive,
     isDeleted: usage.coupon.isDeleted,

@@ -1,14 +1,15 @@
 import type { EventPackage, PackageFeature, Venue } from "@prisma/client";
 
 import { resolveBookingDurationPricingConfig } from "@/lib/booking-duration-pricing";
+import { centsToMoney, multiplyMoney, toCents, toNonNegativeMoney } from "@/lib/money";
 
 type PackageRecord = EventPackage & {
   venue: Venue;
   features: PackageFeature[];
 };
 
-function toMoney(value: number) {
-  return Math.max(0, Math.trunc(Number(value) || 0));
+function snapshotMoney(value: number) {
+  return toNonNegativeMoney(value);
 }
 
 export function buildPackageSnapshot(eventPackage: PackageRecord) {
@@ -56,12 +57,15 @@ export async function buildInitialPricingSnapshot(
     0
   );
   const effectiveHourlyRate =
-    toMoney(eventPackage.hourlyRate) || durationPricing.extraHourlyRate;
-  const extraDurationAmount = Math.round(
-    extraDurationHours * effectiveHourlyRate
+    snapshotMoney(eventPackage.hourlyRate) || durationPricing.extraHourlyRate;
+  const extraDurationAmount = multiplyMoney(
+    effectiveHourlyRate,
+    extraDurationHours
   );
-  const packageAmount = toMoney(eventPackage.subtotalAmount);
-  const totalAmount = packageAmount + extraDurationAmount;
+  const packageAmount = snapshotMoney(eventPackage.subtotalAmount);
+  const totalAmount = centsToMoney(
+    toCents(packageAmount) + toCents(extraDurationAmount)
+  );
 
   return {
     packageAmount,

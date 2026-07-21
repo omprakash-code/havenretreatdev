@@ -20,6 +20,7 @@ import {
   getPackageIncludedProductQuantity,
 } from "@/lib/package-included-products";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
 
 /**
  * The single description of a booking as the customer sees it after submitting:
@@ -129,7 +130,7 @@ export async function buildBookingSuccessData(
   const productImageMap = new Map(products.map((row) => [row.id, row.image]));
 
   const advance =
-    booking.advancePaid !== null ? booking.advancePaid : DEFAULT_ADVANCE;
+    booking.advancePaid !== null ? toMoney(booking.advancePaid) : DEFAULT_ADVANCE;
   const latestPayment = booking.payment[0] ?? null;
   const signedAgreement = booking.signedAgreements[0] ?? null;
   const durationConfig = await resolveBookingDurationPricingConfig(prisma);
@@ -176,7 +177,7 @@ export async function buildBookingSuccessData(
   const extraDurationAmount =
     snapshotExtraDurationAmount > 0
       ? snapshotExtraDurationAmount
-      : Math.max(Number(booking.baseAmount ?? 0) - packageAmount, 0);
+      : Math.max(toMoney(booking.baseAmount ?? 0) - packageAmount, 0);
 
   const items = assignNumberDecorationDetails(
     booking.items.map((item) => ({
@@ -186,8 +187,8 @@ export async function buildBookingSuccessData(
       variantLabel: item.variantLabel,
       category: item.category,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: item.totalPrice,
+      unitPrice: toMoney(item.unitPrice),
+      totalPrice: toMoney(item.totalPrice),
       includedQuantity: getPackageIncludedProductQuantity(
         includedProductSource,
         {
@@ -210,8 +211,8 @@ export async function buildBookingSuccessData(
 
   const paymentLifecycle = derivePaymentLifecycle({
     paymentStatus: booking.paymentStatus,
-    advancePaid: booking.advancePaid,
-    remainingPayable: booking.remainingPayable,
+    advancePaid: toMoney(booking.advancePaid),
+    remainingPayable: toMoney(booking.remainingPayable),
   });
 
   const data: BookingSuccessData = {
@@ -257,14 +258,17 @@ export async function buildBookingSuccessData(
     packageAmount,
     extraDurationAmount:
       extraDurationAmount > 0 ? extraDurationAmount : undefined,
-    extrasAmount: booking.extrasAmount,
-    decorationAmount: booking.decorationAmount,
-    additionalChargeAmount: booking.additionalChargeAmount,
+    extrasAmount: toMoney(booking.extrasAmount),
+    decorationAmount: toMoney(booking.decorationAmount),
+    additionalChargeAmount: toMoney(booking.additionalChargeAmount),
     additionalChargeReason: booking.additionalChargeReason,
-    totalAmount: booking.totalAmount,
-    discountAmount: booking.discountAmount,
+    totalAmount: toMoney(booking.totalAmount),
+    discountAmount: toMoney(booking.discountAmount),
     advancePaid: advance,
-    remainingPayable: booking.remainingPayable ?? booking.totalAmount - advance,
+    remainingPayable:
+      booking.remainingPayable != null
+        ? toMoney(booking.remainingPayable)
+        : centsToMoney(toCents(booking.totalAmount) - toCents(advance)),
     payment:
       latestPayment != null
         ? {
@@ -272,14 +276,14 @@ export async function buildBookingSuccessData(
             method: latestPayment.method,
             transactionId: latestPayment.transactionId,
             status: latestPayment.status,
-            amount: latestPayment.amount,
+            amount: toMoney(latestPayment.amount),
             createdAt: latestPayment.createdAt.toISOString(),
           }
         : null,
     appliedCoupons: booking.couponUsages.map((usage) => ({
       id: usage.coupon.id,
       code: getCouponDisplayCode(usage.coupon.code),
-      discountAmount: usage.discountAmount ?? 0,
+      discountAmount: toMoney(usage.discountAmount ?? 0),
     })),
     signedAgreement: signedAgreement
       ? {

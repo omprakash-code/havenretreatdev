@@ -239,7 +239,7 @@ describe("coupon evaluator validity checks", () => {
 
     expect(result.valid).toBe(true);
     if (!result.valid) return;
-    expect(result.discountAmount).toBe(1074);
+    expect(result.discountAmount).toBe(1074.5);
   });
 
   it("does not treat decoration/extras as PRODUCTS_ONLY base", () => {

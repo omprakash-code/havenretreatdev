@@ -433,8 +433,9 @@ export default function ProductForm({
                             setValueAs: (value) => (value === "" ? Number.NaN : Number(value)),
                           })}
                           min={1}
+                          step={0.01}
                           className={fieldClass(Boolean(rowErrors?.regularPrice), "h-9")}
-                          placeholder="e.g. 999"
+                          placeholder="e.g. 250.50"
                         />
                         {rowErrors?.regularPrice && (
                           <p className="mt-1 text-xs text-red-600">
@@ -450,7 +451,8 @@ export default function ProductForm({
                           {...register(`variants.${index}.salePrice`, {
                             setValueAs: (value) => (value === "" ? null : Number(value)),
                           })}
-                          min={1}
+                          min={0}
+                          step={0.01}
                           className={fieldClass(Boolean(rowErrors?.salePrice), "h-9")}
                           placeholder="Optional"
                         />

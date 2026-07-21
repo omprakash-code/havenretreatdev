@@ -1,6 +1,7 @@
 import { Prisma, type PaymentStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import {
   getBookingHoldExpiry,
@@ -132,7 +133,7 @@ export async function beginRangePaymentAttempt(input: {
         "The booking hold expired before payment started."
       );
     }
-    if (!booking.termsAcceptedAt || booking.totalAmount <= 0) {
+    if (!booking.termsAcceptedAt || toMoney(booking.totalAmount) <= 0) {
       throw new RangePaymentError(
         "BOOKING_INVALID_STATE",
         "Booking agreement or amount is incomplete."
@@ -268,7 +269,9 @@ export async function completeRangePaymentAttempt(input: {
         bookingStatus: "PAYMENT_PROCESSING",
         paymentStatus: "AWAITING_PAYMENT",
         advancePaid: attempt.amount,
-        remainingPayable: Math.max(booking.totalAmount - attempt.amount, 0),
+        remainingPayable: centsToMoney(
+          Math.max(toCents(booking.totalAmount) - toCents(attempt.amount), 0)
+        ),
         holdExpiresAt: getBookingHoldExpiry(
           input.now ?? new Date(),
           await resolveBookingHoldMinutes(tx)
@@ -536,10 +539,13 @@ export async function finalizeRangePayment(input: {
         paymentOrderId: input.providerOrderId,
         paymentTransactionId: input.providerPaymentId,
         paymentCheckoutUrl: null,
-        advancePaid: input.amount > 0 ? input.amount : payment.amount,
-        remainingPayable: Math.max(
-          booking.totalAmount - (input.amount > 0 ? input.amount : payment.amount),
-          0
+        advancePaid: input.amount > 0 ? input.amount : toMoney(payment.amount),
+        remainingPayable: centsToMoney(
+          Math.max(
+            toCents(booking.totalAmount) -
+              toCents(input.amount > 0 ? input.amount : payment.amount),
+            0
+          )
         ),
       },
     });

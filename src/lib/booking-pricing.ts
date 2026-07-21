@@ -1,3 +1,10 @@
+import {
+  centsToMoney,
+  multiplyMoney,
+  toCents,
+  toNonNegativeMoney,
+} from "@/lib/money";
+
 type CalculateBookingPricingInput = {
   slotBasePrice: number;
   slotFinalPrice?: number | null;
@@ -29,15 +36,12 @@ export type BookingPricingBreakdown = {
   remainingPayable: number;
 };
 
-function toMoney(value: number | null | undefined) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.trunc(value as number));
-}
-
 export function calculateBookingPricing(
   input: CalculateBookingPricingInput
 ): BookingPricingBreakdown {
-  const packageBaseAmount = toMoney(input.slotFinalPrice ?? input.slotBasePrice);
+  const packageBaseAmount = toNonNegativeMoney(
+    input.slotFinalPrice ?? input.slotBasePrice
+  );
   const durationHours =
     typeof input.durationHours === "number" && Number.isFinite(input.durationHours)
       ? Math.max(0, input.durationHours)
@@ -48,29 +52,47 @@ export function calculateBookingPricing(
       ? Math.max(0, input.includedDurationHours)
       : 0;
   const extraDurationHours = Math.max(durationHours - includedDurationHours, 0);
-  const extraHourlyRate = toMoney(input.extraHourlyRate ?? 0);
-  const extraHoursAmount = Math.round(extraDurationHours * extraHourlyRate);
-  const baseAmount = packageBaseAmount + extraHoursAmount;
+  const extraHourlyRate = toNonNegativeMoney(input.extraHourlyRate ?? 0);
+  const extraHoursAmount = multiplyMoney(extraHourlyRate, extraDurationHours);
+  const baseAmount = centsToMoney(
+    toCents(packageBaseAmount) + toCents(extraHoursAmount)
+  );
   const guestCount = Math.max(0, Math.trunc(input.guestCount));
   const baseGuests = Math.max(0, Math.trunc(input.theatreBaseGuests));
   const extraGuestCount = Math.max(guestCount - baseGuests, 0);
-  const extrasAmount = extraGuestCount * toMoney(input.theatreExtraPersonPrice);
+  const extrasAmount = multiplyMoney(
+    input.theatreExtraPersonPrice,
+    extraGuestCount
+  );
 
   // Decoration is offered as product add-ons now; choosing "yes" no longer adds a cost.
   const decorationAmount = 0;
 
-  const productsAmount = toMoney(input.productsAmount ?? 0);
-  const additionalChargeAmount = toMoney(input.additionalChargeAmount ?? 0);
-  const grossAmount =
-    baseAmount +
-    extrasAmount +
-    decorationAmount +
-    productsAmount +
-    additionalChargeAmount;
-  const discountAmount = Math.min(toMoney(input.discountAmount ?? 0), grossAmount);
-  const totalAmount = Math.max(grossAmount - discountAmount, 0);
-  const advancePaid = Math.min(toMoney(input.advancePaid ?? 0), totalAmount);
-  const remainingPayable = Math.max(totalAmount - advancePaid, 0);
+  const productsAmount = toNonNegativeMoney(input.productsAmount ?? 0);
+  const additionalChargeAmount = toNonNegativeMoney(
+    input.additionalChargeAmount ?? 0
+  );
+  const grossCents =
+    toCents(baseAmount) +
+    toCents(extrasAmount) +
+    toCents(decorationAmount) +
+    toCents(productsAmount) +
+    toCents(additionalChargeAmount);
+  const grossAmount = centsToMoney(grossCents);
+  const discountAmount = Math.min(
+    toNonNegativeMoney(input.discountAmount ?? 0),
+    grossAmount
+  );
+  const totalAmount = centsToMoney(
+    Math.max(grossCents - toCents(discountAmount), 0)
+  );
+  const advancePaid = Math.min(
+    toNonNegativeMoney(input.advancePaid ?? 0),
+    totalAmount
+  );
+  const remainingPayable = centsToMoney(
+    Math.max(toCents(totalAmount) - toCents(advancePaid), 0)
+  );
 
   return {
     baseAmount,

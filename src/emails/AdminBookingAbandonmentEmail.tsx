@@ -31,11 +31,13 @@ export type AdminBookingAbandonmentEmailProps = {
 const moneyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
 function formatMoney(value: number) {
-  return moneyFormatter.format(Math.max(0, Math.trunc(value || 0)));
+  const amount = Math.max(0, Number(value) || 0);
+  return moneyFormatter.format(amount);
 }
 
 export default function AdminBookingAbandonmentEmail({

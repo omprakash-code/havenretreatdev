@@ -1,5 +1,11 @@
 import { calculateDiscountBreakdown } from "./coupon-discount";
 import { resolveScopeBaseAmount } from "./coupon-amounts";
+import {
+  centsToMoney,
+  percentOfMoney,
+  toCents,
+  toNonNegativeMoney,
+} from "@/lib/money";
 import type {
   CouponEntity,
   CouponEvaluationContext,
@@ -96,9 +102,11 @@ export function buildCouponItemDiscounts(
       itemKey: item.itemKey?.trim() || `${item.productId}:${index}`,
       productId: item.productId,
       category: item.category,
-      discountAmount: Math.min(
-        Math.floor((Math.max(item.totalPrice, 0) * coupon.discountValue) / 100),
-        Math.max(item.totalPrice, 0)
+      discountAmount: centsToMoney(
+        Math.min(
+          toCents(percentOfMoney(item.totalPrice, coupon.discountValue)),
+          toCents(toNonNegativeMoney(item.totalPrice))
+        )
       ),
     }));
 
@@ -109,7 +117,11 @@ export function buildCouponItemDiscounts(
           discountValue: coupon.discountValue,
           maxDiscount: coupon.maxDiscount,
         },
-        targetedItems.reduce((sum, item) => sum + Math.max(item.totalPrice, 0), 0)
+        targetedItems.reduce(
+          (sum, item) =>
+            centsToMoney(toCents(sum) + toCents(toNonNegativeMoney(item.totalPrice))),
+          0
+        )
       ).afterMaxDiscount;
 
     return requested
@@ -118,7 +130,9 @@ export function buildCouponItemDiscounts(
           Math.max(item.discountAmount, 0),
           Math.max(remainingCap, 0)
         );
-        remainingCap = Math.max(remainingCap - discountAmount, 0);
+        remainingCap = centsToMoney(
+          Math.max(toCents(remainingCap) - toCents(discountAmount), 0)
+        );
         return {
           ...item,
           discountAmount,
@@ -127,14 +141,18 @@ export function buildCouponItemDiscounts(
       .filter((item) => item.discountAmount > 0);
   }
 
-  let remainingFlat = Math.max(coupon.discountValue, 0);
+  let remainingFlat = toNonNegativeMoney(coupon.discountValue);
   return targetedItems
     .map((item, index) => {
-      const discountAmount = Math.min(
-        Math.max(item.totalPrice, 0),
-        Math.max(remainingFlat, 0)
+      const discountAmount = centsToMoney(
+        Math.min(
+          toCents(toNonNegativeMoney(item.totalPrice)),
+          toCents(toNonNegativeMoney(remainingFlat))
+        )
       );
-      remainingFlat = Math.max(remainingFlat - discountAmount, 0);
+      remainingFlat = centsToMoney(
+        Math.max(toCents(remainingFlat) - toCents(discountAmount), 0)
+      );
       return {
         itemKey: item.itemKey?.trim() || `${item.productId}:${index}`,
         productId: item.productId,

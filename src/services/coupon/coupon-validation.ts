@@ -1,5 +1,6 @@
 import { CouponDiscountType, CouponRuleType, CouponScope, RuleOperator } from "@prisma/client";
 import { toDbCouponScope } from "@/lib/coupon-scope";
+import { hasMoreThanTwoDecimals, toNonNegativeMoney } from "@/lib/money";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 export class CouponValidationError extends Error {
@@ -84,6 +85,20 @@ function asPositiveIntOrNull(input: unknown, fieldLabel: string): number | null 
     throw new CouponValidationError(`${fieldLabel} must be a positive integer.`);
   }
   return parsed;
+}
+
+function asPositiveMoneyOrNull(input: unknown, fieldLabel: string): number | null {
+  if (input == null || input === "") return null;
+  const parsed = Number(input);
+  if (!Number.isFinite(parsed) || parsed < 0.01) {
+    throw new CouponValidationError(`${fieldLabel} must be a positive amount.`);
+  }
+  if (hasMoreThanTwoDecimals(input)) {
+    throw new CouponValidationError(
+      `${fieldLabel} can have up to 2 decimal places.`
+    );
+  }
+  return toNonNegativeMoney(input);
 }
 
 function normalizeStringList(input: unknown, fieldLabel: string): string[] {
@@ -410,10 +425,15 @@ export function normalizeCouponPayload(input: unknown): NormalizedCouponPayload 
   if (discountType === "PERCENTAGE" && discountValue > 100) {
     throw new CouponValidationError("Percentage discount cannot exceed 100.");
   }
+  if (hasMoreThanTwoDecimals(payload.discountValue)) {
+    throw new CouponValidationError(
+      "Discount value can have up to 2 decimal places."
+    );
+  }
 
   let maxDiscount: number | null = null;
   if (discountType === "PERCENTAGE") {
-    maxDiscount = asPositiveIntOrNull(payload.maxDiscount, "Max discount");
+    maxDiscount = asPositiveMoneyOrNull(payload.maxDiscount, "Max discount");
   }
 
   const validFrom = ensureValidDateIso(payload.validFrom, "Valid From");
@@ -442,7 +462,7 @@ export function normalizeCouponPayload(input: unknown): NormalizedCouponPayload 
         new Set(normalizeStringList(payload.stackableCouponIds ?? [], "Stackable coupons"))
       )
     : [];
-  const minimumAmount = asPositiveIntOrNull(
+  const minimumAmount = asPositiveMoneyOrNull(
     payload.minimumAmount,
     "Minimum amount"
   );
@@ -473,7 +493,7 @@ export function normalizeCouponPayload(input: unknown): NormalizedCouponPayload 
   return {
     code,
     discountType,
-    discountValue: Math.trunc(discountValue),
+    discountValue: toNonNegativeMoney(discountValue),
     maxDiscount,
     scope: mappedScope as CouponScope,
     validFrom,

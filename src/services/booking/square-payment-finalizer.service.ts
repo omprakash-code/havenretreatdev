@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import {
   logBookingSafetyEvent,
@@ -141,17 +142,21 @@ async function finalizeSquareTopUpPayment(
       };
     }
 
-    const applied = input.amount > 0 ? input.amount : payment.amount;
-    const nextAdvancePaid = Math.min(
-      Math.max(Number(booking.advancePaid ?? 0), 0) + Math.max(applied, 0),
-      Math.max(Number(booking.totalAmount ?? 0), 0)
+    const applied = input.amount > 0 ? input.amount : toMoney(payment.amount);
+    const nextAdvancePaid = centsToMoney(
+      Math.min(
+        toCents(booking.advancePaid) + toCents(Math.max(applied, 0)),
+        toCents(booking.totalAmount)
+      )
     );
 
     await tx.booking.update({
       where: { id: booking.id },
       data: {
         advancePaid: nextAdvancePaid,
-        remainingPayable: Math.max(booking.totalAmount - nextAdvancePaid, 0),
+        remainingPayable: centsToMoney(
+          Math.max(toCents(booking.totalAmount) - toCents(nextAdvancePaid), 0)
+        ),
       },
     });
 
@@ -354,7 +359,9 @@ export async function finalizeSquarePayment(input: {
         paymentTransactionId: input.paymentId,
         paymentSignature: null,
         paymentCheckoutUrl: null,
-        remainingPayable: Math.max(booking.totalAmount - booking.advancePaid, 0),
+        remainingPayable: centsToMoney(
+          Math.max(toCents(booking.totalAmount) - toCents(booking.advancePaid), 0)
+        ),
       },
     });
 

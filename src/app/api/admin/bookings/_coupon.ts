@@ -1,4 +1,5 @@
 import { Prisma, type ProductCategory } from "@prisma/client";
+import { toMoney } from "@/lib/money";
 import { evaluateCoupon } from "@/services/coupon";
 import { mapPrismaRuleToDomain } from "@/services/coupon/coupon-rule.mapper";
 import { allocateCouponsInOrder } from "@/services/coupon/coupon-allocation";
@@ -694,8 +695,9 @@ function mapRawCouponToDomain(
     id: rawCoupon.id,
     code: rawCoupon.code,
     discountType: rawCoupon.discountType,
-    discountValue: rawCoupon.discountValue,
-    maxDiscount: rawCoupon.maxDiscount,
+    discountValue: toMoney(rawCoupon.discountValue),
+    maxDiscount:
+      rawCoupon.maxDiscount == null ? null : toMoney(rawCoupon.maxDiscount),
     isStackable: rawCoupon.isStackable,
     stackableCouponIds: rawCoupon.stackableCouponIds ?? [],
     validFrom: rawCoupon.validFrom,
@@ -703,7 +705,8 @@ function mapRawCouponToDomain(
     scope: rawCoupon.scope,
     usageLimit: rawCoupon.usageLimit,
     perUserUsageLimit: rawCoupon.perUserUsageLimit,
-    minimumAmount: rawCoupon.minimumAmount,
+    minimumAmount:
+      rawCoupon.minimumAmount == null ? null : toMoney(rawCoupon.minimumAmount),
     locationId: rawCoupon.locationId,
     isActive: rawCoupon.isActive,
     isDeleted: rawCoupon.isDeleted,

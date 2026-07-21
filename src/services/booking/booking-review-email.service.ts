@@ -5,6 +5,7 @@ import BookingReviewEmail, {
 import { prisma } from "@/lib/db";
 import { resolveLocationDisplayName } from "@/lib/location-display";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
+import { toMoney } from "@/lib/money";
 import { buildBookingRequestPdfAttachment } from "@/lib/pdf/booking-request";
 import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
 import { sendEmail, type EmailAttachment } from "@/services/email.service";
@@ -65,9 +66,9 @@ async function loadReviewEmailContext(bookingId: string) {
     guestCount: booking.guestCount,
     occasionLabel: booking.occasionLabel,
     decorationRequired: booking.decorationRequired,
-    additionalChargeAmount: booking.additionalChargeAmount,
+    additionalChargeAmount: toMoney(booking.additionalChargeAmount),
     additionalChargeReason: booking.additionalChargeReason,
-    totalAmount: booking.totalAmount,
+    totalAmount: toMoney(booking.totalAmount),
     agreementSigned: Boolean(signedAgreement),
     rejectionReason: booking.rejectionReason,
   };

@@ -20,10 +20,11 @@ function formatMoney(value: number, currency: string) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency,
-      maximumFractionDigits: 0,
-    }).format(Math.max(0, Math.trunc(value || 0)));
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Math.max(0, Number(value) || 0));
   } catch {
-    return `${currency} ${Math.max(0, Math.trunc(value || 0))}`;
+    return `${currency} ${Math.max(0, Number(value) || 0).toFixed(2)}`;
   }
 }
 

@@ -1124,7 +1124,11 @@ function drawImageFit(
 }
 
 function formatMoney(value: number): string {
-  return Number(value || 0).toLocaleString("en-IN");
+  const amount = Number(value) || 0;
+  return amount.toLocaleString("en-IN", {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatCurrency(value: number): string {

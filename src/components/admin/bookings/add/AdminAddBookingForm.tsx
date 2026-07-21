@@ -22,6 +22,7 @@ import {
   parseMinimumBookingDurationHours,
 } from "@/lib/app-settings";
 import { resolveCouponIdentityGate } from "@/lib/coupon-identity-gate";
+import { hasMoreThanTwoDecimals, toMoney } from "@/lib/money";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { getVariantMaxAllowed as resolveVariantMaxAllowed } from "@/lib/product-stock";
 import {
@@ -1388,8 +1389,8 @@ export function AdminAddBookingForm({
     const decorationChanged =
       effectiveDecorationRequired !== Boolean(editPrefill.decorationRequired);
     const additionalChargeChanged =
-      Math.trunc(Math.max(Number(additionalChargeAmount) || 0, 0)) !==
-        Math.max(Number(editPrefill.pricing.additionalChargeAmount ?? 0), 0) ||
+      toMoney(Math.max(Number(additionalChargeAmount) || 0, 0)) !==
+        toMoney(editPrefill.pricing.additionalChargeAmount ?? 0) ||
       additionalChargeReason.trim() !==
         String(editPrefill.pricing.additionalChargeReason ?? "").trim();
 
@@ -2035,9 +2036,9 @@ export function AdminAddBookingForm({
 
     if (!Number.isFinite(additionalChargeAmount) || additionalChargeAmount < 0) {
       nextErrors.additionalChargeAmount = "Enter a valid additional charge amount.";
-    } else if (!Number.isInteger(additionalChargeAmount)) {
+    } else if (hasMoreThanTwoDecimals(additionalChargeAmountInput)) {
       nextErrors.additionalChargeAmount =
-        "Additional charge must be a whole number until decimal pricing is enabled.";
+        "Additional charge can have up to 2 decimal places.";
     }
 
     if (selectedOccasion) {
@@ -2052,6 +2053,8 @@ export function AdminAddBookingForm({
       if (isEditMode) {
         if (enforceAdvanceNumeric && (!Number.isFinite(amountPayNow) || amountPayNow < 0)) {
           nextErrors.amountPayNow = "Enter a valid amount to collect.";
+        } else if (hasMoreThanTwoDecimals(amountPayNow)) {
+          nextErrors.amountPayNow = "Amount to collect can have up to 2 decimal places.";
         } else if (amountPayNow > editRemainingBeforeCollection) {
           nextErrors.amountPayNow = "Amount to collect cannot exceed remaining amount.";
         } else if (
@@ -2067,6 +2070,8 @@ export function AdminAddBookingForm({
       } else {
         if (enforceAdvanceNumeric && (!Number.isFinite(amountPayNow) || amountPayNow <= 0)) {
           nextErrors.amountPayNow = "Enter a valid advance amount.";
+        } else if (hasMoreThanTwoDecimals(amountPayNow)) {
+          nextErrors.amountPayNow = "Advance can have up to 2 decimal places.";
         } else if (amountPayNow < minimumAdvanceAmount) {
           nextErrors.amountPayNow = `Advance cannot be lower than Rs ${minimumAdvanceAmount}.`;
         } else if (pricing && amountPayNow > pricing.totalAmount) {
@@ -2530,7 +2535,7 @@ export function AdminAddBookingForm({
               <input
                 type="number"
                 min={0}
-                step={1}
+                step={0.01}
                 inputMode="decimal"
                 value={additionalChargeAmountInput}
                 onChange={(event) => {
@@ -2669,7 +2674,12 @@ export function AdminAddBookingForm({
               <span className="font-semibold">{editPaymentLink.bookingRef}</span>{" "}
               was updated. A secure Square payment link for the balance of{" "}
               <span className="font-semibold">
-                ${Math.max(0, Math.trunc(editPaymentLink.amountDue))}
+                ${toMoney(editPaymentLink.amountDue).toLocaleString(undefined, {
+                  minimumFractionDigits: Number.isInteger(toMoney(editPaymentLink.amountDue))
+                    ? 0
+                    : 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>{" "}
               has been emailed to the customer. You can also copy and share it
               below. The booking balance updates automatically once paid.

@@ -1,6 +1,7 @@
 import type { BookingSuccessData } from "@/components/booking/success/types";
 import { buildBookingTicketPdf } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
 import type { BookingConfirmationEmailProps } from "@/emails/BookingConfirmationEmail";
+import { toMoney } from "@/lib/money";
 import { loadServerPdfImage } from "@/lib/pdf/server-image";
 
 type BookingConfirmationPdfAttachment = {
@@ -53,7 +54,7 @@ function mapEmailDataToBookingSuccessData(
     signedAgreement: data.signedAgreement ?? null,
     items: (data.addonItems ?? []).map((item, index) => {
       const quantity = Math.max(1, Math.trunc(item.quantity || 1));
-      const totalPrice = Math.max(0, Math.trunc(item.totalPrice || 0));
+      const totalPrice = Math.max(0, toMoney(item.totalPrice || 0));
 
       return {
         id: `email-addon-${index}`,
@@ -61,7 +62,7 @@ function mapEmailDataToBookingSuccessData(
         variantLabel: item.variantLabel ?? "Selected",
         category: "ADD_ON",
         quantity,
-        unitPrice: Math.round(totalPrice / quantity),
+        unitPrice: toMoney(totalPrice / quantity),
         totalPrice,
         numberValue: item.numberValue ?? null,
         image: item.image ?? null,

@@ -7,6 +7,14 @@ import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
 import {
+  centsToMoney,
+  hasMoreThanTwoDecimals,
+  multiplyMoney,
+  toCents,
+  toMoney,
+  toNonNegativeMoney,
+} from "@/lib/money";
+import {
   PACKAGE_EXTRA_PERSON_PRICE,
   maxGuestsForIncluded,
 } from "@/lib/package-guest-pricing";
@@ -267,22 +275,23 @@ function buildOccasionDetails(
 
 function normalizeAdditionalChargeAmount(value: unknown) {
   if (value == null || String(value).trim() === "") return 0;
-  const amount = Number(value);
-  if (!Number.isFinite(amount) || amount < 0) {
+  const parsed = Number(value);
+  if (hasMoreThanTwoDecimals(value)) {
+    throw new AdminBookingError(
+      400,
+      "INVALID_REQUEST",
+      "Additional charge amount can have up to 2 decimal places."
+    );
+  }
+  const amount = toNonNegativeMoney(value);
+  if (!Number.isFinite(parsed) || !Number.isFinite(amount) || parsed < 0) {
     throw new AdminBookingError(
       400,
       "INVALID_REQUEST",
       "Additional charge amount must be zero or a positive number."
     );
   }
-  if (!Number.isInteger(amount)) {
-    throw new AdminBookingError(
-      400,
-      "INVALID_REQUEST",
-      "Additional charge amount must be a whole number until decimal pricing is enabled."
-    );
-  }
-  return Math.trunc(amount);
+  return amount;
 }
 
 function extractLedNumbersFromOccasionData(
@@ -457,7 +466,23 @@ export async function POST(req: Request) {
     const paymentAmountMode =
       body.payment.amountMode ?? body.payment.offlineAmountMode ?? "ADVANCE";
     const offlineReference = body.payment.offlineReference?.trim() ?? "";
-    const customAdvanceAmount = Number(body.payment.advanceAmount ?? 0);
+      if (hasMoreThanTwoDecimals(body.payment.advanceAmount ?? 0)) {
+        throw new AdminBookingError(
+          400,
+          "INVALID_REQUEST",
+          "Advance amount can have up to 2 decimal places."
+        );
+      }
+      const customAdvanceAmount = toNonNegativeMoney(
+        body.payment.advanceAmount ?? 0
+      );
+      if (!Number.isFinite(Number(body.payment.advanceAmount ?? 0))) {
+        throw new AdminBookingError(
+          400,
+          "INVALID_REQUEST",
+          "Advance amount must be zero or a positive number."
+        );
+      }
     // Pay-later bookings (phone/email, Zelle paid later) are created approved
     // and awaiting payment; the collection fields are not required for them.
     const collectPaymentNow = body.payment.collectNow !== false;
@@ -723,7 +748,7 @@ export async function POST(req: Request) {
             slug: variant.product.slug,
             name: variant.product.name,
           },
-          baseUnitPrice: variant.salePrice ?? variant.regularPrice,
+          baseUnitPrice: toMoney(variant.salePrice ?? variant.regularPrice),
           durationHours: bookingDurationHours,
         });
         const totalPrice = getPackageIncludedProductTotalPrice({
@@ -735,7 +760,9 @@ export async function POST(req: Request) {
           quantity: item.quantity,
           unitPrice,
         });
-        productsAmount += totalPrice;
+          productsAmount = centsToMoney(
+            toCents(productsAmount) + toCents(totalPrice)
+          );
 
         if (
           isNumberDecorationProduct({
@@ -927,15 +954,16 @@ export async function POST(req: Request) {
           itemKey: item.variantId,
           productId: item.productId,
           category: item.category,
-          totalPrice: item.totalPrice,
+          totalPrice: toMoney(item.totalPrice),
         })),
         bookingSubtotal: pricingBase.totalAmount,
         slotAmount: pricingBase.baseAmount,
-        nonSlotAmount:
-          pricingBase.extrasAmount +
-          pricingBase.decorationAmount +
-          pricingBase.productsAmount +
-          pricingBase.additionalChargeAmount,
+        nonSlotAmount: centsToMoney(
+          toCents(pricingBase.extrasAmount) +
+            toCents(pricingBase.decorationAmount) +
+            toCents(pricingBase.productsAmount) +
+            toCents(pricingBase.additionalChargeAmount)
+        ),
         productsTotal: pricingBase.productsAmount,
         extrasTotal: pricingBase.extrasAmount,
         advanceFloor: minAdvanceAmount,
@@ -950,7 +978,7 @@ export async function POST(req: Request) {
         ? 0
         : paymentAmountMode === "FULL"
         ? totalAfterDiscount
-        : Math.trunc(customAdvanceAmount || minAdvanceAmount);
+        : customAdvanceAmount || minAdvanceAmount;
 
       if (collectPaymentNow && paymentAmountMode === "ADVANCE") {
         if (desiredAdvance < minAdvanceAmount) {
@@ -1222,7 +1250,7 @@ export async function POST(req: Request) {
             productName: item.productName,
             variantLabel: item.variantLabel,
             quantity: item.quantity,
-            totalPrice: item.totalPrice,
+            totalPrice: toMoney(item.totalPrice),
             image: item.product?.image ?? null,
           })),
           bookingForNotification.occasionData as Prisma.JsonValue | null
@@ -1264,18 +1292,18 @@ export async function POST(req: Request) {
                   latestPayment?.status ??
                   null,
                 paymentReference: latestPayment?.transactionId ?? null,
-                baseAmount: bookingForNotification.baseAmount,
-                extrasAmount: bookingForNotification.extrasAmount,
-                productsAmount: bookingForNotification.productsAmount,
+                baseAmount: toMoney(bookingForNotification.baseAmount),
+                extrasAmount: toMoney(bookingForNotification.extrasAmount),
+                productsAmount: toMoney(bookingForNotification.productsAmount),
                 additionalChargeAmount:
-                  bookingForNotification.additionalChargeAmount,
+                  toMoney(bookingForNotification.additionalChargeAmount),
                 additionalChargeReason:
                   bookingForNotification.additionalChargeReason,
-                decorationAmount: bookingForNotification.decorationAmount,
-                discountAmount: bookingForNotification.discountAmount,
-                totalAmount: bookingForNotification.totalAmount,
-                advancePaid: bookingForNotification.advancePaid,
-                remainingPayable: bookingForNotification.remainingPayable,
+                decorationAmount: toMoney(bookingForNotification.decorationAmount),
+                discountAmount: toMoney(bookingForNotification.discountAmount),
+                totalAmount: toMoney(bookingForNotification.totalAmount),
+                advancePaid: toMoney(bookingForNotification.advancePaid),
+                remainingPayable: toMoney(bookingForNotification.remainingPayable),
               })
             : null;
 

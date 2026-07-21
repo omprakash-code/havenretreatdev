@@ -30,6 +30,7 @@ import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-exp
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { getVariantMaxAllowed } from "@/lib/product-stock";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
 import {
   resolveBookingDurationPricingConfig,
   resolveSlotDurationHours,
@@ -403,8 +404,8 @@ export async function POST(req: Request) {
             decorationAmount: 0,
           }
         : calculateBookingPricing({
-            slotBasePrice: schedule.basePrice,
-            slotFinalPrice: schedule.finalPrice,
+            slotBasePrice: toMoney(schedule.basePrice),
+            slotFinalPrice: toMoney(schedule.finalPrice),
             durationHours,
             includedDurationHours: durationPricing.includedDurationHours,
             extraHourlyRate: effectiveExtraHourlyRate,
@@ -417,11 +418,14 @@ export async function POST(req: Request) {
           });
 
       const slotAmount = pricingBase.baseAmount;
-      const nonSlotAmount =
-        pricingBase.extrasAmount +
-        pricingBase.decorationAmount +
-        productsAmount;
-      const bookingTotalBeforeDiscount = slotAmount + nonSlotAmount;
+      const nonSlotAmount = centsToMoney(
+        toCents(pricingBase.extrasAmount) +
+          toCents(pricingBase.decorationAmount) +
+          toCents(productsAmount)
+      );
+      const bookingTotalBeforeDiscount = centsToMoney(
+        toCents(slotAmount) + toCents(nonSlotAmount)
+      );
       const resolvedUserId = await resolveBookingCouponUserId(tx, {
         userId: booking.userId,
         contactPhone: booking.contactPhone,
@@ -443,12 +447,12 @@ export async function POST(req: Request) {
           itemKey: item.variantId,
           productId: item.productId,
           category: item.category,
-          totalPrice: item.totalPrice,
+          totalPrice: toMoney(item.totalPrice),
         })),
         slotAmount,
         nonSlotAmount,
         productsTotal: productsAmount,
-        extrasTotal: booking.extrasAmount,
+        extrasTotal: toMoney(booking.extrasAmount),
       });
 
       const advanceFloor = await getRequiredAdvancePaymentAmount(tx);
@@ -460,7 +464,9 @@ export async function POST(req: Request) {
         resolvedUserId,
         minimumPayable: advanceFloor,
       });
-      const totalAmount = bookingTotalBeforeDiscount - totalDiscount;
+      const totalAmount = centsToMoney(
+        toCents(bookingTotalBeforeDiscount) - toCents(totalDiscount)
+      );
       const finalRangePricing = buildRangePricingSnapshot({
         packageSnapshot: booking.packageSnapshot,
         pricingSnapshot: booking.pricingSnapshot,
@@ -485,7 +491,9 @@ export async function POST(req: Request) {
           discountAmount: totalDiscount,
           totalAmount,
           pricingSnapshot: finalRangePricing ?? undefined,
-          remainingPayable: Math.max(totalAmount - booking.advancePaid, 0),
+          remainingPayable: centsToMoney(
+            Math.max(toCents(totalAmount) - toCents(booking.advancePaid), 0)
+          ),
           ...(shouldInvalidatePaymentOrder
             ? {
                 bookingStatus: "AWAITING_PAYMENT" as const,
@@ -524,13 +532,14 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       discountAmount: appliedCoupons.reduce(
-        (sum, usage) => sum + (usage.discountAmount ?? 0),
+        (sum, usage) =>
+          centsToMoney(toCents(sum) + toCents(usage.discountAmount ?? 0)),
         0
       ),
       appliedCoupons: appliedCoupons.map((usage) => ({
         id: usage.coupon.id,
         code: getCouponDisplayCode(usage.coupon.code),
-        discountAmount: usage.discountAmount ?? 0,
+        discountAmount: toMoney(usage.discountAmount ?? 0),
         status: usage.status,
       })),
     });

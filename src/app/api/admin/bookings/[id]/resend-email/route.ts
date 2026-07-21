@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { resolveLocationDisplayName } from "@/lib/location-display";
+import { toMoney } from "@/lib/money";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { createSuccessToken } from "@/services/booking/successToken.server";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
@@ -302,7 +303,7 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
         productName: item.productName,
         variantLabel: item.variantLabel,
         quantity: item.quantity,
-        totalPrice: item.totalPrice,
+        totalPrice: toMoney(item.totalPrice),
         image: item.product?.image ?? null,
       })),
       booking.occasionData as Prisma.JsonValue | null
@@ -349,14 +350,14 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
       paymentStatus: booking.paymentStatus ?? latestPayment?.status ?? null,
       paymentReference:
         latestPayment?.transactionId ?? booking.paymentTransactionId ?? null,
-      baseAmount: booking.baseAmount,
-      extrasAmount: booking.extrasAmount,
-      productsAmount: booking.productsAmount,
-      decorationAmount: booking.decorationAmount,
-      discountAmount: booking.discountAmount,
-      totalAmount: booking.totalAmount,
-      advancePaid: booking.advancePaid,
-      remainingPayable: booking.remainingPayable,
+      baseAmount: toMoney(booking.baseAmount),
+      extrasAmount: toMoney(booking.extrasAmount),
+      productsAmount: toMoney(booking.productsAmount),
+      decorationAmount: toMoney(booking.decorationAmount),
+      discountAmount: toMoney(booking.discountAmount),
+      totalAmount: toMoney(booking.totalAmount),
+      advancePaid: toMoney(booking.advancePaid),
+      remainingPayable: toMoney(booking.remainingPayable),
       }),
       signedAgreement: signedAgreement
         ? {

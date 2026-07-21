@@ -13,7 +13,8 @@ export type AdminBookingConfirmationEmailProps = BookingConfirmationEmailProps;
 const moneyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
 const resolvedTheme = resolveBookingEmailTheme(process.env.BOOKING_EMAIL_THEME);
@@ -28,7 +29,8 @@ const logoBorder =
     : bookingEmailColors.dark.logoBorder;
 
 function formatMoney(value: number) {
-  return moneyFormatter.format(Math.max(0, Math.trunc(value || 0)));
+  const amount = Math.max(0, Number(value) || 0);
+  return moneyFormatter.format(amount);
 }
 
 function formatAddonPrice(value: number) {

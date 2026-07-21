@@ -7,12 +7,13 @@
 // which treats a zero sale price as free instead of falling back — unifying
 // that would change admin pricing behaviour.
 export function resolveVariantBaseUnitPrice(variant: {
-  regularPrice: number;
-  salePrice?: number | null;
+  regularPrice: unknown;
+  salePrice?: unknown | null;
 }) {
-  return variant.salePrice !== null &&
-    variant.salePrice !== undefined &&
-    variant.salePrice > 0
-    ? variant.salePrice
-    : variant.regularPrice;
+  const regularPrice = Number(variant.regularPrice) || 0;
+  const salePrice =
+    variant.salePrice !== null && variant.salePrice !== undefined
+      ? Number(variant.salePrice)
+      : null;
+  return salePrice !== null && salePrice > 0 ? salePrice : regularPrice;
 }

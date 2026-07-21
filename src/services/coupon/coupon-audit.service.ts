@@ -1,6 +1,7 @@
 import { BookingStatus, PaymentStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { toMoney } from "@/lib/money";
 
 const STALE_LOCK_WINDOW_MINUTES = 30;
 
@@ -197,7 +198,9 @@ export async function getCouponAuditReport(input?: {
         usage,
       };
     })
-    .filter(({ booking, usage }) => booking.discountAmount !== usage.sum);
+    .filter(
+      ({ booking, usage }) => toMoney(booking.discountAmount) !== usage.sum
+    );
 
   const mismatchIds = mismatchBase.map(({ booking }) => booking.id);
 
@@ -236,16 +239,16 @@ export async function getCouponAuditReport(input?: {
       bookingRef: booking.bookingRef,
       bookingStatus: booking.bookingStatus,
       paymentStatus: booking.paymentStatus,
-      bookingDiscountAmount: booking.discountAmount,
+      bookingDiscountAmount: toMoney(booking.discountAmount),
       activeUsageDiscountSum: usage.sum,
       activeUsageCount: usage.count,
       usageStatuses: Array.from(statusesByBookingId.get(booking.id) ?? []),
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt,
-      totalAmount: booking.totalAmount,
-      advancePaid: booking.advancePaid,
-      remainingPayable: booking.remainingPayable,
-      isFullyPaid: booking.remainingPayable <= 0,
+      totalAmount: toMoney(booking.totalAmount),
+      advancePaid: toMoney(booking.advancePaid),
+      remainingPayable: toMoney(booking.remainingPayable),
+      isFullyPaid: toMoney(booking.remainingPayable) <= 0,
     }));
 
   return {

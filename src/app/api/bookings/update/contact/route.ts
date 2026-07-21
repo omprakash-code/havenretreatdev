@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
 import { buildMinimumPayableMessage } from "@/services/coupon/coupon-minimum-payable";
 import {
   buildBookingCouponContext,
@@ -89,7 +90,8 @@ export async function POST(req: Request) {
         }
 
         const productsAmount = booking.items.reduce(
-          (sum, item) => sum + Math.max(item.totalPrice, 0),
+          (sum, item) =>
+            centsToMoney(toCents(sum) + toCents(Math.max(toMoney(item.totalPrice), 0))),
           0
         );
         const pricingSnapshot = buildRangePricingSnapshot({
@@ -97,7 +99,7 @@ export async function POST(req: Request) {
           pricingSnapshot: booking.pricingSnapshot,
           guestCount: parsedGuestCount,
           productsAmount,
-          discountAmount: booking.discountAmount,
+          discountAmount: toMoney(booking.discountAmount),
         });
 
         await tx.booking.update({
@@ -116,7 +118,7 @@ export async function POST(req: Request) {
             productsAmount,
             totalAmount: pricingSnapshot.totalAmount,
             remainingPayable: Math.max(
-              pricingSnapshot.totalAmount - booking.advancePaid,
+              pricingSnapshot.totalAmount - toMoney(booking.advancePaid),
               0
             ),
             user: {
@@ -186,10 +188,11 @@ export async function POST(req: Request) {
         itemKey: item.id,
         productId: item.productId,
         category: item.category,
-        totalPrice: item.totalPrice,
+        totalPrice: toMoney(item.totalPrice),
       }));
       const productsTotal = contextItems.reduce(
-        (sum, item) => sum + Math.max(Number(item.totalPrice ?? 0), 0),
+        (sum, item) =>
+          centsToMoney(toCents(sum) + toCents(Math.max(item.totalPrice, 0))),
         0
       );
       const durationPricing = await resolveBookingDurationPricingConfig(tx);
@@ -209,8 +212,8 @@ export async function POST(req: Request) {
       });
 
       const pricingBase = calculateBookingPricing({
-        slotBasePrice: booking.baseAmount,
-        slotFinalPrice: booking.baseAmount,
+        slotBasePrice: toMoney(booking.baseAmount),
+        slotFinalPrice: toMoney(booking.baseAmount),
         durationHours,
         includedDurationHours: durationPricing.includedDurationHours,
         extraHourlyRate: effectiveExtraHourlyRate,
@@ -222,11 +225,14 @@ export async function POST(req: Request) {
         advancePaid: 0,
       });
       const slotAmount = pricingBase.baseAmount;
-      const nonSlotAmount =
-        pricingBase.extrasAmount +
-        pricingBase.decorationAmount +
-        productsTotal;
-      const bookingTotalBeforeDiscount = slotAmount + nonSlotAmount;
+      const nonSlotAmount = centsToMoney(
+        toCents(pricingBase.extrasAmount) +
+          toCents(pricingBase.decorationAmount) +
+          toCents(productsTotal)
+      );
+      const bookingTotalBeforeDiscount = centsToMoney(
+        toCents(slotAmount) + toCents(nonSlotAmount)
+      );
       const resolvedUserId = await resolveBookingCouponUserId(tx, {
         userId: null,
         contactPhone: phone,
@@ -261,7 +267,9 @@ export async function POST(req: Request) {
           resolvedUserId,
           minimumPayable: advanceFloor,
         });
-      const totalAmount = bookingTotalBeforeDiscount - totalDiscount;
+      const totalAmount = centsToMoney(
+        toCents(bookingTotalBeforeDiscount) - toCents(totalDiscount)
+      );
       const shouldInvalidatePaymentOrder =
         booking.bookingStatus === "AWAITING_PAYMENT" ||
         booking.bookingStatus === "PAYMENT_PROCESSING";
@@ -280,7 +288,9 @@ export async function POST(req: Request) {
           productsAmount: productsTotal,
           discountAmount: totalDiscount,
           totalAmount,
-          remainingPayable: Math.max(totalAmount - booking.advancePaid, 0),
+          remainingPayable: centsToMoney(
+            Math.max(toCents(totalAmount) - toCents(booking.advancePaid), 0)
+          ),
           advancePaid: booking.advancePaid,
           ...(shouldInvalidatePaymentOrder
             ? {

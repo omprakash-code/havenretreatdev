@@ -1,4 +1,10 @@
 // src/services/coupon/coupon-discount.ts
+import {
+  centsToMoney,
+  percentOfMoney,
+  toCents,
+  toNonNegativeMoney,
+} from "@/lib/money";
 
 export type CouponDiscountBreakdown = {
   rawDiscount: number;
@@ -23,26 +29,29 @@ export function calculateDiscountBreakdown(
   }
 
   if (coupon.discountType === 'FLAT') {
-    const rawDiscount = Math.max(coupon.discountValue, 0);
+    const rawDiscount = toNonNegativeMoney(coupon.discountValue);
+    const base = toNonNegativeMoney(baseAmount);
     return {
       rawDiscount,
       afterMaxDiscount: rawDiscount,
-      finalDiscount: Math.min(rawDiscount, baseAmount),
+      finalDiscount: centsToMoney(Math.min(toCents(rawDiscount), toCents(base))),
     };
   }
 
-  const rawDiscount = Math.floor(
-    (baseAmount * coupon.discountValue) / 100
-  )
+  const rawDiscount = percentOfMoney(baseAmount, coupon.discountValue);
 
   const afterMaxDiscount = coupon.maxDiscount
-    ? Math.min(rawDiscount, coupon.maxDiscount)
+    ? centsToMoney(
+        Math.min(toCents(rawDiscount), toCents(toNonNegativeMoney(coupon.maxDiscount)))
+      )
     : rawDiscount;
 
   return {
     rawDiscount,
     afterMaxDiscount,
-    finalDiscount: Math.min(afterMaxDiscount, baseAmount),
+    finalDiscount: centsToMoney(
+      Math.min(toCents(afterMaxDiscount), toCents(baseAmount))
+    ),
   };
 }
 

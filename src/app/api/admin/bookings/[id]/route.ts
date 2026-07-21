@@ -12,6 +12,14 @@ import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
+import {
+  centsToMoney,
+  hasMoreThanTwoDecimals,
+  multiplyMoney,
+  toCents,
+  toMoney,
+  toNonNegativeMoney,
+} from "@/lib/money";
 import { resolveLocationDisplayName } from "@/lib/location-display";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
@@ -197,22 +205,23 @@ function extractLedNumbersFromOccasionData(
 
 function normalizeAdditionalChargeAmount(value: unknown) {
   if (value == null || String(value).trim() === "") return 0;
-  const amount = Number(value);
-  if (!Number.isFinite(amount) || amount < 0) {
+  const parsed = Number(value);
+  if (hasMoreThanTwoDecimals(value)) {
+    throw new AdminBookingEditError(
+      400,
+      "INVALID_REQUEST",
+      "Additional charge amount can have up to 2 decimal places."
+    );
+  }
+  const amount = toNonNegativeMoney(value);
+  if (!Number.isFinite(parsed) || !Number.isFinite(amount) || parsed < 0) {
     throw new AdminBookingEditError(
       400,
       "INVALID_REQUEST",
       "Additional charge amount must be zero or a positive number."
     );
   }
-  if (!Number.isInteger(amount)) {
-    throw new AdminBookingEditError(
-      400,
-      "INVALID_REQUEST",
-      "Additional charge amount must be a whole number until decimal pricing is enabled."
-    );
-  }
-  return Math.trunc(amount);
+  return amount;
 }
 
 export async function GET(
@@ -347,7 +356,9 @@ export async function GET(
     const paymentType: PaymentType =
       latestPayment?.provider === "OFFLINE" ? "OFFLINE" : "ONLINE";
     const paymentAmountMode: PaymentAmountMode =
-      booking.advancePaid >= booking.totalAmount ? "FULL" : "ADVANCE";
+      toMoney(booking.advancePaid) >= toMoney(booking.totalAmount)
+        ? "FULL"
+        : "ADVANCE";
 
     const occasionData = (booking.occasionData as Record<string, unknown> | null) ?? {};
     const ledNumberQueue = extractLedNumbersFromOccasionData(occasionData);
@@ -355,7 +366,7 @@ export async function GET(
     const appliedCoupons = booking.couponUsages.map((usage) => ({
       couponId: usage.coupon.id,
       code: getCouponDisplayCode(usage.coupon.code),
-      discountAmount: usage.discountAmount ?? 0,
+      discountAmount: toMoney(usage.discountAmount ?? 0),
       status: usage.status,
       reservedAt: usage.reservedAt,
       confirmedAt: usage.confirmedAt,
@@ -428,7 +439,7 @@ export async function GET(
           : null;
     const derivedExtraDurationAmount =
       effectivePackageAmount != null
-        ? Math.max(booking.baseAmount - effectivePackageAmount, 0)
+        ? Math.max(toMoney(booking.baseAmount) - effectivePackageAmount, 0)
         : 0;
     const effectiveExtraDurationAmount =
       rangeExtraDurationAmount > 0
@@ -494,16 +505,16 @@ export async function GET(
           guestCount: booking.guestCount,
           decorationRequired: booking.decorationRequired,
           pricing: {
-            base: booking.baseAmount,
-            extras: booking.extrasAmount,
-            products: booking.productsAmount,
-            additionalChargeAmount: booking.additionalChargeAmount,
+            base: toMoney(booking.baseAmount),
+            extras: toMoney(booking.extrasAmount),
+            products: toMoney(booking.productsAmount),
+            additionalChargeAmount: toMoney(booking.additionalChargeAmount),
             additionalChargeReason: booking.additionalChargeReason,
-            decoration: booking.decorationAmount,
-            discount: booking.discountAmount,
-            total: booking.totalAmount,
-            advancePaid: booking.advancePaid,
-            remainingPayable: booking.remainingPayable,
+            decoration: toMoney(booking.decorationAmount),
+            discount: toMoney(booking.discountAmount),
+            total: toMoney(booking.totalAmount),
+            advancePaid: toMoney(booking.advancePaid),
+            remainingPayable: toMoney(booking.remainingPayable),
             packageAmount: effectivePackageAmount,
             extraDurationAmount: effectiveExtraDurationAmount,
             extraDurationHours: effectiveExtraDurationHours,
@@ -524,8 +535,8 @@ export async function GET(
               variantLabel: item.variantLabel,
               productImage: item.product?.image ?? null,
               quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              totalPrice: item.totalPrice,
+              unitPrice: toMoney(item.unitPrice),
+              totalPrice: toMoney(item.totalPrice),
               image: item.product?.image ?? null,
               category: item.category,
               ledNumber,
@@ -577,7 +588,7 @@ export async function GET(
                 provider: latestPayment.provider,
                 method: latestPayment.method,
                 transactionId: latestPayment.transactionId,
-                amount: latestPayment.amount,
+                amount: toMoney(latestPayment.amount),
                 status: latestPayment.status,
                 createdAt: latestPayment.createdAt.toISOString(),
                 recordedByAdminId: latestPayment.recordedByAdminId,
@@ -592,13 +603,13 @@ export async function GET(
           // Payment is shown independently of the approval decision.
           paymentLifecycle: derivePaymentLifecycle({
             paymentStatus: paymentStatusForDisplay,
-            advancePaid: booking.advancePaid,
-            remainingPayable: booking.remainingPayable,
+            advancePaid: toMoney(booking.advancePaid),
+            remainingPayable: toMoney(booking.remainingPayable),
           }),
           paymentStatusLabel: getPaymentStatusLabel({
             paymentStatus: paymentStatusForDisplay,
-            advancePaid: booking.advancePaid,
-            remainingPayable: booking.remainingPayable,
+            advancePaid: toMoney(booking.advancePaid),
+            remainingPayable: toMoney(booking.remainingPayable),
           }),
           reviewSubmittedAt: booking.reviewSubmittedAt?.toISOString() ?? null,
           reviewedAt: booking.reviewedAt?.toISOString() ?? null,
@@ -658,8 +669,8 @@ export async function GET(
             productName: item.productName,
             variantLabel: item.variantLabel,
             quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
+            unitPrice: toMoney(item.unitPrice),
+            totalPrice: toMoney(item.totalPrice),
             category: item.category,
             ledNumber,
           };
@@ -667,7 +678,7 @@ export async function GET(
         payment: {
           type: paymentType,
           amountMode: paymentAmountMode,
-          advanceAmount: booking.advancePaid,
+          advanceAmount: toMoney(booking.advancePaid),
           offlineMethod:
             latestPayment?.provider === "OFFLINE" && latestPayment.method
               ? latestPayment.method
@@ -679,16 +690,16 @@ export async function GET(
           status: paymentStatusForDisplay,
         },
         pricing: {
-          baseAmount: booking.baseAmount,
-          extrasAmount: booking.extrasAmount,
-          productsAmount: booking.productsAmount,
-          additionalChargeAmount: booking.additionalChargeAmount,
+          baseAmount: toMoney(booking.baseAmount),
+          extrasAmount: toMoney(booking.extrasAmount),
+          productsAmount: toMoney(booking.productsAmount),
+          additionalChargeAmount: toMoney(booking.additionalChargeAmount),
           additionalChargeReason: booking.additionalChargeReason,
-          decorationAmount: booking.decorationAmount,
-          discountAmount: booking.discountAmount,
-          totalAmount: booking.totalAmount,
-          advancePaid: booking.advancePaid,
-          remainingPayable: booking.remainingPayable,
+          decorationAmount: toMoney(booking.decorationAmount),
+          discountAmount: toMoney(booking.discountAmount),
+          totalAmount: toMoney(booking.totalAmount),
+          advancePaid: toMoney(booking.advancePaid),
+          remainingPayable: toMoney(booking.remainingPayable),
         },
       },
     });
@@ -771,7 +782,23 @@ export async function PATCH(
     // (avoids "Payment gateway is not configured") regardless of the payload.
     const paymentType = "OFFLINE" as PaymentType;
     const paymentAmountMode = body.payment.amountMode;
-    const customAdvanceAmount = Number(body.payment.advanceAmount ?? 0);
+    if (hasMoreThanTwoDecimals(body.payment.advanceAmount ?? 0)) {
+      throw new AdminBookingEditError(
+        400,
+        "INVALID_REQUEST",
+        "Advance amount can have up to 2 decimal places."
+      );
+    }
+    const customAdvanceAmount = toNonNegativeMoney(
+      body.payment.advanceAmount ?? 0
+    );
+    if (!Number.isFinite(Number(body.payment.advanceAmount ?? 0))) {
+      throw new AdminBookingEditError(
+        400,
+        "INVALID_REQUEST",
+        "Advance amount must be zero or a positive number."
+      );
+    }
     // Admin collection is always offline; default the method so a partial payload
     // can't fail validation.
     const offlineMethod = body.payment.offlineMethod ?? "CASH";
@@ -883,7 +910,8 @@ export async function PATCH(
       }
 
       const wasFullyPaid =
-        booking.paymentStatus === PaymentStatus.PAID && booking.remainingPayable <= 0;
+        booking.paymentStatus === PaymentStatus.PAID &&
+        toMoney(booking.remainingPayable) <= 0;
       const nextPaymentStatus =
         requestedPaymentStatus ??
         booking.paymentStatus ??
@@ -1068,7 +1096,7 @@ export async function PATCH(
               slug: variant.product.slug,
               name: variant.product.name,
             },
-            baseUnitPrice: variant.salePrice ?? variant.regularPrice,
+            baseUnitPrice: toMoney(variant.salePrice ?? variant.regularPrice),
             durationHours: bookingDurationHours,
           });
           const totalPrice = getPackageIncludedProductTotalPrice({
@@ -1080,7 +1108,9 @@ export async function PATCH(
             quantity: item.quantity,
             unitPrice,
           });
-          productsAmount += totalPrice;
+          productsAmount = centsToMoney(
+            toCents(productsAmount) + toCents(totalPrice)
+          );
 
           if (
             isNumberDecorationProduct({
@@ -1121,12 +1151,14 @@ export async function PATCH(
         // booked hours to the new ones.
         const unitPrice = rebaseDurationAdjustedUnitPrice({
           product: { name: fallback.productName },
-          unitPrice: fallback.unitPrice,
+          unitPrice: toMoney(fallback.unitPrice),
           fromDurationHours: previousDurationHours,
           toDurationHours: bookingDurationHours,
         });
-        const totalPrice = unitPrice * item.quantity;
-        productsAmount += totalPrice;
+        const totalPrice = multiplyMoney(unitPrice, item.quantity);
+        productsAmount = centsToMoney(
+          toCents(productsAmount) + toCents(totalPrice)
+        );
 
         if (
           isNumberDecorationProduct({
@@ -1305,15 +1337,16 @@ export async function PATCH(
           itemKey: item.variantId,
           productId: item.productId,
           category: item.category,
-          totalPrice: item.totalPrice,
+          totalPrice: toMoney(item.totalPrice),
         })),
         bookingSubtotal: pricingBase.totalAmount,
         slotAmount: pricingBase.baseAmount,
-        nonSlotAmount:
-          pricingBase.extrasAmount +
-          pricingBase.decorationAmount +
-          pricingBase.productsAmount +
-          pricingBase.additionalChargeAmount,
+        nonSlotAmount: centsToMoney(
+          toCents(pricingBase.extrasAmount) +
+            toCents(pricingBase.decorationAmount) +
+            toCents(pricingBase.productsAmount) +
+            toCents(pricingBase.additionalChargeAmount)
+        ),
         productsTotal: pricingBase.productsAmount,
         extrasTotal: pricingBase.extrasAmount,
         advanceFloor: minAdvanceAmount,
@@ -1329,7 +1362,7 @@ export async function PATCH(
       const desiredAdvance =
         paymentAmountMode === "FULL"
           ? totalAfterDiscount
-          : Math.max(Math.trunc(customAdvanceAmount), 0);
+          : toNonNegativeMoney(customAdvanceAmount);
 
       if (paymentAmountMode === "ADVANCE" && nextPaymentStatus !== PaymentStatus.PAID) {
         if (desiredAdvance > 0 && desiredAdvance < minAdvanceAmount) {

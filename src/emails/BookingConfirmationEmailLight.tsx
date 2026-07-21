@@ -51,7 +51,8 @@ export type BookingConfirmationEmailProps = {
 const moneyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
 const color = bookingEmailColors.light;
@@ -78,7 +79,8 @@ const BRAND_LOGO_URL =
     : BRAND_LOGO_PATH;
 
 function formatMoney(value: number) {
-  return moneyFormatter.format(Math.max(0, Math.trunc(value || 0)));
+  const amount = Math.max(0, Number(value) || 0);
+  return moneyFormatter.format(amount);
 }
 
 function normalizeLabel(key: string) {

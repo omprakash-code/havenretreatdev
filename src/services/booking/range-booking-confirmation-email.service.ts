@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { resolveLocationDisplayName } from "@/lib/location-display";
+import { toMoney } from "@/lib/money";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
 import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
 import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
@@ -208,7 +209,10 @@ export async function sendRangeBookingConfirmationEmails({
     Number(pricingSnapshot?.extraDurationAmount ?? 0)
   ) || null;
   const addonItems = buildAddonItems(
-    booking.items,
+    booking.items.map((item) => ({
+      ...item,
+      totalPrice: toMoney(item.totalPrice),
+    })),
     booking.occasionData as Prisma.JsonValue | null
   );
 
@@ -252,14 +256,14 @@ export async function sendRangeBookingConfirmationEmails({
     paymentMethod: latestPayment?.method ?? "ONLINE",
     paymentStatus: booking.paymentStatus ?? latestPayment?.status ?? undefined,
     paymentReference: booking.paymentTransactionId ?? latestPayment?.transactionId ?? undefined,
-    baseAmount: booking.baseAmount,
-    extrasAmount: booking.extrasAmount,
-    productsAmount: booking.productsAmount,
-    decorationAmount: booking.decorationAmount,
-    discountAmount: booking.discountAmount,
-    totalAmount: booking.totalAmount,
-    advancePaid: booking.advancePaid,
-    remainingPayable: booking.remainingPayable,
+    baseAmount: toMoney(booking.baseAmount),
+    extrasAmount: toMoney(booking.extrasAmount),
+    productsAmount: toMoney(booking.productsAmount),
+    decorationAmount: toMoney(booking.decorationAmount),
+    discountAmount: toMoney(booking.discountAmount),
+    totalAmount: toMoney(booking.totalAmount),
+    advancePaid: toMoney(booking.advancePaid),
+    remainingPayable: toMoney(booking.remainingPayable),
     successUrl,
   };
 

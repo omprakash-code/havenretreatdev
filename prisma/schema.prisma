@@ -294,17 +294,17 @@ model Booking {
   guestCount         Int
   decorationRequired Boolean @default(false)
 
-  baseAmount       Int
-  extrasAmount     Int
-  productsAmount   Int @default(0)
-  additionalChargeAmount Int @default(0)
+  baseAmount       Decimal @db.Decimal(12, 2)
+  extrasAmount     Decimal @db.Decimal(12, 2)
+  productsAmount   Decimal @default(0) @db.Decimal(12, 2)
+  additionalChargeAmount Decimal @default(0) @db.Decimal(12, 2)
   additionalChargeReason String?
-  discountAmount   Int
-  totalAmount      Int
-  decorationAmount Int @default(0)
+  discountAmount   Decimal @db.Decimal(12, 2)
+  totalAmount      Decimal @db.Decimal(12, 2)
+  decorationAmount Decimal @default(0) @db.Decimal(12, 2)
 
-  advancePaid      Int // ₹750
-  remainingPayable Int
+  advancePaid      Decimal @db.Decimal(12, 2) // ₹750
+  remainingPayable Decimal @db.Decimal(12, 2)
 
   paymentStatus PaymentStatus?
   bookingStatus BookingStatus
@@ -419,9 +419,9 @@ model BookingItem {
   variantLabel String // snapshot
   productName  String
   category     ProductCategory
-  unitPrice    Int
+  unitPrice    Decimal @db.Decimal(12, 2)
   quantity     Int
-  totalPrice   Int
+  totalPrice   Decimal @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
 
@@ -529,8 +529,8 @@ model ProductVariant {
   productId String
 
   label        String // "500g", "1kg", "Premium", "Gold"
-  regularPrice Int
-  salePrice    Int? // optional
+  regularPrice Decimal @db.Decimal(12, 2)
+  salePrice    Decimal? @db.Decimal(12, 2) // optional
   stock        Int? // null = unlimited (untracked), 0 = out of stock, N = tracked inventory
   maxPerBooking Int? // null = no per-booking cap, N = max quantity allowed in a single booking
   isDefault    Boolean @default(false)
@@ -565,7 +565,7 @@ model Payment {
   method             String? // UPI, Card, Cash
   recordedByAdminId  String?
 
-  amount Int
+  amount Decimal @db.Decimal(12, 2)
   status PaymentStatus
 
   createdAt DateTime @default(now())
@@ -659,8 +659,8 @@ model Coupon {
   code String @unique
 
   discountType  CouponDiscountType
-  discountValue Int // flat amount OR percentage
-  maxDiscount   Int? // required when percentage
+  discountValue Decimal @db.Decimal(12, 2) // flat amount OR percentage
+  maxDiscount   Decimal? @db.Decimal(12, 2) // required when percentage
 
   isStackable Boolean @default(false)
   stackableCouponIds String[] @default([])
@@ -672,7 +672,7 @@ model Coupon {
 
   usageLimit        Int? // null = unlimited
   perUserUsageLimit Int?
-  minimumAmount     Int?
+  minimumAmount     Decimal? @db.Decimal(12, 2)
 
   isActive  Boolean @default(true)
   isDeleted Boolean @default(false)
@@ -748,7 +748,7 @@ model CouponUsage {
 
   status CouponUsageStatus
 
-  discountAmount Int?
+  discountAmount Decimal? @db.Decimal(12, 2)
 
   reservedAt  DateTime  @default(now())
   confirmedAt DateTime?

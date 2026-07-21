@@ -1,6 +1,7 @@
 import { BookingStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { toMoney } from "@/lib/money";
 
 const ACTIVE_COUPON_STATUSES = ["RESERVED", "CONFIRMED"] as const;
 
@@ -92,7 +93,7 @@ export async function reconcileCouponDiscountMismatches(
     const expectedDiscountByBookingId = new Map(
       usageByBooking
         .filter((row) => Boolean(row.bookingId))
-        .map((row) => [row.bookingId as string, Number(row._sum.discountAmount ?? 0)])
+        .map((row) => [row.bookingId as string, toMoney(row._sum.discountAmount ?? 0)])
     );
 
     const mismatches = bookings
@@ -102,7 +103,7 @@ export async function reconcileCouponDiscountMismatches(
           bookingId: booking.id,
           bookingRef: booking.bookingRef,
           bookingStatus: booking.bookingStatus,
-          currentDiscountAmount: booking.discountAmount,
+          currentDiscountAmount: toMoney(booking.discountAmount),
           expectedDiscountAmount,
         };
       })

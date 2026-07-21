@@ -14,6 +14,7 @@ import { getRequiredAdvancePaymentAmount } from "@/lib/advance-payment";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
 import { verifyBookingSessionToken } from "@/services/booking/bookingSession.server";
 import {
   RangeBookingSessionError,
@@ -120,18 +121,18 @@ export async function POST(req: Request) {
         itemKey: i.id,
         productId: i.productId,
         category: i.category,
-        totalPrice: i.totalPrice,
+        totalPrice: toMoney(i.totalPrice),
       }));
       const productsTotal = contextItems.reduce(
         (sum, item) => sum + Math.max(Number(item.totalPrice ?? 0), 0),
         0
       );
-      const slotAmount =
-        booking.baseAmount;
-      const nonSlotAmount =
-        booking.extrasAmount +
-        booking.decorationAmount +
-        productsTotal;
+      const slotAmount = toMoney(booking.baseAmount);
+      const nonSlotAmount = centsToMoney(
+        toCents(booking.extrasAmount) +
+          toCents(booking.decorationAmount) +
+          toCents(productsTotal)
+      );
       const context = buildBookingCouponContext({
         bookingSchedule: {
           eventDate: booking.eventDate,
@@ -149,7 +150,7 @@ export async function POST(req: Request) {
         slotAmount,
         nonSlotAmount,
         productsTotal,
-        extrasTotal: booking.extrasAmount,
+        extrasTotal: toMoney(booking.extrasAmount),
       });
 
       const advanceFloor = await getRequiredAdvancePaymentAmount(tx);
@@ -163,7 +164,9 @@ export async function POST(req: Request) {
           minimumPayable: advanceFloor,
         });
 
-      const newTotal = context.amounts.bookingTotal - totalDiscount;
+      const newTotal = centsToMoney(
+        toCents(context.amounts.bookingTotal) - toCents(totalDiscount)
+      );
 
       // 6. Update booking totals
       await tx.booking.update({
@@ -171,7 +174,9 @@ export async function POST(req: Request) {
         data: {
           discountAmount: totalDiscount,
           totalAmount: newTotal,
-          remainingPayable: Math.max(newTotal - booking.advancePaid, 0),
+          remainingPayable: centsToMoney(
+            Math.max(toCents(newTotal) - toCents(booking.advancePaid), 0)
+          ),
           ...(booking.bookingStatus === "AWAITING_PAYMENT" ||
             booking.bookingStatus === "PAYMENT_PROCESSING"
             ? {

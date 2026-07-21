@@ -13,6 +13,7 @@ import {
 } from "@prisma/client";
 import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 import { presentReportingSchedule } from "@/lib/admin/reporting-schedule-presenter";
+import { toMoney } from "@/lib/money";
 
 import { ADMIN_SOFT_DELETE_REASON, BOOKING_TIME_ZONE } from "@/lib/booking-policy";
 const DEFAULT_PAGE_SIZE = 40;
@@ -355,16 +356,16 @@ export async function GET(req: Request) {
         guestCount: b.guestCount,
 
         pricing: {
-          base: b.baseAmount,
-          extras: b.extrasAmount,
-          products: b.productsAmount,
-          additionalChargeAmount: b.additionalChargeAmount,
+          base: toMoney(b.baseAmount),
+          extras: toMoney(b.extrasAmount),
+          products: toMoney(b.productsAmount),
+          additionalChargeAmount: toMoney(b.additionalChargeAmount),
           additionalChargeReason: b.additionalChargeReason,
-          decoration: b.decorationAmount,
-          discount: b.discountAmount,
-          total: b.totalAmount,
-          advancePaid: b.advancePaid,
-          remainingPayable: b.remainingPayable,
+          decoration: toMoney(b.decorationAmount),
+          discount: toMoney(b.discountAmount),
+          total: toMoney(b.totalAmount),
+          advancePaid: toMoney(b.advancePaid),
+          remainingPayable: toMoney(b.remainingPayable),
           packageAmount: effectivePackageAmount,
           extraDurationAmount: effectiveExtraDurationAmount,
         },
@@ -375,13 +376,13 @@ export async function GET(req: Request) {
         // Payment is reported independently of approval.
         paymentLifecycle: derivePaymentLifecycle({
           paymentStatus: b.paymentStatus,
-          advancePaid: b.advancePaid,
-          remainingPayable: b.remainingPayable,
+          advancePaid: toMoney(b.advancePaid),
+          remainingPayable: toMoney(b.remainingPayable),
         }),
         paymentStatusLabel: getPaymentStatusLabel({
           paymentStatus: b.paymentStatus,
-          advancePaid: b.advancePaid,
-          remainingPayable: b.remainingPayable,
+          advancePaid: toMoney(b.advancePaid),
+          remainingPayable: toMoney(b.remainingPayable),
         }),
         reviewSubmittedAt: b.reviewSubmittedAt?.toISOString() ?? null,
         reviewedAt: b.reviewedAt?.toISOString() ?? null,

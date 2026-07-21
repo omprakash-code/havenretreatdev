@@ -7,6 +7,7 @@ import {
   resolveBookingCategoryMeta,
   slugifyBookingCategory,
 } from "@/lib/booking-product-categories";
+import { toMoney } from "@/lib/money";
 
 export async function GET(req: Request) {
   try {
@@ -76,18 +77,20 @@ export async function GET(req: Request) {
       image: p.image,
       variants: p.variants.map((v) => {
         const validSalePrice =
-          v.salePrice !== null && v.salePrice !== undefined && v.salePrice > 0
-            ? v.salePrice
+          v.salePrice !== null &&
+          v.salePrice !== undefined &&
+          toMoney(v.salePrice) > 0
+            ? toMoney(v.salePrice)
             : null;
 
         return {
           id: v.id,
           label: v.label,
-          regularPrice: v.regularPrice,
+          regularPrice: toMoney(v.regularPrice),
           salePrice: validSalePrice,
           stock: v.stock,
           maxPerBooking: v.maxPerBooking,
-          price: validSalePrice ?? v.regularPrice,
+          price: validSalePrice ?? toMoney(v.regularPrice),
           isDefault: v.isDefault,
         };
       }),

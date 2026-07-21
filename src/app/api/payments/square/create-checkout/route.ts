@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { toMoney } from "@/lib/money";
 import {
   AdvancePaymentConfigError,
   getRequiredAdvancePaymentAmount,
@@ -160,7 +161,11 @@ export async function POST(req: Request) {
       return jsonError(404, "BOOKING_NOT_FOUND", "Booking not found.");
     }
 
-    const checkout = await createRangeSquareCheckout(req, booking);
+    const checkout = await createRangeSquareCheckout(req, {
+      ...booking,
+      totalAmount: toMoney(booking.totalAmount),
+      advancePaid: toMoney(booking.advancePaid),
+    });
     return Response.json({ success: true, ...checkout });
   } catch (error) {
     console.error("SQUARE_CHECKOUT_ERROR", error);

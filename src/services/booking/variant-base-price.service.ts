@@ -10,7 +10,7 @@ type VariantPriceReader = {
       where: { id: { in: string[] } };
       select: { id: true; regularPrice: true; salePrice: true };
     }) => Promise<
-      Array<{ id: string; regularPrice: number; salePrice: number | null }>
+      Array<{ id: string; regularPrice: unknown; salePrice: unknown | null }>
     >;
   };
 };

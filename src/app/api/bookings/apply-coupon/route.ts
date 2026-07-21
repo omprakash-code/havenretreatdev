@@ -28,6 +28,7 @@ import { getRequiredAdvancePaymentAmount } from "@/lib/advance-payment";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { BOOKING_SESSION_EXPIRED_MODAL_MESSAGE } from "@/lib/booking-session-expiry";
 import { isSlotOnlyCouponScope } from "@/lib/coupon-scope";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
 import { verifyBookingSessionToken } from "@/services/booking/bookingSession.server";
 import {
@@ -176,8 +177,9 @@ export async function POST(req: Request) {
             id: rawCoupon.id,
             code: rawCoupon.code,
             discountType: rawCoupon.discountType,
-            discountValue: rawCoupon.discountValue,
-            maxDiscount: rawCoupon.maxDiscount,
+            discountValue: toMoney(rawCoupon.discountValue),
+            maxDiscount:
+                rawCoupon.maxDiscount == null ? null : toMoney(rawCoupon.maxDiscount),
             isStackable: rawCoupon.isStackable,
             stackableCouponIds: rawCoupon.stackableCouponIds ?? [],
             validFrom: rawCoupon.validFrom,
@@ -185,7 +187,10 @@ export async function POST(req: Request) {
             scope: rawCoupon.scope,
             usageLimit: rawCoupon.usageLimit,
             perUserUsageLimit: rawCoupon.perUserUsageLimit,
-            minimumAmount: rawCoupon.minimumAmount,
+            minimumAmount:
+                rawCoupon.minimumAmount == null
+                    ? null
+                    : toMoney(rawCoupon.minimumAmount),
             locationId: rawCoupon.locationId,
             isActive: rawCoupon.isActive,
             isDeleted: rawCoupon.isDeleted,
@@ -236,18 +241,18 @@ export async function POST(req: Request) {
             itemKey: i.id,
             productId: i.productId,
             category: i.category,
-            totalPrice: i.totalPrice,
+            totalPrice: toMoney(i.totalPrice),
         }));
         const productsTotal = contextItems.reduce(
             (sum, item) => sum + Math.max(Number(item.totalPrice ?? 0), 0),
             0
         );
-        const slotAmount =
-            booking.baseAmount;
-        const nonSlotAmount =
-            booking.extrasAmount +
-            booking.decorationAmount +
-            productsTotal;
+        const slotAmount = toMoney(booking.baseAmount);
+        const nonSlotAmount = centsToMoney(
+            toCents(booking.extrasAmount) +
+                toCents(booking.decorationAmount) +
+                toCents(productsTotal)
+        );
 
         const context = buildBookingCouponContext({
             bookingSchedule: {
@@ -266,7 +271,7 @@ export async function POST(req: Request) {
             slotAmount,
             nonSlotAmount,
             productsTotal,
-            extrasTotal: booking.extrasAmount,
+            extrasTotal: toMoney(booking.extrasAmount),
         });
 
         const result = evaluateCoupon(coupon, context, {
@@ -416,14 +421,18 @@ export async function POST(req: Request) {
                 );
                 throw new Error("COUPON_NO_DISCOUNT");
             }
-            const newTotal = context.amounts.bookingTotal - totalDiscount;
+            const newTotal = centsToMoney(
+                toCents(context.amounts.bookingTotal) - toCents(totalDiscount)
+            );
 
             await tx.booking.update({
                 where: { id: bookingId },
                 data: {
                     discountAmount: totalDiscount,
                     totalAmount: newTotal,
-                    remainingPayable: Math.max(newTotal - booking.advancePaid, 0),
+                    remainingPayable: centsToMoney(
+                        Math.max(toCents(newTotal) - toCents(booking.advancePaid), 0)
+                    ),
                     ...(booking.bookingStatus === "AWAITING_PAYMENT" ||
                         booking.bookingStatus === "PAYMENT_PROCESSING"
                         ? {

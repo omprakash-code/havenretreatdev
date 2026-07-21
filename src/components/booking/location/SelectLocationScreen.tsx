@@ -334,7 +334,8 @@ export default function SelectLocationScreen({ onContinue, selectedPackageName, 
     new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-      maximumFractionDigits: 0,
+      minimumFractionDigits: Number.isInteger(v) ? 0 : 2,
+      maximumFractionDigits: 2,
     }).format(v);
 
   const quickDates = [

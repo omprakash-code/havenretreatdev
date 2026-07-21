@@ -18,6 +18,7 @@ import {
   RangeBookingSessionError,
   requireActiveRangeBookingSession,
 } from "@/services/booking/range-booking-session.service";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
 
 export async function POST(req: Request) {
   try {
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
           "Booking is not ready for payment."
         );
       }
-      if (!booking.termsAcceptedAt || booking.totalAmount <= 0) {
+      if (!booking.termsAcceptedAt || toMoney(booking.totalAmount) <= 0) {
         return bookingErrorResponse(
           409,
           "BOOKING_INVALID_STATE",
@@ -66,7 +67,10 @@ export async function POST(req: Request) {
       const configuredAdvance =
         await getRequiredAdvancePaymentAmount(prisma);
       const advancePayable =
-        booking.advancePaid > 0 ? booking.advancePaid : configuredAdvance;
+        toMoney(booking.advancePaid) > 0
+          ? toMoney(booking.advancePaid)
+          : configuredAdvance;
+      const totalAmount = toMoney(booking.totalAmount);
       return NextResponse.json({
         success: true,
         message: "Range booking ready for payment provider migration",
@@ -75,10 +79,9 @@ export async function POST(req: Request) {
         lockVersion: booking.lockVersion,
         lockExpiresAt: booking.holdExpiresAt,
         advancePayable,
-        totalAmount: booking.totalAmount,
-        remainingPayable: Math.max(
-          booking.totalAmount - advancePayable,
-          0
+        totalAmount,
+        remainingPayable: centsToMoney(
+          Math.max(toCents(totalAmount) - toCents(advancePayable), 0)
         ),
         paymentProviderReady: false,
       });
@@ -131,7 +134,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (booking.totalAmount <= 0) {
+    if (toMoney(booking.totalAmount) <= 0) {
       return bookingErrorResponse(
         409,
         "BOOKING_INVALID_STATE",
@@ -141,9 +144,10 @@ export async function POST(req: Request) {
 
     const configuredAdvance = await getRequiredAdvancePaymentAmount(prisma);
     const resolvedAdvancePayable =
-      booking.advancePaid && booking.advancePaid > 0
-        ? booking.advancePaid
+      toMoney(booking.advancePaid) > 0
+        ? toMoney(booking.advancePaid)
         : configuredAdvance;
+    const totalAmount = toMoney(booking.totalAmount);
 
     return NextResponse.json({
       success: true,
@@ -152,8 +156,10 @@ export async function POST(req: Request) {
       paymentStatus: booking.paymentStatus,
       slotStatus: null,
       advancePayable: resolvedAdvancePayable,
-      totalAmount: booking.totalAmount,
-      remainingPayable: Math.max(booking.totalAmount - resolvedAdvancePayable, 0),
+      totalAmount,
+      remainingPayable: centsToMoney(
+        Math.max(toCents(totalAmount) - toCents(resolvedAdvancePayable), 0)
+      ),
     });
   } catch (error) {
     if (error instanceof RangeBookingSessionError) {

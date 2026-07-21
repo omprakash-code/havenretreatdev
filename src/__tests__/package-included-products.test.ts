@@ -151,15 +151,16 @@ describe("package extra-hour pricing", () => {
       guestCount: 10,
       theatreBaseGuests: 10,
       theatreExtraPersonPrice: 25,
-      productsAmount: 75,
-      additionalChargeAmount: 50,
-      discountAmount: 25,
-      advancePaid: 100,
+      productsAmount: 250.5,
+      additionalChargeAmount: 50.5,
+      discountAmount: 0,
+      advancePaid: 125.25,
     });
 
-    expect(pricing.additionalChargeAmount).toBe(50);
-    expect(pricing.totalAmount).toBe(600);
-    expect(pricing.advancePaid).toBe(100);
-    expect(pricing.remainingPayable).toBe(500);
+    expect(pricing.productsAmount).toBe(250.5);
+    expect(pricing.additionalChargeAmount).toBe(50.5);
+    expect(pricing.totalAmount).toBe(801);
+    expect(pricing.advancePaid).toBe(125.25);
+    expect(pricing.remainingPayable).toBe(675.75);
   });
 });

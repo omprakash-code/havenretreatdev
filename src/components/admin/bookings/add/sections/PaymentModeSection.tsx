@@ -187,6 +187,7 @@ export function PaymentModeSection({
               // An edit may collect nothing at all, so the browser must not block
               // an empty amount there; the form validates a typed advance itself.
               min={mode === "create" && isAdvanceEntryMode ? minimumAdvanceAmount : 0}
+              step={0.01}
               placeholder="Enter amount to collect"
               value={amountInputValue}
               disabled={amountInputDisabled}

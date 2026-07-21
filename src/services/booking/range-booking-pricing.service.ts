@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
+import { centsToMoney, toCents, toNonNegativeMoney } from "@/lib/money";
 import { PACKAGE_EXTRA_PERSON_PRICE } from "@/lib/package-guest-pricing";
 
 type JsonObject = Record<string, Prisma.JsonValue>;
@@ -11,8 +12,7 @@ function asObject(value: Prisma.JsonValue | null): JsonObject {
 }
 
 function asMoney(value: Prisma.JsonValue | undefined) {
-  const number = Number(value ?? 0);
-  return Number.isFinite(number) ? Math.max(0, Math.trunc(number)) : 0;
+  return toNonNegativeMoney(value ?? 0);
 }
 
 export function resolveRangePackageGuestLimit(
@@ -36,15 +36,20 @@ export function buildRangePricingSnapshot(input: {
     Math.trunc(input.guestCount) - includedGuests,
     0
   );
-  const extraGuestAmount = extraGuestCount * PACKAGE_EXTRA_PERSON_PRICE;
-  const productsAmount = Math.max(0, Math.trunc(input.productsAmount));
-  const grossAmount =
-    packageAmount + extraDurationAmount + extraGuestAmount + productsAmount;
-  const discountAmount = Math.min(
-    Math.max(0, Math.trunc(input.discountAmount)),
-    grossAmount
+  const extraGuestAmount = centsToMoney(
+    extraGuestCount * toCents(PACKAGE_EXTRA_PERSON_PRICE)
   );
-  const totalAmount = grossAmount - discountAmount;
+  const productsAmount = toNonNegativeMoney(input.productsAmount);
+  const grossAmount = centsToMoney(
+    toCents(packageAmount) +
+      toCents(extraDurationAmount) +
+      toCents(extraGuestAmount) +
+      toCents(productsAmount)
+  );
+  const discountAmount = centsToMoney(
+    Math.min(toCents(toNonNegativeMoney(input.discountAmount)), toCents(grossAmount))
+  );
+  const totalAmount = centsToMoney(toCents(grossAmount) - toCents(discountAmount));
   const advancePaid = asMoney(previous.advancePaid);
 
   return {
@@ -59,6 +64,8 @@ export function buildRangePricingSnapshot(input: {
     discountAmount,
     totalAmount,
     advancePaid,
-    remainingPayable: Math.max(totalAmount - advancePaid, 0),
+    remainingPayable: centsToMoney(
+      Math.max(toCents(totalAmount) - toCents(advancePaid), 0)
+    ),
   };
 }
