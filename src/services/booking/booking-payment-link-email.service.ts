@@ -18,7 +18,7 @@ export async function sendBookingPaymentLinkEmail({
   currency,
   paymentLinkUrl,
 }: SendBookingPaymentLinkEmailParams) {
-  await sendEmail({
+  return sendEmail({
     to,
     subject: `Complete your payment for booking ${bookingRef}`,
     react: BookingPaymentLinkEmail({

@@ -77,30 +77,47 @@ export async function createSquarePaymentLink(
   input: CreateSquarePaymentLinkInput
 ): Promise<SquarePaymentLinkResult> {
   const { accessToken, locationId } = getSquareCredentials();
-  const res = await fetch(`${getSquareBaseUrl()}/v2/online-checkout/payment-links`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      "Square-Version": SQUARE_API_VERSION,
-    },
-    body: JSON.stringify({
-      idempotency_key: input.idempotencyKey,
-      quick_pay: {
-        name: input.name,
-        price_money: {
-          amount: input.amount,
-          currency: input.currency,
-        } satisfies SquareMoney,
-        location_id: locationId,
+  const timeoutMs = process.env.NODE_ENV === "development" ? 3000 : 10000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+
+  try {
+    res = await fetch(`${getSquareBaseUrl()}/v2/online-checkout/payment-links`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Square-Version": SQUARE_API_VERSION,
       },
-      checkout_options: {
-        redirect_url: input.redirectUrl,
-      },
-      description: `Haven Retreat booking ${input.bookingRef}`,
-      payment_note: `bookingId=${input.bookingId}; bookingRef=${input.bookingRef}`,
-    }),
-  });
+      body: JSON.stringify({
+        idempotency_key: input.idempotencyKey,
+        quick_pay: {
+          name: input.name,
+          price_money: {
+            amount: input.amount,
+            currency: input.currency,
+          } satisfies SquareMoney,
+          location_id: locationId,
+        },
+        checkout_options: {
+          redirect_url: input.redirectUrl,
+        },
+        description: `Haven Retreat booking ${input.bookingRef}`,
+        payment_note: `bookingId=${input.bookingId}; bookingRef=${input.bookingRef}`,
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new SquareServerError(
+        `Square checkout request timed out after ${timeoutMs}ms.`
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const json = (await res.json().catch(() => null)) as SquarePaymentLinkResponse | null;
 

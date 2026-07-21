@@ -30,23 +30,23 @@ const AUTH_EXPIRED_LOG_SUPPRESSION_MS = 15 * 60 * 1000;
 
 let lastWhatsAppAuthExpiredLogAt = 0;
 
-function logMissingWhatsAppConfig() {
-  if (!process.env.WHATSAPP_PHONE_NUMBER_ID) {
-    console.error("[WHATSAPP] Missing phone number id.");
-    return true;
-  }
+function getWhatsAppConfig(isTestMode: boolean) {
+  const phoneNumberId = (
+    process.env.WHATSAPP_PHONE_NUMBER_ID ??
+    process.env.PHONE_NUMBER_ID ??
+    ""
+  ).trim();
+  const accessToken = (
+    process.env.WHATSAPP_TOKEN ??
+    process.env.WHATSAPP_ACCESS_TOKEN ??
+    ""
+  ).trim();
+  const templateImageUrl = (process.env.WHATSAPP_TEMPLATE_IMAGE_URL ?? "").trim();
 
-  if (!process.env.WHATSAPP_TOKEN) {
-    console.error("[WHATSAPP] Missing access token.");
-    return true;
-  }
+  if (!phoneNumberId || !accessToken) return null;
+  if (!isTestMode && !templateImageUrl) return null;
 
-  if (!process.env.WHATSAPP_TEMPLATE_IMAGE_URL) {
-    console.error("[WHATSAPP] Missing template header image URL.");
-    return true;
-  }
-
-  return false;
+  return { phoneNumberId, accessToken, templateImageUrl };
 }
 
 function isAuthExpiredError(error: WhatsAppApiError | undefined) {
@@ -103,12 +103,16 @@ function logWhatsAppApiError(error: WhatsAppApiError | undefined) {
   });
 }
 
-export async function sendBookingConfirmationWhatsApp(data: WhatsAppBookingData) {
-  if (!data.phone) return;
-  if (logMissingWhatsAppConfig()) return;
+export async function sendBookingConfirmationWhatsApp(
+  data: WhatsAppBookingData
+): Promise<boolean> {
+  if (!data.phone) return false;
 
   const isTestMode = process.env.WHATSAPP_TEST_MODE === "true";
-  const url = `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const config = getWhatsAppConfig(isTestMode);
+  if (!config) return false;
+
+  const url = `https://graph.facebook.com/v18.0/${config.phoneNumberId}/messages`;
 
   const payload = isTestMode
     ? {
@@ -134,7 +138,7 @@ export async function sendBookingConfirmationWhatsApp(data: WhatsAppBookingData)
                 {
                   type: "image",
                   image: {
-                    link: process.env.WHATSAPP_TEMPLATE_IMAGE_URL!,
+                    link: config.templateImageUrl,
                   },
                 },
               ],
@@ -163,14 +167,15 @@ export async function sendBookingConfirmationWhatsApp(data: WhatsAppBookingData)
         },
       };
 
+  const timeoutMs = process.env.NODE_ENV === "development" ? 2500 : 8000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        Authorization: `Bearer ${config.accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
@@ -178,20 +183,22 @@ export async function sendBookingConfirmationWhatsApp(data: WhatsAppBookingData)
     });
 
     if (res.ok) {
-      return;
+      return true;
     }
 
     const responseBody = (await res.json().catch(() => null)) as WhatsAppApiErrorResponse | null;
     logWhatsAppApiError(responseBody?.error);
+    return false;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      console.error("[WHATSAPP] Request timed out after 8000ms.");
-      return;
+      console.error(`[WHATSAPP] Request timed out after ${timeoutMs}ms.`);
+      return false;
     }
 
     console.error("[WHATSAPP] Request failed", {
       message: error instanceof Error ? error.message : "Unknown network error",
     });
+    return false;
   } finally {
     clearTimeout(timeoutId);
   }

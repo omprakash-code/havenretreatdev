@@ -143,7 +143,7 @@ export async function sendAdminBookingConfirmationEmail({
     return { sentCount: 0 };
   }
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     recipients.map((to) =>
       sendEmail({
         to,
@@ -154,7 +154,10 @@ export async function sendAdminBookingConfirmationEmail({
     )
   );
 
-  return { sentCount: recipients.length };
+  const sentCount = results.filter(
+    (result) => result.status === "fulfilled" && result.value
+  ).length;
+  return { sentCount };
 }
 
 export async function sendAdminBookingConfirmationEmailByBookingId(

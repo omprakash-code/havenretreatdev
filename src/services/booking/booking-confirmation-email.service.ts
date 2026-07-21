@@ -2,7 +2,11 @@ import type { BookingConfirmationEmailProps } from "@/emails/BookingConfirmation
 import { renderBookingConfirmationEmail } from "@/emails/renderBookingConfirmationEmail";
 import { buildBookingConfirmationCalendarAttachment } from "@/lib/calendar/booking-confirmation-calendar";
 import { buildBookingConfirmationPdfAttachment } from "@/lib/pdf/booking-confirmation";
-import { sendEmail, type EmailAttachment } from "@/services/email.service";
+import {
+  isEmailConfigured,
+  sendEmail,
+  type EmailAttachment,
+} from "@/services/email.service";
 
 type SendBookingConfirmationEmailParams = {
   to: string;
@@ -19,6 +23,10 @@ export async function sendBookingConfirmationEmail({
   theme,
   agreementAttachment,
 }: SendBookingConfirmationEmailParams) {
+  if (!isEmailConfigured()) {
+    return false;
+  }
+
   const attachments: EmailAttachment[] = [];
 
   try {
@@ -42,7 +50,7 @@ export async function sendBookingConfirmationEmail({
     attachments.push(agreementAttachment);
   }
 
-  await sendEmail({
+  return sendEmail({
     to,
     subject: `Your Haven Retreat booking request received - ${bookingRef}`,
     react: renderBookingConfirmationEmail(emailData, theme),

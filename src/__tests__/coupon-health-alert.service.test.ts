@@ -95,6 +95,26 @@ describe("dispatchCouponHealthAlert", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("skips quietly when enabled without a webhook URL", async () => {
+    vi.stubEnv("COUPON_HEALTH_ALERT_ENABLED", "true");
+    vi.stubEnv("COUPON_HEALTH_ALERT_MIN_LEVEL", "WARNING");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+
+    const result = await dispatchCouponHealthAlert({
+      health: warningHealth,
+      summary,
+      source: "scheduler",
+      trigger: "interval",
+    });
+
+    expect(result).toEqual({ dispatched: false, reason: "not_configured" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
   it("enforces cooldown for same level alerts", async () => {
     vi.stubEnv("COUPON_HEALTH_ALERT_ENABLED", "true");
     vi.stubEnv("COUPON_HEALTH_ALERT_MIN_LEVEL", "WARNING");

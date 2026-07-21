@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { sendEmailMock, renderEmailMock, buildPdfMock } = vi.hoisted(() => ({
+const { sendEmailMock, isEmailConfiguredMock, renderEmailMock, buildPdfMock } =
+  vi.hoisted(() => ({
   sendEmailMock: vi.fn(),
+  isEmailConfiguredMock: vi.fn(() => true),
   renderEmailMock: vi.fn(() => null),
   buildPdfMock: vi.fn(),
 }));
 
 vi.mock("@/services/email.service", () => ({
+  isEmailConfigured: isEmailConfiguredMock,
   sendEmail: sendEmailMock,
 }));
 
@@ -42,6 +45,8 @@ describe("sendBookingConfirmationEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    isEmailConfiguredMock.mockReturnValue(true);
+    sendEmailMock.mockResolvedValue(true);
     buildPdfMock.mockResolvedValue({
       filename: "HR-BOOK-100.pdf",
       content: "cGRm",
@@ -51,6 +56,22 @@ describe("sendBookingConfirmationEmail", () => {
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
+  });
+
+  it("skips all email work when Resend is not configured", async () => {
+    isEmailConfiguredMock.mockReturnValue(false);
+
+    const sent = await sendBookingConfirmationEmail({
+      to: "demo@example.com",
+      bookingRef: "HR-BOOK-100",
+      emailData: baseEmailData,
+      theme: "dark",
+    });
+
+    expect(sent).toBe(false);
+    expect(buildPdfMock).not.toHaveBeenCalled();
+    expect(renderEmailMock).not.toHaveBeenCalled();
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
   it("sends email with PDF attachment", async () => {

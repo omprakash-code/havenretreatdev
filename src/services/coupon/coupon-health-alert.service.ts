@@ -27,6 +27,7 @@ export type DispatchCouponHealthAlertResult = {
     | "ok_level"
     | "below_min_level"
     | "cooldown_active"
+    | "not_configured"
     | "dispatched"
     | "dispatch_failed";
 };
@@ -105,17 +106,31 @@ function toPayload(input: DispatchCouponHealthAlertInput) {
 async function postWebhook(payload: ReturnType<typeof toPayload>) {
   const webhookUrl = String(process.env.COUPON_HEALTH_ALERT_WEBHOOK_URL ?? "").trim();
   if (!webhookUrl) {
-    console.warn("COUPON_HEALTH_ALERT", payload);
-    return true;
+    return false;
   }
 
-  const res = await fetch(webhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+  const timeoutMs = process.env.NODE_ENV === "development" ? 2500 : 8000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+
+  try {
+    res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Webhook request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     throw new Error(`Webhook responded ${res.status}`);
@@ -148,7 +163,11 @@ export async function dispatchCouponHealthAlert(
   const payload = toPayload(input);
 
   try {
-    await postWebhook(payload);
+    const dispatched = await postWebhook(payload);
+    if (!dispatched) {
+      return { dispatched: false, reason: "not_configured" };
+    }
+
     markAlertSent(input.health.level, nowMs);
     return { dispatched: true, reason: "dispatched" };
   } catch (error) {

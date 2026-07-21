@@ -29,8 +29,9 @@ export type PaymentCapturedBookingFailedNotificationData = {
 export async function sendPaymentCapturedBookingFailedNotifications(
   data: PaymentCapturedBookingFailedNotificationData
 ) {
+  let customerEmailSent = false;
   if (data.customerEmail) {
-    await sendEmail({
+    customerEmailSent = await sendEmail({
       to: data.customerEmail,
       subject: `Payment Received | Booking Update | ${data.bookingRef}`,
       react: UserPaymentReceivedBookingFailedEmail({
@@ -53,7 +54,7 @@ export async function sendPaymentCapturedBookingFailedNotifications(
 
   const adminRecipients = resolveAdminBookingNotificationRecipients();
   if (adminRecipients.length === 0) {
-    return { sentCount: data.customerEmail ? 1 : 0 };
+    return { sentCount: customerEmailSent ? 1 : 0 };
   }
 
   const adminSends = await Promise.allSettled(
@@ -84,7 +85,9 @@ export async function sendPaymentCapturedBookingFailedNotifications(
 
   return {
     sentCount:
-      (data.customerEmail ? 1 : 0) +
-      adminSends.filter((result) => result.status === "fulfilled").length,
+      (customerEmailSent ? 1 : 0) +
+      adminSends.filter(
+        (result) => result.status === "fulfilled" && result.value
+      ).length,
   };
 }

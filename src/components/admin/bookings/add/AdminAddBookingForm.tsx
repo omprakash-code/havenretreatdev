@@ -2039,6 +2039,9 @@ export function AdminAddBookingForm({
     } else if (hasMoreThanTwoDecimals(additionalChargeAmountInput)) {
       nextErrors.additionalChargeAmount =
         "Additional charge can have up to 2 decimal places.";
+    } else if (additionalChargeAmount > 0 && !additionalChargeReason.trim()) {
+      nextErrors.additionalChargeReason =
+        "Please provide a reason for the additional charge.";
     }
 
     if (selectedOccasion) {
@@ -2462,7 +2465,6 @@ export function AdminAddBookingForm({
           name={name}
           phone={phone}
           email={email}
-          specialInstructions={specialInstructions}
           errors={errors}
           lookingUpUser={lookingUpUser}
           existingUserId={existingUserId}
@@ -2475,7 +2477,6 @@ export function AdminAddBookingForm({
           onPhoneChange={(value) => setPhone(normalizePhone(value))}
           onPhoneBlur={handlePhoneBlur}
           onEmailChange={setEmail}
-          onSpecialInstructionsChange={setSpecialInstructions}
           onDecrementGuests={decrementGuests}
           onIncrementGuests={incrementGuests}
         />
@@ -2546,17 +2547,33 @@ export function AdminAddBookingForm({
                   }
                 }}
                 className={inputClass}
-                placeholder="Optional"
+                placeholder="e.g. 50.00"
               />
               {errors.additionalChargeAmount ? (
                 <p className="mt-1 text-xs text-red-600">
                   {errors.additionalChargeAmount}
                 </p>
+              ) : additionalChargeAmount > 0 ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  This will increase the booking total by{" "}
+                  {`$${toMoney(additionalChargeAmount).toLocaleString(undefined, {
+                    minimumFractionDigits: Number.isInteger(
+                      toMoney(additionalChargeAmount)
+                    )
+                      ? 0
+                      : 2,
+                    maximumFractionDigits: 2,
+                  })}`}
+                  .
+                </p>
               ) : null}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">
-                Reason
+                Charge Reason{" "}
+                {additionalChargeAmount > 0 ? (
+                  <span className="text-red-500">*</span>
+                ) : null}
               </label>
               <input
                 value={additionalChargeReason}
@@ -2565,9 +2582,33 @@ export function AdminAddBookingForm({
                 }
                 disabled={additionalChargeAmount <= 0}
                 className={inputClass}
-                placeholder="Cleaning Fee"
+                placeholder="e.g. Cleaning Fee"
               />
+              {errors.additionalChargeReason ? (
+                <p className="mt-1 text-xs text-red-600">
+                  {errors.additionalChargeReason}
+                </p>
+              ) : null}
             </div>
+          </div>
+        </section>
+
+        <section className={sectionClass}>
+          <h2 className="text-sm font-semibold text-slate-900">
+            Admin Notes{" "}
+            <span className="font-normal text-slate-400">(internal)</span>
+          </h2>
+          <div className="mt-3">
+            <label className="mb-1 block text-xs font-medium text-slate-700">
+              Notes for the team
+            </label>
+            <textarea
+              value={specialInstructions}
+              onChange={(event) => setSpecialInstructions(event.target.value)}
+              rows={3}
+              className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500/20 sm:rounded-md"
+              placeholder="e.g. Customer prefers early setup, use side entrance, confirm cake placement before arrival"
+            />
           </div>
         </section>
 

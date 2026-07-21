@@ -125,7 +125,6 @@ export function BookingSummarySection({
   const decorationAmount = pricing?.decorationAmount ?? 0;
   const productsAmount = pricing?.productsAmount ?? 0;
   const additionalChargeAmount = pricing?.additionalChargeAmount ?? 0;
-  const additionalChargeReason = pricing?.additionalChargeReason?.trim();
   const extrasAmount = pricing?.extrasAmount ?? 0;
   const discountAmount = pricing?.discountAmount ?? 0;
   const totalAmount = pricing?.totalAmount ?? 0;
@@ -345,11 +344,7 @@ export function BookingSummarySection({
 
               {additionalChargeAmount > 0 ? (
                 <SummaryRow
-                  label={
-                    additionalChargeReason
-                      ? `Additional charge (${additionalChargeReason})`
-                      : "Additional charge"
-                  }
+                  label="Additional Charge"
                   value={formatCurrency(additionalChargeAmount)}
                 />
               ) : null}

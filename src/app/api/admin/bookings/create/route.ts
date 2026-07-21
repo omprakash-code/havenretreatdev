@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { formatCalendarDate } from "@/lib/formatters";
 import { nanoid } from "nanoid";
@@ -9,7 +9,6 @@ import { calculateBookingPricing } from "@/lib/booking-pricing";
 import {
   centsToMoney,
   hasMoreThanTwoDecimals,
-  multiplyMoney,
   toCents,
   toMoney,
   toNonNegativeMoney,
@@ -74,6 +73,60 @@ import {
   evaluateAdminCoupons,
   persistAdminBookingCoupons,
 } from "@/app/api/admin/bookings/_coupon";
+
+type ProfileKind = "Critical" | "Non-critical";
+
+type ProfileEntry = {
+  step: string;
+  ms: number;
+  kind: ProfileKind;
+};
+
+function createAdminBookingProfiler(label: string) {
+  const startedAt = performance.now();
+  const entries: ProfileEntry[] = [];
+
+  return {
+    async measure<T>(
+      step: string,
+      kind: ProfileKind,
+      fn: () => Promise<T>
+    ): Promise<T> {
+      const stepStart = performance.now();
+      try {
+        return await fn();
+      } finally {
+        entries.push({
+          step,
+          kind,
+          ms: Math.round(performance.now() - stepStart),
+        });
+      }
+    },
+    measureSync<T>(step: string, kind: ProfileKind, fn: () => T): T {
+      const stepStart = performance.now();
+      try {
+        return fn();
+      } finally {
+        entries.push({
+          step,
+          kind,
+          ms: Math.round(performance.now() - stepStart),
+        });
+      }
+    },
+    report(extra: Record<string, unknown> = {}) {
+      const totalMs = Math.round(performance.now() - startedAt);
+      const slowest = [...entries].sort((a, b) => b.ms - a.ms).slice(0, 5);
+      console.info(label, {
+        totalMs,
+        ...extra,
+        steps: entries,
+        slowest,
+      });
+    },
+  };
+}
 
 type ConfirmationEmailData = BookingConfirmationEmailProps & {
   customerName: string;
@@ -366,19 +419,254 @@ async function createBookingWithUniqueRef(
   });
 }
 
-export async function POST(req: Request) {
+type AdminCreateBookingResult = {
+  bookingId: string;
+  bookingRef: string;
+  paymentType: PaymentType;
+  awaitingPayment: boolean;
+  lockOwner: string | null;
+  abandonedBookingIds: string[];
+  successToken: string | null;
+};
+
+async function runAdminCreateBookingNotifications(
+  result: AdminCreateBookingResult
+) {
+  const profiler = createAdminBookingProfiler(
+    "ADMIN_CREATE_BOOKING_BACKGROUND_TIMINGS"
+  );
+
   try {
-    const authenticatedAdminId = await getAuthenticatedAdminIdFromCookies();
+    if (result.abandonedBookingIds.length > 0) {
+      await profiler.measure(
+        "Abandonment notification",
+        "Non-critical",
+        async () => {
+          try {
+            await notifyAbandonedBookingsByIds(result.abandonedBookingIds);
+          } catch (notifyError) {
+            console.error(
+              "ADMIN_CREATE_BOOKING_ABANDONMENT_NOTIFY_FAILED",
+              notifyError
+            );
+          }
+        }
+      );
+    }
+
+    if (result.awaitingPayment) {
+      await profiler.measure("Review/payment email", "Non-critical", async () => {
+        try {
+          await sendBookingApprovedEmail(result.bookingId);
+        } catch (error) {
+          console.error("ADMIN_PAY_LATER_APPROVED_EMAIL_FAILED", error);
+        }
+      });
+      return;
+    }
+
+    if (result.paymentType !== "OFFLINE") {
+      return;
+    }
+
+    const bookingForNotification = await profiler.measure(
+      "Notification booking reload",
+      "Non-critical",
+      () =>
+        prisma.booking.findUnique({
+          where: { id: result.bookingId },
+          include: {
+            venue: true,
+            items: {
+              orderBy: { createdAt: "asc" },
+              include: {
+                product: {
+                  select: { image: true },
+                },
+              },
+            },
+            payment: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+          },
+        })
+    );
+
+    if (!bookingForNotification) return;
+
+    const successToken = createSuccessToken(
+      bookingForNotification.id,
+      bookingForNotification.bookingRef
+    );
+    const addonItems = profiler.measureSync(
+      "Email/PDF data preparation",
+      "Non-critical",
+      () =>
+        buildAddonItemsWithNumberValues(
+          bookingForNotification.items.map((item) => ({
+            productName: item.productName,
+            variantLabel: item.variantLabel,
+            quantity: item.quantity,
+            totalPrice: toMoney(item.totalPrice),
+            image: item.product?.image ?? null,
+          })),
+          bookingForNotification.occasionData as Prisma.JsonValue | null
+        )
+    );
+    const latestPayment = bookingForNotification.payment[0];
+    const slotDate = bookingForNotification.eventDate;
+    const slotStartTime = bookingForNotification.eventStartTime;
+    const slotEndTime = bookingForNotification.eventEndTime;
+
+    const packageSnapshotForEmail =
+      bookingForNotification.packageSnapshot as { name?: string } | null;
+    const emailData =
+      slotDate && slotStartTime && slotEndTime
+        ? profiler.measureSync("Email data build", "Non-critical", () =>
+            buildEmailData({
+              bookingRef: bookingForNotification.bookingRef,
+              successToken,
+              contactName: bookingForNotification.contactName,
+              contactPhone: bookingForNotification.contactPhone,
+              contactEmail: bookingForNotification.contactEmail,
+              locationName: resolveLocationDisplayName(
+                null,
+                bookingForNotification.venue?.city
+              ),
+              theatreName:
+                packageSnapshotForEmail?.name ??
+                bookingForNotification.venue?.name ??
+                "Haven Retreat",
+              slotDate,
+              slotStartTime,
+              slotEndTime,
+              guestCount: bookingForNotification.guestCount,
+              occasionLabel: bookingForNotification.occasionLabel,
+              occasionData:
+                bookingForNotification.occasionData as Prisma.JsonValue | null,
+              addonItems,
+              paymentType: "OFFLINE",
+              paymentMethod: latestPayment?.method ?? null,
+              paymentStatus:
+                bookingForNotification.paymentStatus ??
+                latestPayment?.status ??
+                null,
+              paymentReference: latestPayment?.transactionId ?? null,
+              baseAmount: toMoney(bookingForNotification.baseAmount),
+              extrasAmount: toMoney(bookingForNotification.extrasAmount),
+              productsAmount: toMoney(bookingForNotification.productsAmount),
+              additionalChargeAmount: toMoney(
+                bookingForNotification.additionalChargeAmount
+              ),
+              additionalChargeReason:
+                bookingForNotification.additionalChargeReason,
+              decorationAmount: toMoney(bookingForNotification.decorationAmount),
+              discountAmount: toMoney(bookingForNotification.discountAmount),
+              totalAmount: toMoney(bookingForNotification.totalAmount),
+              advancePaid: toMoney(bookingForNotification.advancePaid),
+              remainingPayable: toMoney(
+                bookingForNotification.remainingPayable
+              ),
+            })
+          )
+        : null;
+
+    if (bookingForNotification.contactEmail && emailData) {
+      await profiler.measure("Customer email/PDF send", "Non-critical", async () => {
+        try {
+          const emailSent = await sendBookingConfirmationEmail({
+            to: bookingForNotification.contactEmail!,
+            bookingRef: bookingForNotification.bookingRef,
+            emailData,
+            theme: process.env.BOOKING_EMAIL_THEME,
+          });
+
+          if (emailSent) {
+            await prisma.booking.update({
+              where: { id: bookingForNotification.id },
+              data: { confirmationEmailSent: true },
+            });
+          }
+        } catch (emailError) {
+          console.error("ADMIN_OFFLINE_CONFIRMATION_EMAIL_FAILED", emailError);
+        }
+      });
+    }
+
+    if (emailData) {
+      await profiler.measure("Admin email send", "Non-critical", async () => {
+        try {
+          await sendAdminBookingConfirmationEmail({
+            bookingRef: bookingForNotification.bookingRef,
+            emailData,
+            confirmationSource: "ADMIN_OFFLINE_CREATE",
+          });
+        } catch (adminEmailError) {
+          console.error(
+            "ADMIN_OFFLINE_ADMIN_CONFIRMATION_EMAIL_FAILED",
+            adminEmailError
+          );
+        }
+      });
+    }
+
+    if (bookingForNotification.contactPhone && emailData) {
+      await profiler.measure("WhatsApp send", "Non-critical", async () => {
+        try {
+          await sendBookingConfirmationWhatsApp({
+            phone: bookingForNotification.contactPhone!.startsWith("91")
+              ? bookingForNotification.contactPhone!
+              : `91${bookingForNotification.contactPhone}`,
+            customerName: emailData.customerName,
+            bookingRef: bookingForNotification.bookingRef,
+            location: emailData.locationName,
+            theatre: emailData.theatreName,
+            dateTime: `${emailData.date}, ${emailData.timeSlot}`,
+            guests: String(emailData.guestCount),
+            totalAmount: String(emailData.totalAmount),
+            advancePaid: String(emailData.advancePaid),
+            payAtTheatre: String(emailData.remainingPayable),
+            bookingUrl: emailData.successUrl,
+          });
+        } catch (whatsappError) {
+          console.error(
+            "ADMIN_OFFLINE_CONFIRMATION_WHATSAPP_FAILED",
+            whatsappError
+          );
+        }
+      });
+    }
+  } finally {
+    profiler.report({
+      bookingId: result.bookingId,
+      bookingRef: result.bookingRef,
+    });
+  }
+}
+
+export async function POST(req: Request) {
+  const profiler = createAdminBookingProfiler("ADMIN_CREATE_BOOKING_TIMINGS");
+  try {
+    const authenticatedAdminId = await profiler.measure(
+      "Authenticate admin",
+      "Critical",
+      () => getAuthenticatedAdminIdFromCookies()
+    );
     if (!authenticatedAdminId) {
+      profiler.report({ outcome: "unauthorized" });
       return bookingErrorResponse(401, "UNAUTHORIZED", "Unauthorized");
     }
 
-    const body = (await req.json().catch(() => null)) as
-      | LookupUserPayload
-      | CreateBookingPayload
-      | null;
+    const body = await profiler.measure("Parse request", "Critical", async () =>
+      (await req.json().catch(() => null)) as
+        | LookupUserPayload
+        | CreateBookingPayload
+        | null
+    );
 
     if (!body) {
+      profiler.report({ outcome: "invalid_request" });
       return bookingErrorResponse(
         400,
         "INVALID_REQUEST",
@@ -397,16 +685,22 @@ export async function POST(req: Request) {
         );
       }
 
-      const existingUser = await prisma.user.findUnique({
-        where: { phone: normalizedPhone },
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          email: true,
-        },
-      });
+      const existingUser = await profiler.measure(
+        "Lookup user",
+        "Critical",
+        () =>
+          prisma.user.findUnique({
+            where: { phone: normalizedPhone },
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+            },
+          })
+      );
 
+      profiler.report({ outcome: "lookup_user" });
       return NextResponse.json({
         success: true,
         data: {
@@ -416,24 +710,54 @@ export async function POST(req: Request) {
       });
     }
 
-    assertBookingMutationPayload(body, { requireSlot: false });
+    profiler.measureSync("Validate request", "Critical", () => {
+      assertBookingMutationPayload(body, { requireSlot: false });
 
-    ensureValidDateKey(body.date);
+      ensureValidDateKey(body.date);
+    });
+    const createBody = body as CreateBookingPayload;
 
-    const customerName = String(body.customer.name ?? "").trim();
-    const phone = normalizeIndianPhone(String(body.customer.phone ?? ""));
-    const emailRaw = String(body.customer.email ?? "").trim();
-    const email = emailRaw.length > 0 ? emailRaw : null;
-    const guestCount = Number(body.guestCount ?? 0);
-    const decorationRequired = Boolean(body.decorationRequired);
-    const specialInstructions = String(body.specialInstructions ?? "").trim() || null;
-    const additionalChargeAmount = normalizeAdditionalChargeAmount(
-      body.additionalChargeAmount
+    const normalizedPayload = profiler.measureSync(
+      "Normalize request fields",
+      "Critical",
+      () => {
+        const customerName = String(createBody.customer?.name ?? "").trim();
+        const phone = normalizeIndianPhone(String(createBody.customer?.phone ?? ""));
+        const emailRaw = String(createBody.customer?.email ?? "").trim();
+        const email = emailRaw.length > 0 ? emailRaw : null;
+        const guestCount = Number(createBody.guestCount ?? 0);
+        const decorationRequired = Boolean(createBody.decorationRequired);
+        const specialInstructions =
+          String(createBody.specialInstructions ?? "").trim() || null;
+        const additionalChargeAmount = normalizeAdditionalChargeAmount(
+          createBody.additionalChargeAmount
+        );
+        const additionalChargeReason =
+          additionalChargeAmount > 0
+            ? String(createBody.additionalChargeReason ?? "").trim() || null
+            : null;
+        return {
+          customerName,
+          phone,
+          email,
+          guestCount,
+          decorationRequired,
+          specialInstructions,
+          additionalChargeAmount,
+          additionalChargeReason,
+        };
+      }
     );
-    const additionalChargeReason =
-      additionalChargeAmount > 0
-        ? String(body.additionalChargeReason ?? "").trim() || null
-        : null;
+    const {
+      customerName,
+      phone,
+      email,
+      guestCount,
+      decorationRequired,
+      specialInstructions,
+      additionalChargeAmount,
+      additionalChargeReason,
+    } = normalizedPayload;
     // Online collection has been removed from admin bookings; always settle offline.
     const paymentType = "OFFLINE" as PaymentType;
     const createdByAdminId = authenticatedAdminId;
@@ -462,11 +786,13 @@ export async function POST(req: Request) {
       throw new AdminBookingError(400, "INVALID_REQUEST", "Invalid payment type selected.");
     }
 
-    const offlineMethod = body.payment.offlineMethod;
+    const offlineMethod = createBody.payment?.offlineMethod;
     const paymentAmountMode =
-      body.payment.amountMode ?? body.payment.offlineAmountMode ?? "ADVANCE";
-    const offlineReference = body.payment.offlineReference?.trim() ?? "";
-      if (hasMoreThanTwoDecimals(body.payment.advanceAmount ?? 0)) {
+      createBody.payment?.amountMode ??
+      createBody.payment?.offlineAmountMode ??
+      "ADVANCE";
+    const offlineReference = createBody.payment?.offlineReference?.trim() ?? "";
+      if (hasMoreThanTwoDecimals(createBody.payment?.advanceAmount ?? 0)) {
         throw new AdminBookingError(
           400,
           "INVALID_REQUEST",
@@ -474,9 +800,9 @@ export async function POST(req: Request) {
         );
       }
       const customAdvanceAmount = toNonNegativeMoney(
-        body.payment.advanceAmount ?? 0
+        createBody.payment?.advanceAmount ?? 0
       );
-      if (!Number.isFinite(Number(body.payment.advanceAmount ?? 0))) {
+      if (!Number.isFinite(Number(createBody.payment?.advanceAmount ?? 0))) {
         throw new AdminBookingError(
           400,
           "INVALID_REQUEST",
@@ -485,7 +811,7 @@ export async function POST(req: Request) {
       }
     // Pay-later bookings (phone/email, Zelle paid later) are created approved
     // and awaiting payment; the collection fields are not required for them.
-    const collectPaymentNow = body.payment.collectNow !== false;
+    const collectPaymentNow = createBody.payment?.collectNow !== false;
 
     if (paymentType === "OFFLINE" && collectPaymentNow) {
       if (!OFFLINE_METHODS.includes(offlineMethod as OfflineMethod)) {
@@ -536,27 +862,36 @@ export async function POST(req: Request) {
 
     const now = new Date();
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await profiler.measure(
+      "Database transaction",
+      "Critical",
+      () =>
+        prisma.$transaction(async (tx) => {
       const abandonedBookingIds = new Set<string>();
-      const rangeStartTime = body.startTime?.trim() || "";
-      const rangeEndTime = body.endTime?.trim() || "";
-      const selectedPackage = body.packageId
-        ? await tx.eventPackage.findFirst({
-            where: {
-              id: body.packageId,
-              isActive: true,
-              venue: { isActive: true },
-            },
-            include: {
-              venue: true,
-              features: {
-                orderBy: { sortOrder: "asc" },
-              },
-            },
-          })
-        : null;
+      const rangeStartTime = createBody.startTime?.trim() || "";
+      const rangeEndTime = createBody.endTime?.trim() || "";
+      const selectedPackage = await profiler.measure(
+        "Load package/settings",
+        "Critical",
+        async () =>
+          createBody.packageId
+            ? await tx.eventPackage.findFirst({
+                where: {
+                  id: createBody.packageId,
+                  isActive: true,
+                  venue: { isActive: true },
+                },
+                include: {
+                  venue: true,
+                  features: {
+                    orderBy: { sortOrder: "asc" },
+                  },
+                },
+              })
+            : null
+      );
 
-      if (body.packageId && !selectedPackage) {
+      if (createBody.packageId && !selectedPackage) {
         throw new AdminBookingError(
           400,
           "INVALID_REQUEST",
@@ -571,23 +906,28 @@ export async function POST(req: Request) {
         );
       }
 
-      const rangeContext = await validateAdminRangeBooking(tx, {
-        venueId: selectedPackage.venueId,
-        date: body.date,
-        startTime: rangeStartTime,
-        endTime: rangeEndTime,
-        guestCount,
-        settings: {
-          businessOpenTime: BOOKING_BUSINESS_OPEN_TIME,
-          businessCloseTime: BOOKING_BUSINESS_CLOSE_TIME,
-          minimumDurationMinutes:
-            selectedPackage.eventDurationHours * 60 ||
-            DEFAULT_MINIMUM_BOOKING_MINUTES,
-          bufferMinutes: BOOKING_BUFFER_MINUTES,
-          maximumGuests: maxGuestsForIncluded(selectedPackage.guestLimit),
-        },
-        timezone: BOOKING_TIME_ZONE,
-      });
+      const rangeContext = await profiler.measure(
+        "Availability checks",
+        "Critical",
+        () =>
+          validateAdminRangeBooking(tx, {
+            venueId: selectedPackage.venueId,
+            date: createBody.date ?? "",
+            startTime: rangeStartTime,
+            endTime: rangeEndTime,
+            guestCount,
+            settings: {
+              businessOpenTime: BOOKING_BUSINESS_OPEN_TIME,
+              businessCloseTime: BOOKING_BUSINESS_CLOSE_TIME,
+              minimumDurationMinutes:
+                selectedPackage.eventDurationHours * 60 ||
+                DEFAULT_MINIMUM_BOOKING_MINUTES,
+              bufferMinutes: BOOKING_BUFFER_MINUTES,
+              maximumGuests: maxGuestsForIncluded(selectedPackage.guestLimit),
+            },
+            timezone: BOOKING_TIME_ZONE,
+          })
+      );
 
       const normalizedItemsMap = new Map<
         string,
@@ -599,7 +939,8 @@ export async function POST(req: Request) {
         }
       >();
 
-      (body.items ?? []).forEach((item) => {
+      profiler.measureSync("Normalize booking items", "Critical", () => {
+        (createBody.items ?? []).forEach((item) => {
         const productId = String(item.productId ?? "").trim();
         const variantId = String(item.variantId ?? "").trim();
         const quantity = Number(item.quantity ?? 0);
@@ -634,6 +975,7 @@ export async function POST(req: Request) {
           ledNumber: ledNumber || existing?.ledNumber,
         });
       });
+      });
 
       const includedProductSource = selectedPackage
         ? {
@@ -647,22 +989,27 @@ export async function POST(req: Request) {
       const packageIncludedProductSlugs = Object.keys(packageIncludedProducts);
 
       if (packageIncludedProductSlugs.length > 0) {
-        const includedProducts = await tx.product.findMany({
-          where: {
-            slug: { in: packageIncludedProductSlugs },
-            isActive: true,
-            OR: [
-              { locationId: body.locationId },
-              { locationId: null },
-            ],
-          },
-          include: {
-            variants: {
-              where: { isActive: true },
-              orderBy: { sortOrder: "asc" },
-            },
-          },
-        });
+        const includedProducts = await profiler.measure(
+          "Load included products",
+          "Critical",
+          () =>
+            tx.product.findMany({
+              where: {
+                slug: { in: packageIncludedProductSlugs },
+                isActive: true,
+                OR: [
+                  { locationId: createBody.locationId },
+                  { locationId: null },
+                ],
+              },
+              include: {
+                variants: {
+                  where: { isActive: true },
+                  orderBy: { sortOrder: "asc" },
+                },
+              },
+            })
+        );
 
         includedProducts.forEach((product) => {
           const includedQuantity =
@@ -686,25 +1033,29 @@ export async function POST(req: Request) {
       const normalizedItems = Array.from(normalizedItemsMap.values());
       const variantIds = [...new Set(normalizedItems.map((item) => item.variantId))];
 
-      const variants =
-        variantIds.length > 0
-          ? await tx.productVariant.findMany({
-              where: {
-                id: { in: variantIds },
-                isActive: true,
-                product: {
+      const variants = await profiler.measure(
+        "Load products",
+        "Critical",
+        async () =>
+          variantIds.length > 0
+            ? await tx.productVariant.findMany({
+                where: {
+                  id: { in: variantIds },
                   isActive: true,
-                  OR: [
-                    { locationId: body.locationId },
-                    { locationId: null },
-                  ],
+                  product: {
+                    isActive: true,
+                    OR: [
+                    { locationId: createBody.locationId },
+                      { locationId: null },
+                    ],
+                  },
                 },
-              },
-              include: {
-                product: true,
-              },
-            })
-          : [];
+                include: {
+                  product: true,
+                },
+              })
+            : []
+      );
 
       const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
 
@@ -724,7 +1075,8 @@ export async function POST(req: Request) {
       let productsAmount = 0;
       const ledNumbers: string[] = [];
 
-      normalizedItems.forEach((item) => {
+      profiler.measureSync("Product pricing calculation", "Critical", () => {
+        normalizedItems.forEach((item) => {
         const variant = variantMap.get(item.variantId);
         if (!variant || variant.productId !== item.productId) {
           throw new AdminBookingError(
@@ -787,9 +1139,11 @@ export async function POST(req: Request) {
           totalPrice,
         });
       });
+      });
 
       if (paymentType === "OFFLINE" && bookingItemsToCreate.length > 0) {
-        for (const item of bookingItemsToCreate) {
+        await profiler.measure("Stock reservation", "Critical", async () => {
+          for (const item of bookingItemsToCreate) {
           // stock === null means unlimited / untracked → never decrement.
           if (variantMap.get(item.variantId)?.stock === null) {
             continue;
@@ -817,25 +1171,31 @@ export async function POST(req: Request) {
             );
           }
         }
+        });
       }
 
       let occasionKey: string | null = null;
       let occasionLabel: string | null = null;
       const occasionPayloadData: Record<string, string | string[]> = {};
 
-      const incomingOccasionKey = String(body.occasionKey ?? "").trim();
+      const incomingOccasionKey = String(createBody.occasionKey ?? "").trim();
       if (incomingOccasionKey) {
-        const occasion = await tx.occasion.findFirst({
-          where: {
-            key: incomingOccasionKey,
-            isActive: true,
-          },
-          include: {
-            fields: {
-              orderBy: { sortOrder: "asc" },
-            },
-          },
-        });
+        const occasion = await profiler.measure(
+          "Load occasion",
+          "Critical",
+          () =>
+            tx.occasion.findFirst({
+              where: {
+                key: incomingOccasionKey,
+                isActive: true,
+              },
+              include: {
+                fields: {
+                  orderBy: { sortOrder: "asc" },
+                },
+              },
+            })
+        );
 
         if (!occasion) {
           throw new AdminBookingError(
@@ -845,7 +1205,7 @@ export async function POST(req: Request) {
           );
         }
 
-        const rawOccasionData = normalizeOccasionData(body.occasionData);
+        const rawOccasionData = normalizeOccasionData(createBody.occasionData);
         const validatedOccasionData: Record<string, string> = {};
 
         occasion.fields.forEach((field) => {
@@ -879,10 +1239,15 @@ export async function POST(req: Request) {
           : Prisma.JsonNull;
 
       let linkedUserId: string | null = null;
-      if (body.customer.userId) {
-        const explicitUser = await tx.user.findUnique({
-          where: { id: body.customer.userId },
-        });
+      if (createBody.customer?.userId) {
+        const explicitUser = await profiler.measure(
+          "Load customer",
+          "Critical",
+          () =>
+            tx.user.findUnique({
+              where: { id: createBody.customer!.userId },
+            })
+        );
 
         if (!explicitUser) {
           throw new AdminBookingError(
@@ -902,41 +1267,56 @@ export async function POST(req: Request) {
 
         linkedUserId = explicitUser.id;
       } else {
-        const existingUser = await tx.user.findUnique({
-          where: { phone },
-          select: { id: true },
-        });
+        const existingUser = await profiler.measure(
+          "Load customer",
+          "Critical",
+          () =>
+            tx.user.findUnique({
+              where: { phone },
+              select: { id: true },
+            })
+        );
         linkedUserId = existingUser?.id ?? null;
       }
 
-      const minAdvanceAmount = await getRequiredAdminAdvanceAmount(tx);
+      const minAdvanceAmount = await profiler.measure(
+        "Load payment settings",
+        "Critical",
+        () => getRequiredAdminAdvanceAmount(tx)
+      );
 
       const includedDurationHours = selectedPackage?.eventDurationHours ?? 0;
       const extraHourlyRate = selectedPackage?.hourlyRate ?? 0;
 
       const effectiveDecorationRequired = decorationRequired;
 
-      const pricingBase = calculateBookingPricing({
-        slotBasePrice: selectedPackage?.subtotalAmount ?? 0,
-        slotFinalPrice: selectedPackage?.subtotalAmount ?? null,
-        guestCount,
-        theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
-        theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
-        productsAmount,
-        additionalChargeAmount,
-        discountAmount: 0,
-        advancePaid: 0,
-        durationHours: bookingDurationHours,
-        includedDurationHours,
-        extraHourlyRate,
-      });
+      const pricingBase = profiler.measureSync(
+        "Pricing calculation",
+        "Critical",
+        () =>
+          calculateBookingPricing({
+            slotBasePrice: selectedPackage?.subtotalAmount ?? 0,
+            slotFinalPrice: selectedPackage?.subtotalAmount ?? null,
+            guestCount,
+            theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
+            theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
+            productsAmount,
+            additionalChargeAmount,
+            discountAmount: 0,
+            advancePaid: 0,
+            durationHours: bookingDurationHours,
+            includedDurationHours,
+            extraHourlyRate,
+          })
+      );
 
-      const couponResult = await evaluateAdminCoupons(tx, {
+      const couponResult = await profiler.measure("Coupon validation", "Critical", () =>
+        evaluateAdminCoupons(tx, {
         couponCodes:
-          body.couponCodes && body.couponCodes.length > 0
-            ? body.couponCodes
-            : body.couponCode
-            ? [body.couponCode]
+          createBody.couponCodes && createBody.couponCodes.length > 0
+            ? createBody.couponCodes
+            : createBody.couponCode
+            ? [createBody.couponCode]
             : [],
         bookingSchedule: {
           eventDate: rangeContext.range.eventDate,
@@ -946,7 +1326,7 @@ export async function POST(req: Request) {
           endsAtUtc: rangeContext.range.endsAtUtc,
         },
         venueId: selectedPackage.venueId,
-        locationId: body.locationId,
+        locationId: createBody.locationId ?? "",
         userId: linkedUserId,
         userPhone: phone,
         decorationRequired: effectiveDecorationRequired,
@@ -967,7 +1347,8 @@ export async function POST(req: Request) {
         productsTotal: pricingBase.productsAmount,
         extrasTotal: pricingBase.extrasAmount,
         advanceFloor: minAdvanceAmount,
-      });
+        })
+      );
       const couponDiscount = couponResult.totalDiscount;
       const totalAfterDiscount = Math.max(
         pricingBase.totalAmount - couponDiscount,
@@ -1006,22 +1387,28 @@ export async function POST(req: Request) {
         }
       }
 
-      const pricing = calculateBookingPricing({
-        slotBasePrice: selectedPackage?.subtotalAmount ?? 0,
-        slotFinalPrice: selectedPackage?.subtotalAmount ?? null,
-        guestCount,
-        theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
-        theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
-        productsAmount,
-        additionalChargeAmount,
-        discountAmount: couponDiscount,
-        advancePaid: desiredAdvance,
-        durationHours: bookingDurationHours,
-        includedDurationHours,
-        extraHourlyRate,
-      });
+      const pricing = profiler.measureSync(
+        "Final pricing calculation",
+        "Critical",
+        () =>
+          calculateBookingPricing({
+            slotBasePrice: selectedPackage?.subtotalAmount ?? 0,
+            slotFinalPrice: selectedPackage?.subtotalAmount ?? null,
+            guestCount,
+            theatreBaseGuests: selectedPackage?.guestLimit ?? 2,
+            theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
+            productsAmount,
+            additionalChargeAmount,
+            discountAmount: couponDiscount,
+            advancePaid: desiredAdvance,
+            durationHours: bookingDurationHours,
+            includedDurationHours,
+            extraHourlyRate,
+          })
+      );
 
-      const booking = await createBookingWithUniqueRef(tx, now, {
+      const booking = await profiler.measure("Booking creation", "Critical", () =>
+        createBookingWithUniqueRef(tx, now, {
         userId: linkedUserId,
         contactName: customerName,
         contactPhone: phone,
@@ -1115,41 +1502,48 @@ export async function POST(req: Request) {
         termsAcceptedAt: now,
         createdByRole: "ADMIN",
         createdByAdminId,
-      });
+        })
+      );
 
       if (bookingItemsToCreate.length > 0) {
-        await tx.bookingItem.createMany({
-          data: bookingItemsToCreate.map((item) => ({
-            ...item,
-            bookingId: booking.id,
-          })),
-        });
+        await profiler.measure("Booking items", "Critical", () =>
+          tx.bookingItem.createMany({
+            data: bookingItemsToCreate.map((item) => ({
+              ...item,
+              bookingId: booking.id,
+            })),
+          })
+        );
       }
 
       if (paymentType === "OFFLINE" && collectPaymentNow) {
-        await tx.payment.create({
-          data: {
-            bookingId: booking.id,
-            provider: "OFFLINE",
-            method: offlineMethod,
-            transactionId: offlineReference || null,
-            amount: pricing.advancePaid,
-            status: "PAID",
-            recordedByAdminId: createdByAdminId,
-          },
-        });
+        await profiler.measure("Payment creation", "Critical", () =>
+          tx.payment.create({
+            data: {
+              bookingId: booking.id,
+              provider: "OFFLINE",
+              method: offlineMethod,
+              transactionId: offlineReference || null,
+              amount: pricing.advancePaid,
+              status: "PAID",
+              recordedByAdminId: createdByAdminId,
+            },
+          })
+        );
       }
 
       if (couponResult.coupons.length > 0) {
-        await persistAdminBookingCoupons({
-          tx,
-          bookingId: booking.id,
-          userId: linkedUserId ?? null,
-          coupons: couponResult.coupons,
-          status: paymentType === "OFFLINE" ? "CONFIRMED" : "RESERVED",
-          now,
-          mode: "create",
-        });
+        await profiler.measure("Coupon reservation", "Critical", () =>
+          persistAdminBookingCoupons({
+            tx,
+            bookingId: booking.id,
+            userId: linkedUserId ?? null,
+            coupons: couponResult.coupons,
+            status: paymentType === "OFFLINE" ? "CONFIRMED" : "RESERVED",
+            now,
+            mode: "create",
+          })
+        );
       }
 
       return {
@@ -1164,28 +1558,34 @@ export async function POST(req: Request) {
             ? createSuccessToken(booking.id, booking.bookingRef)
             : null,
       };
-    });
+      })
+    );
 
     const offlineSuccessRedirect =
       result.paymentType === "OFFLINE" && result.successToken
         ? `/booking/success?t=${encodeURIComponent(result.successToken)}`
         : null;
 
-    const response = NextResponse.json({
-      success: true,
-      data: {
-        bookingId: result.bookingId,
-        bookingRef: result.bookingRef,
-        paymentType: result.paymentType,
-        awaitingPayment: result.awaitingPayment,
-        successToken: result.successToken,
-        redirectUrl:
-          result.paymentType === "ONLINE"
-            ? "/booking/payment"
-            : offlineSuccessRedirect ??
-              `/admin/bookings?ref=${encodeURIComponent(result.bookingRef)}`,
-      },
-    });
+    const response = profiler.measureSync(
+      "Response serialization",
+      "Critical",
+      () =>
+        NextResponse.json({
+          success: true,
+          data: {
+            bookingId: result.bookingId,
+            bookingRef: result.bookingRef,
+            paymentType: result.paymentType,
+            awaitingPayment: result.awaitingPayment,
+            successToken: result.successToken,
+            redirectUrl:
+              result.paymentType === "ONLINE"
+                ? "/booking/payment"
+                : offlineSuccessRedirect ??
+                  `/admin/bookings?ref=${encodeURIComponent(result.bookingRef)}`,
+          },
+        })
+    );
 
     if (result.paymentType === "ONLINE" && result.lockOwner) {
       response.cookies.set("ds_lock_owner", result.lockOwner, {
@@ -1206,174 +1606,25 @@ export async function POST(req: Request) {
       );
     }
 
-    if (result.abandonedBookingIds.length > 0) {
-      try {
-        await notifyAbandonedBookingsByIds(result.abandonedBookingIds);
-      } catch (notifyError) {
-        console.error("ADMIN_CREATE_BOOKING_ABANDONMENT_NOTIFY_FAILED", notifyError);
-      }
-    }
+    after(async () => {
+      await runAdminCreateBookingNotifications(result);
+    });
 
-    if (result.awaitingPayment) {
-      // No payment was collected: the customer gets the "approved" email (with
-      // payment instructions), not the paid-confirmation email.
-      void sendBookingApprovedEmail(result.bookingId).catch((error) => {
-        console.error("ADMIN_PAY_LATER_APPROVED_EMAIL_FAILED", error);
-      });
-    } else if (result.paymentType === "OFFLINE") {
-      const bookingForNotification = await prisma.booking.findUnique({
-        where: { id: result.bookingId },
-        include: {
-          venue: true,
-          items: {
-            orderBy: { createdAt: "asc" },
-            include: {
-              product: {
-                select: { image: true },
-              },
-            },
-          },
-          payment: {
-            orderBy: { createdAt: "desc" },
-            take: 1,
-          },
-        },
-      });
-
-      if (bookingForNotification) {
-        const successToken = createSuccessToken(
-          bookingForNotification.id,
-          bookingForNotification.bookingRef
-        );
-        const addonItems = buildAddonItemsWithNumberValues(
-          bookingForNotification.items.map((item) => ({
-            productName: item.productName,
-            variantLabel: item.variantLabel,
-            quantity: item.quantity,
-            totalPrice: toMoney(item.totalPrice),
-            image: item.product?.image ?? null,
-          })),
-          bookingForNotification.occasionData as Prisma.JsonValue | null
-        );
-        const latestPayment = bookingForNotification.payment[0];
-        const slotDate = bookingForNotification.eventDate;
-        const slotStartTime = bookingForNotification.eventStartTime;
-        const slotEndTime = bookingForNotification.eventEndTime;
-
-        const packageSnapshotForEmail = bookingForNotification.packageSnapshot as { name?: string } | null;
-        const emailData =
-          slotDate && slotStartTime && slotEndTime
-            ? buildEmailData({
-                bookingRef: bookingForNotification.bookingRef,
-                successToken,
-                contactName: bookingForNotification.contactName,
-                contactPhone: bookingForNotification.contactPhone,
-                contactEmail: bookingForNotification.contactEmail,
-                locationName: resolveLocationDisplayName(
-                  null,
-                  bookingForNotification.venue?.city
-                ),
-                theatreName:
-                  packageSnapshotForEmail?.name ??
-                  bookingForNotification.venue?.name ??
-                  "Haven Retreat",
-                slotDate,
-                slotStartTime,
-                slotEndTime,
-                guestCount: bookingForNotification.guestCount,
-                occasionLabel: bookingForNotification.occasionLabel,
-                occasionData:
-                  bookingForNotification.occasionData as Prisma.JsonValue | null,
-                addonItems,
-                paymentType: "OFFLINE",
-                paymentMethod: latestPayment?.method ?? null,
-                paymentStatus:
-                  bookingForNotification.paymentStatus ??
-                  latestPayment?.status ??
-                  null,
-                paymentReference: latestPayment?.transactionId ?? null,
-                baseAmount: toMoney(bookingForNotification.baseAmount),
-                extrasAmount: toMoney(bookingForNotification.extrasAmount),
-                productsAmount: toMoney(bookingForNotification.productsAmount),
-                additionalChargeAmount:
-                  toMoney(bookingForNotification.additionalChargeAmount),
-                additionalChargeReason:
-                  bookingForNotification.additionalChargeReason,
-                decorationAmount: toMoney(bookingForNotification.decorationAmount),
-                discountAmount: toMoney(bookingForNotification.discountAmount),
-                totalAmount: toMoney(bookingForNotification.totalAmount),
-                advancePaid: toMoney(bookingForNotification.advancePaid),
-                remainingPayable: toMoney(bookingForNotification.remainingPayable),
-              })
-            : null;
-
-        if (bookingForNotification.contactEmail && emailData) {
-          try {
-            await sendBookingConfirmationEmail({
-              to: bookingForNotification.contactEmail,
-              bookingRef: bookingForNotification.bookingRef,
-              emailData,
-              theme: process.env.BOOKING_EMAIL_THEME,
-            });
-
-            await prisma.booking.update({
-              where: { id: bookingForNotification.id },
-              data: { confirmationEmailSent: true },
-            });
-          } catch (emailError) {
-            console.error("ADMIN_OFFLINE_CONFIRMATION_EMAIL_FAILED", emailError);
-          }
-        }
-
-        if (emailData) {
-          try {
-            await sendAdminBookingConfirmationEmail({
-              bookingRef: bookingForNotification.bookingRef,
-              emailData,
-              confirmationSource: "ADMIN_OFFLINE_CREATE",
-            });
-          } catch (adminEmailError) {
-            console.error(
-              "ADMIN_OFFLINE_ADMIN_CONFIRMATION_EMAIL_FAILED",
-              adminEmailError
-            );
-          }
-        }
-
-        if (bookingForNotification.contactPhone && emailData) {
-          try {
-            await sendBookingConfirmationWhatsApp({
-              phone: bookingForNotification.contactPhone.startsWith("91")
-                ? bookingForNotification.contactPhone
-                : `91${bookingForNotification.contactPhone}`,
-              customerName: emailData.customerName,
-              bookingRef: bookingForNotification.bookingRef,
-              location: emailData.locationName,
-              theatre: emailData.theatreName,
-              dateTime: `${emailData.date}, ${emailData.timeSlot}`,
-              guests: String(emailData.guestCount),
-              totalAmount: String(emailData.totalAmount),
-              advancePaid: String(emailData.advancePaid),
-              payAtTheatre: String(emailData.remainingPayable),
-              bookingUrl: emailData.successUrl,
-            });
-          } catch (whatsappError) {
-            console.error(
-              "ADMIN_OFFLINE_CONFIRMATION_WHATSAPP_FAILED",
-              whatsappError
-            );
-          }
-        }
-      }
-    }
+    profiler.report({
+      outcome: "success",
+      bookingId: result.bookingId,
+      bookingRef: result.bookingRef,
+    });
 
     return response;
   } catch (error) {
     if (error instanceof AdminRangeBookingError) {
+      profiler.report({ outcome: "range_error", code: error.code });
       return bookingErrorResponse(409, error.code, error.message);
     }
 
     if (error instanceof BookingOverlapError) {
+      profiler.report({ outcome: "booking_overlap" });
       return bookingErrorResponse(
         409,
         "RANGE_ALREADY_RESERVED",
@@ -1382,6 +1633,7 @@ export async function POST(req: Request) {
     }
 
     if (error instanceof AdminBookingError) {
+      profiler.report({ outcome: "admin_error", code: error.code });
       return bookingErrorResponse(
         error.status,
         error.code,
@@ -1391,6 +1643,7 @@ export async function POST(req: Request) {
     }
 
     console.error("ADMIN_CREATE_BOOKING_ERROR", error);
+    profiler.report({ outcome: "unhandled_error" });
     return bookingErrorResponse(
       500,
       "INTERNAL_ERROR",

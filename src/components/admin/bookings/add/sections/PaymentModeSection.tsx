@@ -1,8 +1,32 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
   inputClass,
   sectionClass,
   selectableInputClass,
 } from "@/components/admin/bookings/add/shared";
+
+function formatCurrency(value: number) {
+  const amount = Number(value) || 0;
+  return `$${amount.toLocaleString(undefined, {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+const PAYMENT_LATER_TOOLTIP_ID = "payment-later-tooltip";
+const TOOLTIP_CLOSE_DELAY_MS = 180;
+const TOOLTIP_GAP_PX = 8;
+const TOOLTIP_WIDTH_PX = 288;
+const VIEWPORT_MARGIN_PX = 12;
 
 type PaymentModeSectionProps = {
   mode?: "create" | "edit";
@@ -76,6 +100,90 @@ export function PaymentModeSection({
   // later via Zelle). Edits always show the collection fields as before.
   const showCollectionToggle = mode === "create" && Boolean(onCollectPaymentNowChange);
   const collapseCollectionFields = showCollectionToggle && !collectPaymentNow;
+  const infoButtonRef = useRef<HTMLButtonElement | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({
+    top: 0,
+    left: 0,
+    placement: "top" as const,
+  });
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const closeTooltip = useCallback(() => {
+    clearCloseTimer();
+    setTooltipOpen(false);
+  }, [clearCloseTimer]);
+
+  const scheduleCloseTooltip = useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      setTooltipOpen(false);
+      closeTimerRef.current = null;
+    }, TOOLTIP_CLOSE_DELAY_MS);
+  }, [clearCloseTimer]);
+
+  const updateTooltipPosition = useCallback(() => {
+    const trigger = infoButtonRef.current;
+    if (!trigger || typeof window === "undefined") return;
+
+    const rect = trigger.getBoundingClientRect();
+    const tooltipWidth = tooltipRef.current?.offsetWidth || TOOLTIP_WIDTH_PX;
+    const tooltipHeight = tooltipRef.current?.offsetHeight || 96;
+    const viewportWidth = window.innerWidth;
+    const preferredLeft = rect.right - tooltipWidth;
+    const left = Math.min(
+      Math.max(preferredLeft, VIEWPORT_MARGIN_PX),
+      Math.max(VIEWPORT_MARGIN_PX, viewportWidth - tooltipWidth - VIEWPORT_MARGIN_PX)
+    );
+    const top = Math.max(
+      rect.top - tooltipHeight - TOOLTIP_GAP_PX,
+      VIEWPORT_MARGIN_PX
+    );
+
+    setTooltipPosition({ top, left, placement: "top" });
+  }, []);
+
+  const openTooltip = useCallback(() => {
+    clearCloseTimer();
+    setTooltipOpen(true);
+  }, [clearCloseTimer]);
+
+  useLayoutEffect(() => {
+    if (!tooltipOpen) return;
+    updateTooltipPosition();
+  }, [tooltipOpen, updateTooltipPosition]);
+
+  useEffect(() => {
+    if (!tooltipOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeTooltip();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", updateTooltipPosition);
+    window.addEventListener("scroll", updateTooltipPosition, true);
+
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", updateTooltipPosition);
+      window.removeEventListener("scroll", updateTooltipPosition, true);
+    };
+  }, [closeTooltip, tooltipOpen, updateTooltipPosition]);
+
+  useEffect(() => {
+    return () => clearCloseTimer();
+  }, [clearCloseTimer]);
 
   return (
     <section className={sectionClass}>
@@ -85,25 +193,6 @@ export function PaymentModeSection({
       </p>
       {showCollectionToggle ? (
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label
-            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
-              !collectPaymentNow
-                ? "border-black bg-slate-50 font-medium text-slate-900"
-                : "border-slate-300 text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <input
-              type="radio"
-              name="payment-collection-mode"
-              checked={!collectPaymentNow}
-              onChange={() => onCollectPaymentNowChange?.(false)}
-              className="accent-black"
-            />
-            <span>
-              Collect payment later{" "}
-              <span className="font-normal text-slate-500">(Recommended)</span>
-            </span>
-          </label>
           <label
             className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
               collectPaymentNow
@@ -118,18 +207,71 @@ export function PaymentModeSection({
               onChange={() => onCollectPaymentNowChange?.(true)}
               className="accent-black"
             />
-            <span>Record payment now</span>
+            <span>Collect payment now</span>
           </label>
+          <div
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+              !collectPaymentNow
+                ? "border-black bg-slate-50 font-medium text-slate-900"
+                : "border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="payment-collection-mode"
+                checked={!collectPaymentNow}
+                onChange={() => onCollectPaymentNowChange?.(false)}
+                className="accent-black"
+              />
+              <span>Collect payment later</span>
+            </label>
+            <span className="group relative inline-flex">
+              <button
+                ref={infoButtonRef}
+                type="button"
+                aria-label="About collecting payment later"
+                aria-describedby={tooltipOpen ? PAYMENT_LATER_TOOLTIP_ID : undefined}
+                aria-expanded={tooltipOpen}
+                onClick={() => {
+                  if (tooltipOpen) {
+                    closeTooltip();
+                  } else {
+                    openTooltip();
+                  }
+                }}
+                onFocus={openTooltip}
+                onBlur={scheduleCloseTooltip}
+                onPointerEnter={openTooltip}
+                onPointerLeave={scheduleCloseTooltip}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 text-[11px] font-semibold text-slate-500 transition hover:border-slate-400 hover:bg-white hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+              >
+                i
+              </button>
+              {tooltipOpen ? (
+                <div
+                  ref={tooltipRef}
+                  id={PAYMENT_LATER_TOOLTIP_ID}
+                  role="tooltip"
+                  onPointerEnter={openTooltip}
+                  onPointerLeave={scheduleCloseTooltip}
+                  className="fixed z-50 w-72 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-normal leading-relaxed text-slate-600 shadow-lg"
+                  style={{
+                    top: tooltipPosition.top,
+                    left: tooltipPosition.left,
+                  }}
+                  data-placement={tooltipPosition.placement}
+                >
+                When payment is collected later, the booking is created as
+                Approved with payment pending. You can record the payment
+                anytime from Edit Booking.
+                </div>
+              ) : null}
+            </span>
+          </div>
         </div>
       ) : null}
-      {collapseCollectionFields ? (
-        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <p className="text-xs font-medium text-slate-700">
-            Booking will be created as Approved with payment pending. Record the
-            payment later from Edit Booking once it is received.
-          </p>
-        </div>
-      ) : lockPaymentSection ? (
+      {collapseCollectionFields ? null : lockPaymentSection ? (
         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
           <p className="text-xs font-medium text-slate-700">
             Payment completed. No collection required.
@@ -163,9 +305,8 @@ export function PaymentModeSection({
             </select>
             {hasAdvancePaid ? (
               <p className="mt-1 text-xs text-slate-500">
-                ${advancePaidAlready.toLocaleString()} already collected. Enter a
-                partial amount, pick the remaining balance, or leave empty to
-                collect nothing.
+                {formatCurrency(advancePaidAlready)} already collected. Enter a
+                partial amount, pick the remaining balance, or leave empty to collect nothing.
               </p>
             ) : null}
             {errors.paymentAmountMode && (
@@ -174,21 +315,23 @@ export function PaymentModeSection({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">
-              Amount to Collect Now
+            <div className="mb-1 flex min-h-[16px] items-center justify-between gap-2">
+              <label className="block text-xs font-medium text-slate-700">
+                Amount to Collect
+              </label>
               {isAdvanceEntryMode && !hasAdvancePaid ? (
-                <span className="ml-1 font-normal text-slate-500">
-                  (Min ${minimumAdvanceAmount})
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                  Min {formatCurrency(minimumAdvanceAmount)}
                 </span>
               ) : null}
-            </label>
+            </div>
             <input
               type="number"
               // An edit may collect nothing at all, so the browser must not block
               // an empty amount there; the form validates a typed advance itself.
               min={mode === "create" && isAdvanceEntryMode ? minimumAdvanceAmount : 0}
               step={0.01}
-              placeholder="Enter amount to collect"
+              placeholder="e.g. 150.50"
               value={amountInputValue}
               disabled={amountInputDisabled}
               onChange={(event) => {

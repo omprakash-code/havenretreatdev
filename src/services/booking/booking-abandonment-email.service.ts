@@ -212,7 +212,7 @@ async function sendAbandonmentNotificationForBooking(
   let adminEmailSent = false;
 
   if (booking.contactEmail) {
-    await sendEmail({
+    customerEmailSent = await sendEmail({
       to: booking.contactEmail,
       subject: `Payment Not Completed | ${booking.bookingRef}`,
       react: UserBookingAbandonmentEmail({
@@ -230,7 +230,6 @@ async function sendAbandonmentNotificationForBooking(
         addonItems,
       }),
     });
-    customerEmailSent = true;
   }
 
   const adminRecipients = resolveAdminBookingNotificationRecipients();
@@ -263,7 +262,7 @@ async function sendAbandonmentNotificationForBooking(
       )
     );
     adminEmailSent = adminResults.some(
-      (result) => result.status === "fulfilled"
+      (result) => result.status === "fulfilled" && result.value
     );
   }
 

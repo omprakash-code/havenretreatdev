@@ -14,6 +14,7 @@ export function getSubmitBlockerMessage(errors: Record<string, string>) {
 
   if (errors.amountPayNow) return errors.amountPayNow;
   if (errors.additionalChargeAmount) return errors.additionalChargeAmount;
+  if (errors.additionalChargeReason) return errors.additionalChargeReason;
   if (errors.offlineReference) return "Enter payment reference ID.";
   if (errors.paymentStatus) return errors.paymentStatus;
   if (errors.couponCode) return errors.couponCode;

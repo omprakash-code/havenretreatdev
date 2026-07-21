@@ -10,7 +10,6 @@ type CustomerInfoSectionProps = {
   name: string;
   phone: string;
   email: string;
-  specialInstructions: string;
   errors: Record<string, string>;
   lookingUpUser: boolean;
   existingUserId: string | null;
@@ -23,7 +22,6 @@ type CustomerInfoSectionProps = {
   onPhoneChange: (value: string) => void;
   onPhoneBlur: () => void;
   onEmailChange: (value: string) => void;
-  onSpecialInstructionsChange: (value: string) => void;
   onDecrementGuests: () => void;
   onIncrementGuests: () => void;
 };
@@ -32,7 +30,6 @@ export function CustomerInfoSection({
   name,
   phone,
   email,
-  specialInstructions,
   errors,
   lookingUpUser,
   existingUserId,
@@ -45,7 +42,6 @@ export function CustomerInfoSection({
   onPhoneChange,
   onPhoneBlur,
   onEmailChange,
-  onSpecialInstructionsChange,
   onDecrementGuests,
   onIncrementGuests,
 }: CustomerInfoSectionProps) {
@@ -160,18 +156,6 @@ export function CustomerInfoSection({
         </div>
       </div>
 
-      <div className="mt-3">
-        <label className="mb-1 block text-xs font-medium text-slate-700">
-          Admin Notes <span className="text-slate-400 font-normal">(internal)</span>
-        </label>
-        <textarea
-          value={specialInstructions}
-          onChange={(event) => onSpecialInstructionsChange(event.target.value)}
-          rows={2}
-          className="w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500/20 sm:rounded-md"
-          placeholder="Special requests, setup notes, anything the team should know…"
-        />
-      </div>
     </section>
   );
 }

@@ -84,6 +84,33 @@ describe("whatsapp service", () => {
     );
   });
 
+  it("skips WhatsApp silently when required config is missing", async () => {
+    delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+    delete process.env.WHATSAPP_TOKEN;
+    delete process.env.WHATSAPP_ACCESS_TOKEN;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const { sendBookingConfirmationWhatsApp } = await import("@/services/whatsapp.service");
+    const sent = await sendBookingConfirmationWhatsApp({
+      phone: "919999999999",
+      customerName: "Test User",
+      bookingRef: "BK-1",
+      location: "Delhi",
+      theatre: "Test Theatre",
+      dateTime: "2026-03-25, 10:00 AM",
+      guests: "2",
+      totalAmount: "1000",
+      advancePaid: "500",
+      payAtTheatre: "500",
+      bookingUrl: "https://example.com/booking/BK-1",
+    });
+
+    expect(sent).toBe(false);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   it("suppresses repeated auth-expired logs inside the cooldown window", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     globalThis.fetch = vi.fn().mockResolvedValue({
