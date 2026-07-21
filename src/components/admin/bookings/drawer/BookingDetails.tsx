@@ -17,6 +17,7 @@ import {
   X,
   CreditCard,
   Download,
+  ExternalLink,
 } from "lucide-react";
 import { getNumberDecorationLabel } from "@/lib/product-numbering";
 import {
@@ -529,7 +530,20 @@ export default function BookingDetails({
 
               {/* Status Overview */}
               <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-slate-900">Status Overview</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Status Overview</h3>
+                  {booking.customerConfirmationUrl ? (
+                    <a
+                      href={booking.customerConfirmationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-[#d7e4e1] bg-white px-2.5 text-xs font-medium text-[#245e5b] transition-colors hover:border-[#347f7c] hover:bg-[#edf3f1]"
+                    >
+                      <ExternalLink size={13} aria-hidden="true" />
+                      View Confirmation
+                    </a>
+                  ) : null}
+                </div>
                 {isPaymentCapturedFailure ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                     <p className="text-sm font-semibold text-amber-900">

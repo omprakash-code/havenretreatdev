@@ -129,6 +129,7 @@ export type AdminBooking = {
   paymentStatus: PaymentStatus;
   bookingStatus: BookingStatus;
   bookingStatusLabel?: string;
+  customerConfirmationUrl?: string | null;
   /** Payment summary derived from collected amounts, independent of approval. */
   paymentLifecycle?: "UNPAID" | "PARTIAL" | "PAID";
   paymentStatusLabel?: string;

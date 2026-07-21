@@ -2178,10 +2178,8 @@ export function AdminAddBookingForm({
           return;
         }
 
-        const redirectUrl = String(json.data?.redirectUrl ?? "");
         const paymentFlowType = String(json.data?.paymentType ?? "");
         const bookingRef = String(json.data?.bookingRef ?? "");
-        const successToken = String(json.data?.successToken ?? "");
 
         if (paymentFlowType === "OFFLINE") {
           toast.success(
@@ -2189,18 +2187,12 @@ export function AdminAddBookingForm({
               ? `Booking ${bookingRef} created and approved. Payment pending.`
               : `Booking ${bookingRef} created and approved. Payment recorded.`
           );
-          const successUrl =
-            redirectUrl ||
-            (successToken
-              ? `/booking/success?t=${encodeURIComponent(successToken)}`
-              : `/admin/bookings?ref=${encodeURIComponent(bookingRef)}`);
 
-          try {
-            window.location.assign(successUrl);
-          } catch {
-            toast.error("Redirect to booking success failed. Please open booking confirmation manually.");
-            router.push(successUrl);
+          if (onCreated) {
+            onCreated(bookingRef);
+            return;
           }
+          router.push(`/admin/bookings?ref=${encodeURIComponent(bookingRef)}`);
           return;
         }
 
@@ -2210,7 +2202,8 @@ export function AdminAddBookingForm({
           return;
         }
         router.push(
-          redirectUrl || `/admin/bookings?ref=${encodeURIComponent(bookingRef)}`
+          String(json.data?.redirectUrl ?? "") ||
+            `/admin/bookings?ref=${encodeURIComponent(bookingRef)}`
         );
       } catch {
         toast.error(

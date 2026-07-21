@@ -103,13 +103,17 @@ export default function BookingHeaderControls({
     useState<{ date: string; locationName: string } | null>(
       null
     );
+  const [successHeaderStatus, setSuccessHeaderStatus] =
+    useState<"idle" | "loading" | "ready" | "unavailable">("idle");
 
   const isSuccessPage = pathname.startsWith("/booking/success");
   const successToken = searchParams.get("t");
+  const adminView =
+    String(searchParams.get("admin") ?? "").toLowerCase() === "true";
   const isSuccessHeaderLoading =
     isSuccessPage &&
     Boolean(successToken) &&
-    !successHeaderData;
+    successHeaderStatus === "loading";
 
   const contextLocationLabel =
     mounted && booking.location
@@ -125,7 +129,9 @@ export default function BookingHeaderControls({
       ? successHeaderData?.locationName ??
         (isSuccessHeaderLoading
           ? "Loading location..."
-          : contextLocationLabel)
+          : successHeaderStatus === "unavailable"
+            ? "Location unavailable"
+            : contextLocationLabel)
       : contextLocationLabel;
 
   const dateLabel =
@@ -133,7 +139,9 @@ export default function BookingHeaderControls({
       ? successHeaderData?.date ??
         (isSuccessHeaderLoading
           ? "Loading date..."
-          : contextDateLabel)
+          : successHeaderStatus === "unavailable"
+            ? "Date unavailable"
+            : contextDateLabel)
       : contextDateLabel;
 
   const shouldHideSelectors =
@@ -343,23 +351,29 @@ export default function BookingHeaderControls({
 
     if (!isSuccessPage || !token) {
       setSuccessHeaderData(null);
+      setSuccessHeaderStatus("idle");
       return;
     }
     const confirmedToken: string = token;
 
     const controller = new AbortController();
+    setSuccessHeaderStatus("loading");
 
     async function loadSuccessHeaderData() {
       try {
-        const res = await fetch(
-          `/api/bookings/by-success-token?t=${encodeURIComponent(confirmedToken)}`,
-          {
-            cache: "no-store",
-            signal: controller.signal,
-          }
-        );
+        const apiParams = new URLSearchParams({ t: confirmedToken });
+        if (adminView) apiParams.set("admin", "true");
 
-        if (!res.ok) return;
+        const res = await fetch(`/api/bookings/by-success-token?${apiParams.toString()}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          setSuccessHeaderData(null);
+          setSuccessHeaderStatus("unavailable");
+          return;
+        }
 
         const json = (await res
           .json()
@@ -370,6 +384,8 @@ export default function BookingHeaderControls({
           typeof json.date !== "string" ||
           typeof json.locationName !== "string"
         ) {
+          setSuccessHeaderData(null);
+          setSuccessHeaderStatus("unavailable");
           return;
         }
 
@@ -377,8 +393,12 @@ export default function BookingHeaderControls({
           date: json.date,
           locationName: json.locationName,
         });
+        setSuccessHeaderStatus("ready");
       } catch {
-        // keep context fallback
+        if (!controller.signal.aborted) {
+          setSuccessHeaderData(null);
+          setSuccessHeaderStatus("unavailable");
+        }
       }
     }
 
@@ -387,7 +407,7 @@ export default function BookingHeaderControls({
     return () => {
       controller.abort();
     };
-  }, [isSuccessPage, successToken]);
+  }, [adminView, isSuccessPage, successToken]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {

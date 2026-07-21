@@ -5,11 +5,14 @@ import {
   buildBookingSuccessData,
   loadBookingWithSuccessRelations,
 } from "@/services/booking/booking-success-data.service";
+import { getAuthenticatedAdminIdFromCookies } from "@/services/auth/adminAuth.server";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const token = searchParams.get("t");
+    const adminView =
+      String(searchParams.get("admin") ?? "").toLowerCase() === "true";
 
     if (!token) {
       return bookingErrorResponse(
@@ -56,7 +59,11 @@ export async function GET(req: Request) {
       );
     }
 
+    const adminId = adminView ? await getAuthenticatedAdminIdFromCookies() : null;
+    const canBypassExpiry = Boolean(adminId);
+
     if (
+      !canBypassExpiry &&
       built.successTokenExpiresAt &&
       Date.now() > built.successTokenExpiresAt.getTime()
     ) {

@@ -28,6 +28,8 @@ export default function BookingSuccessClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("t");
+  const adminView =
+    String(searchParams.get("admin") ?? "").toLowerCase() === "true";
   const { resetBooking, booking } = useBooking();
   const hasResetRef = useRef(false);
 
@@ -47,7 +49,10 @@ export default function BookingSuccessClient() {
 
     async function fetchBooking() {
       try {
-        const res = await fetch(`/api/bookings/by-success-token?t=${encodeURIComponent(confirmedToken)}`, {
+        const apiParams = new URLSearchParams({ t: confirmedToken });
+        if (adminView) apiParams.set("admin", "true");
+
+        const res = await fetch(`/api/bookings/by-success-token?${apiParams.toString()}`, {
           cache: "no-store",
         });
 
@@ -55,9 +60,12 @@ export default function BookingSuccessClient() {
         if (!res.ok) {
           if (json?.code === "TOKEN_EXPIRED") {
             setErrorState({
-              title: "Booking link expired",
-              message:
-                "This booking link has expired. Please check your email for the latest link to your booking request.",
+              title: adminView
+                ? "Unable to open confirmation"
+                : "Booking link expired",
+              message: adminView
+                ? "This confirmation could not be opened. Please return to the booking record and try again."
+                : "This booking link has expired for customer access. Please use the latest confirmation email or contact Haven Retreat for help.",
             });
           } else {
             setErrorState({
@@ -90,7 +98,7 @@ export default function BookingSuccessClient() {
     }
 
     fetchBooking();
-  }, [token, router]);
+  }, [adminView, token, router]);
 
   useEffect(() => {
     if (!data) return;
@@ -150,7 +158,7 @@ export default function BookingSuccessClient() {
   // Loading State
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#fcfdfd] via-[#f6f8f7] to-[#edf3f1] flex items-center justify-center">
+      <div className="flex min-h-[calc(100svh-9rem)] items-center justify-center bg-gradient-to-b from-[#fcfdfd] via-[#f6f8f7] to-[#edf3f1]">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -166,7 +174,7 @@ export default function BookingSuccessClient() {
   // Error State with Retry
   if (errorState || !data) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#fcfdfd] via-[#f6f8f7] to-[#edf3f1] flex items-center justify-center px-6">
+      <div className="flex min-h-[calc(100svh-9rem)] items-center justify-center bg-gradient-to-b from-[#fcfdfd] via-[#f6f8f7] to-[#edf3f1] px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -204,7 +212,7 @@ export default function BookingSuccessClient() {
   return (
     <>
       {/* Main Content */}
-      <div className="min-h-screen bg-gradient-to-b from-[#fcfdfd] via-[#f6f8f7] to-[#edf3f1] relative overflow-hidden">
+      <div className="relative min-h-[calc(100svh-9rem)] overflow-hidden bg-gradient-to-b from-[#fcfdfd] via-[#f6f8f7] to-[#edf3f1]">
         {/* Ambient Background Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-[#347f7c]/10 rounded-full blur-[150px] pointer-events-none" />
         <div className="absolute -top-24 -left-20 w-80 h-80 bg-[#8eb7b1]/20 rounded-full blur-[130px] pointer-events-none" />

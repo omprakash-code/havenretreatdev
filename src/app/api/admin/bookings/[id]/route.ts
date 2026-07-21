@@ -46,6 +46,7 @@ import {
   rebaseDurationAdjustedUnitPrice,
 } from "@/lib/product-duration-pricing";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
+import { createSuccessToken } from "@/services/booking/successToken.server";
 import {
   AdminRangeBookingError,
   validateAdminRangeBooking,
@@ -420,6 +421,14 @@ export async function GET(
           ? derivedExtraDurationHours
           : null;
 
+    const customerConfirmationUrl = isReviewWorkflowBookingStatus(
+      booking.bookingStatus
+    )
+      ? `/booking/success?t=${encodeURIComponent(
+          createSuccessToken(booking.id, booking.bookingRef)
+        )}&admin=true`
+      : null;
+
     if (view === "drawer") {
       return NextResponse.json({
         success: true,
@@ -555,6 +564,7 @@ export async function GET(
           paymentStatus: paymentStatusForDisplay,
           bookingStatus: booking.bookingStatus,
           bookingStatusLabel: getBookingStatusLabel(booking.bookingStatus),
+          customerConfirmationUrl,
           // Payment is shown independently of the approval decision.
           paymentLifecycle: derivePaymentLifecycle({
             paymentStatus: paymentStatusForDisplay,
