@@ -85,6 +85,9 @@ type ProfileEntry = {
 function createAdminBookingProfiler(label: string) {
   const startedAt = performance.now();
   const entries: ProfileEntry[] = [];
+  const detailedLoggingEnabled =
+    process.env.NODE_ENV === "development" ||
+    process.env.BOOKING_PERFORMANCE_DEBUG === "true";
 
   return {
     async measure<T>(
@@ -118,6 +121,16 @@ function createAdminBookingProfiler(label: string) {
     report(extra: Record<string, unknown> = {}) {
       const totalMs = Math.round(performance.now() - startedAt);
       const slowest = [...entries].sort((a, b) => b.ms - a.ms).slice(0, 5);
+      if (!detailedLoggingEnabled) {
+        console.info(label, {
+          totalMs,
+          ...extra,
+          stepCount: entries.length,
+          slowest,
+        });
+        return;
+      }
+
       console.info(label, {
         totalMs,
         ...extra,
@@ -572,8 +585,11 @@ async function runAdminCreateBookingNotifications(
           )
         : null;
 
+    const notificationTasks: Promise<void>[] = [];
+
     if (bookingForNotification.contactEmail && emailData) {
-      await profiler.measure("Customer email/PDF send", "Non-critical", async () => {
+      notificationTasks.push(
+        profiler.measure("Customer email/PDF send", "Non-critical", async () => {
         try {
           const emailSent = await sendBookingConfirmationEmail({
             to: bookingForNotification.contactEmail!,
@@ -591,11 +607,13 @@ async function runAdminCreateBookingNotifications(
         } catch (emailError) {
           console.error("ADMIN_OFFLINE_CONFIRMATION_EMAIL_FAILED", emailError);
         }
-      });
+        })
+      );
     }
 
     if (emailData) {
-      await profiler.measure("Admin email send", "Non-critical", async () => {
+      notificationTasks.push(
+        profiler.measure("Admin email send", "Non-critical", async () => {
         try {
           await sendAdminBookingConfirmationEmail({
             bookingRef: bookingForNotification.bookingRef,
@@ -608,11 +626,13 @@ async function runAdminCreateBookingNotifications(
             adminEmailError
           );
         }
-      });
+        })
+      );
     }
 
     if (bookingForNotification.contactPhone && emailData) {
-      await profiler.measure("WhatsApp send", "Non-critical", async () => {
+      notificationTasks.push(
+        profiler.measure("WhatsApp send", "Non-critical", async () => {
         try {
           await sendBookingConfirmationWhatsApp({
             phone: bookingForNotification.contactPhone!.startsWith("91")
@@ -635,8 +655,11 @@ async function runAdminCreateBookingNotifications(
             whatsappError
           );
         }
-      });
+        })
+      );
     }
+
+    await Promise.allSettled(notificationTasks);
   } finally {
     profiler.report({
       bookingId: result.bookingId,

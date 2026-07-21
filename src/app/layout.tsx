@@ -1,21 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
 import { Suspense } from "react";
 import "@splidejs/react-splide/css";
 import "./globals.css";
 import { BookingProvider } from "@/context/BookingContext";
 import { Toaster } from "sonner";
 import MetaBootstrap from "@/components/meta/MetaBootstrap";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Haven Reteat - Private Designed Venue Experiences",
@@ -31,7 +20,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         suppressHydrationWarning
-        className={`${inter.variable} ${playfair.variable} antialiased`}
+        className="antialiased"
       >
         <BookingProvider>{children}</BookingProvider>
         <Suspense fallback={null}>

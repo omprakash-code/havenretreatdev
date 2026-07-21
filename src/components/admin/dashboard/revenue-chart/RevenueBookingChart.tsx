@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   LineChart,
   Line,
@@ -47,6 +47,8 @@ export default function RevenueBookingsChart({ range }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totals, setTotals] = useState({ revenue: 0, bookings: 0 });
+  const chartHostRef = useRef<HTMLDivElement | null>(null);
+  const [chartReady, setChartReady] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -92,6 +94,21 @@ export default function RevenueBookingsChart({ range }: Props) {
     return () => controller.abort();
   }, [range]);
 
+  useEffect(() => {
+    const chartHost = chartHostRef.current;
+    if (!chartHost) return;
+
+    const updateChartReady = () => {
+      const rect = chartHost.getBoundingClientRect();
+      setChartReady(rect.width > 0 && rect.height > 0);
+    };
+
+    updateChartReady();
+    const observer = new ResizeObserver(updateChartReady);
+    observer.observe(chartHost);
+    return () => observer.disconnect();
+  }, []);
+
   const hasData = useMemo(
     () => rows.some((row) => row.revenue > 0 || row.bookings > 0),
     [rows]
@@ -127,8 +144,12 @@ export default function RevenueBookingsChart({ range }: Props) {
       )}
 
       {/* Chart */}
-      <div className="h-[210px] min-h-[210px] min-w-0 w-full sm:h-[220px] sm:min-h-[220px]">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+      <div
+        ref={chartHostRef}
+        className="h-[210px] min-h-[210px] min-w-0 w-full sm:h-[220px] sm:min-h-[220px]"
+      >
+        {chartReady && (
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <LineChart data={rows} margin={{ top: 8, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid
               strokeDasharray="3 3"
@@ -189,7 +210,8 @@ export default function RevenueBookingsChart({ range }: Props) {
               dot={false}
             />
           </LineChart>
-        </ResponsiveContainer>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {!loading && !hasData && !error && (

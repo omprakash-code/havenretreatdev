@@ -4,16 +4,20 @@ describe("whatsapp service", () => {
   const originalFetch = globalThis.fetch;
   const originalPhoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const originalToken = process.env.WHATSAPP_TOKEN;
+  const originalAccessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const originalImageUrl = process.env.WHATSAPP_TEMPLATE_IMAGE_URL;
   const originalTestMode = process.env.WHATSAPP_TEST_MODE;
+  const originalEnabled = process.env.WHATSAPP_ENABLED;
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
     process.env.WHATSAPP_PHONE_NUMBER_ID = "123456";
     process.env.WHATSAPP_TOKEN = "token";
+    delete process.env.WHATSAPP_ACCESS_TOKEN;
     process.env.WHATSAPP_TEMPLATE_IMAGE_URL = "https://example.com/header.png";
     process.env.WHATSAPP_TEST_MODE = "false";
+    delete process.env.WHATSAPP_ENABLED;
   });
 
   afterEach(() => {
@@ -31,6 +35,12 @@ describe("whatsapp service", () => {
       process.env.WHATSAPP_TOKEN = originalToken;
     }
 
+    if (originalAccessToken === undefined) {
+      delete process.env.WHATSAPP_ACCESS_TOKEN;
+    } else {
+      process.env.WHATSAPP_ACCESS_TOKEN = originalAccessToken;
+    }
+
     if (originalImageUrl === undefined) {
       delete process.env.WHATSAPP_TEMPLATE_IMAGE_URL;
     } else {
@@ -41,6 +51,12 @@ describe("whatsapp service", () => {
       delete process.env.WHATSAPP_TEST_MODE;
     } else {
       process.env.WHATSAPP_TEST_MODE = originalTestMode;
+    }
+
+    if (originalEnabled === undefined) {
+      delete process.env.WHATSAPP_ENABLED;
+    } else {
+      process.env.WHATSAPP_ENABLED = originalEnabled;
     }
   });
 
@@ -88,6 +104,31 @@ describe("whatsapp service", () => {
     delete process.env.WHATSAPP_PHONE_NUMBER_ID;
     delete process.env.WHATSAPP_TOKEN;
     delete process.env.WHATSAPP_ACCESS_TOKEN;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const { sendBookingConfirmationWhatsApp } = await import("@/services/whatsapp.service");
+    const sent = await sendBookingConfirmationWhatsApp({
+      phone: "919999999999",
+      customerName: "Test User",
+      bookingRef: "BK-1",
+      location: "Delhi",
+      theatre: "Test Theatre",
+      dateTime: "2026-03-25, 10:00 AM",
+      guests: "2",
+      totalAmount: "1000",
+      advancePaid: "500",
+      payAtTheatre: "500",
+      bookingUrl: "https://example.com/booking/BK-1",
+    });
+
+    expect(sent).toBe(false);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("skips WhatsApp silently when explicitly disabled", async () => {
+    process.env.WHATSAPP_ENABLED = "false";
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     globalThis.fetch = vi.fn() as unknown as typeof fetch;
 

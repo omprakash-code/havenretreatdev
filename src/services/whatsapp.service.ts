@@ -30,7 +30,20 @@ const AUTH_EXPIRED_LOG_SUPPRESSION_MS = 15 * 60 * 1000;
 
 let lastWhatsAppAuthExpiredLogAt = 0;
 
-function getWhatsAppConfig(isTestMode: boolean) {
+type WhatsAppConfigState =
+  | { state: "disabled"; reason: "flag_disabled" | "missing_config" }
+  | {
+      state: "configured";
+      phoneNumberId: string;
+      accessToken: string;
+      templateImageUrl: string;
+    };
+
+function resolveWhatsAppConfig(isTestMode: boolean): WhatsAppConfigState {
+  if (String(process.env.WHATSAPP_ENABLED ?? "").toLowerCase() === "false") {
+    return { state: "disabled", reason: "flag_disabled" };
+  }
+
   const phoneNumberId = (
     process.env.WHATSAPP_PHONE_NUMBER_ID ??
     process.env.PHONE_NUMBER_ID ??
@@ -43,10 +56,14 @@ function getWhatsAppConfig(isTestMode: boolean) {
   ).trim();
   const templateImageUrl = (process.env.WHATSAPP_TEMPLATE_IMAGE_URL ?? "").trim();
 
-  if (!phoneNumberId || !accessToken) return null;
-  if (!isTestMode && !templateImageUrl) return null;
+  if (!phoneNumberId || !accessToken) {
+    return { state: "disabled", reason: "missing_config" };
+  }
+  if (!isTestMode && !templateImageUrl) {
+    return { state: "disabled", reason: "missing_config" };
+  }
 
-  return { phoneNumberId, accessToken, templateImageUrl };
+  return { state: "configured", phoneNumberId, accessToken, templateImageUrl };
 }
 
 function isAuthExpiredError(error: WhatsAppApiError | undefined) {
@@ -109,8 +126,8 @@ export async function sendBookingConfirmationWhatsApp(
   if (!data.phone) return false;
 
   const isTestMode = process.env.WHATSAPP_TEST_MODE === "true";
-  const config = getWhatsAppConfig(isTestMode);
-  if (!config) return false;
+  const config = resolveWhatsAppConfig(isTestMode);
+  if (config.state === "disabled") return false;
 
   const url = `https://graph.facebook.com/v18.0/${config.phoneNumberId}/messages`;
 

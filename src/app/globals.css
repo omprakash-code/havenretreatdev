@@ -11,6 +11,8 @@
   --color--primary-4: #ff8a26;
   --color--primary-3: #ff5b00;
   --color--white: #ffffff;
+  --font-inter: "Inter";
+  --font-playfair: "Playfair Display";
 }
 
 body {
