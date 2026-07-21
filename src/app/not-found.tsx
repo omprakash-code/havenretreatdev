@@ -2,72 +2,68 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import CurtainReveal from "@/components/pages/404/CurtainReveal";
-
-const BRAND_COLOR = "#FCD308";
+import Link from "next/link";
+import { CalendarCheck, Home } from "lucide-react";
+import { BOOKING_ROUTES } from "@/constants/routes";
 
 export default function NotFound() {
-  const router = useRouter();
-
   return (
-    <main className="min-h-screen bg-black p-4">
-      <CurtainReveal />
-      <div className="mx-auto bg-white flex min-h-[96vh] rounded-[30px] w-full  items-center justify-center px-4 py-4">
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, ease: [0.2, 0.8, 0.2, 1] }}
-          className="w-full max-w-lg text-center"
-        >
-          <div className="relative mx-auto mb-8 w-fit">
-            <p
-              aria-hidden="true"
-              className="pointer-events-none select-none text-[clamp(10.5rem,48vw,22rem)] font-black leading-[0.78] tracking-[-0.08em] text-slate-900/[0.08]"
-            >
-              404
-            </p>
+    <main className="min-h-screen bg-[#f6f8f7] px-4 py-8 text-[#101828] sm:px-6">
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.2, 0.8, 0.2, 1] }}
+        className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col items-center justify-center text-center"
+      >
+        <Link href="/" aria-label="Haven Retreat home">
+          <Image
+            src="/assets/logo.png"
+            alt="Haven Retreat"
+            width={210}
+            height={210}
+            className="h-auto w-[210px]"
+            priority
+          />
+        </Link>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.08, duration: 0.45 }}
-              className="pointer-events-none absolute left-[52%] top-1/2 ml-[3px] w-[clamp(5.5rem,15vw,8.5rem)] -translate-x-1/2 -translate-y-[44%]"
-            >
-              <Image
-                src="/media/site/shared/404.svg"
-                alt="404 illustration"
-                width={371}
-                height={311}
-                className="h-auto w-full"
-                priority
-              />
-            </motion.div>
-          </div>
+        <Image
+          src="/media/site/shared/404.svg"
+          alt="A person searching for the right page"
+          width={371}
+          height={311}
+          className="mt-5 h-auto w-full max-w-[210px]"
+          priority
+        />
 
-          <h1 className="mb-2 text-3xl font-bold text-slate-900 md:text-4xl">Oops... This screen isn&apos;t available</h1>
-          <p className="text-sm text-slate-600 md:text-base">
-            Your celebration is still on. Pick a theatre and continue booking.
-          </p>
+        <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-[#245e5b]">
+          404 Error
+        </p>
+        <h1 className="mt-2 font-playfair text-3xl font-semibold leading-tight text-[#101828] sm:text-4xl">
+          Page not found
+        </h1>
+        <p className="mt-3 max-w-sm text-sm leading-6 text-[#667085]">
+          This page may have moved or expired. Continue your booking or return
+          home to find the right place.
+        </p>
 
-          <div className="mx-auto mt-8 grid w-full max-w-md grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              onClick={() => router.push("/booking")}
-              className="w-full cursor-pointer rounded-full px-6 py-3.5 text-base font-semibold text-slate-900 shadow-sm transition-transform hover:scale-[1.02]"
-              style={{ backgroundColor: BRAND_COLOR }}
-            >
-              Start New Booking
-            </button>
-
-            <button
-              onClick={() => router.push("/")}
-              className="w-full cursor-pointer rounded-full border border-slate-300 bg-white px-6 py-3.5 text-base font-medium text-slate-700 transition-colors hover:border-slate-400 hover:text-slate-900"
-            >
-              Back to Home
-            </button>
-          </div>
-        </motion.section>
-      </div>
+        <div className="mt-7 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+          <Link
+            href={BOOKING_ROUTES.ROOT}
+            className="inline-flex min-h-11 items-center justify-center gap-2 bg-[#347f7c] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#245e5b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c]"
+          >
+            <CalendarCheck size={16} aria-hidden="true" />
+            Book Venue
+          </Link>
+          <Link
+            href="https://havenretreatmiami.com/"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center justify-center gap-2 border border-[#d7e4e1] bg-white px-4 py-2.5 text-sm font-semibold text-[#245e5b] transition hover:bg-[#edf3f1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#347f7c]"
+          >
+            <Home size={16} aria-hidden="true" />
+            Home
+          </Link>
+        </div>
+      </motion.section>
     </main>
   );
 }
