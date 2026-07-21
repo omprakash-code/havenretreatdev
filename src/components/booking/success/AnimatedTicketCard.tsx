@@ -108,23 +108,23 @@ export default function AnimatedTicketCard({
         : `${APP_URL}/booking/success`;
     const emoji = {
       calendar: "\u{1F4C5}",
+      clock: "\u{1F558}",
+      location: "\u{1F4CD}",
       sparkle: "\u2728",
+      tag: "\u{1F516}",
     } as const;
-    const celebrationLine = data.decorationRequired
-      ? `Private venue experience with a custom celebration setup ${emoji.sparkle}`
-      : `Private designed venue experience at Haven Retreat ${emoji.sparkle}`;
 
-    const message = `${emoji.calendar} Just booked a venue experience at Haven Retreat!
+    const message = `${emoji.sparkle} I just booked my private venue experience at Haven Retreat!
 
-${celebrationLine}
+${emoji.location} Location: ${data.locationName}
+${emoji.calendar} Date: ${data.date}
+${emoji.clock} Time: ${data.timeSlot}
+${emoji.tag} Booking Reference: ${data.bookingRef}
 
-Booking ID: ${data.bookingRef}
-Location: ${data.locationName}
-Booking Date: ${data.date}
-Booking Time: ${data.timeSlot}
+View my booking:
+${shareUrl}
 
-Have you tried this yet?
-${shareUrl}`;
+#HavenRetreat`;
 
     const whatsappUrl = new URL("https://api.whatsapp.com/send");
     whatsappUrl.searchParams.set("text", message);
