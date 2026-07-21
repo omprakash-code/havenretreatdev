@@ -6,6 +6,8 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db";
 import { bookingErrorResponse } from "@/lib/booking-api-response";
 import { calculateBookingPricing } from "@/lib/booking-pricing";
+import { appLogger } from "@/lib/app-logger";
+import { createPerformanceProfiler } from "@/lib/performance-profiler";
 import {
   centsToMoney,
   hasMoreThanTwoDecimals,
@@ -73,73 +75,6 @@ import {
   evaluateAdminCoupons,
   persistAdminBookingCoupons,
 } from "@/app/api/admin/bookings/_coupon";
-
-type ProfileKind = "Critical" | "Non-critical";
-
-type ProfileEntry = {
-  step: string;
-  ms: number;
-  kind: ProfileKind;
-};
-
-function createAdminBookingProfiler(label: string) {
-  const startedAt = performance.now();
-  const entries: ProfileEntry[] = [];
-  const detailedLoggingEnabled =
-    process.env.NODE_ENV === "development" ||
-    process.env.BOOKING_PERFORMANCE_DEBUG === "true";
-
-  return {
-    async measure<T>(
-      step: string,
-      kind: ProfileKind,
-      fn: () => Promise<T>
-    ): Promise<T> {
-      const stepStart = performance.now();
-      try {
-        return await fn();
-      } finally {
-        entries.push({
-          step,
-          kind,
-          ms: Math.round(performance.now() - stepStart),
-        });
-      }
-    },
-    measureSync<T>(step: string, kind: ProfileKind, fn: () => T): T {
-      const stepStart = performance.now();
-      try {
-        return fn();
-      } finally {
-        entries.push({
-          step,
-          kind,
-          ms: Math.round(performance.now() - stepStart),
-        });
-      }
-    },
-    report(extra: Record<string, unknown> = {}) {
-      const totalMs = Math.round(performance.now() - startedAt);
-      const slowest = [...entries].sort((a, b) => b.ms - a.ms).slice(0, 5);
-      if (!detailedLoggingEnabled) {
-        console.info(label, {
-          totalMs,
-          ...extra,
-          stepCount: entries.length,
-          slowest,
-        });
-        return;
-      }
-
-      console.info(label, {
-        totalMs,
-        ...extra,
-        steps: entries,
-        slowest,
-      });
-    },
-  };
-}
 
 type ConfirmationEmailData = BookingConfirmationEmailProps & {
   customerName: string;
@@ -445,7 +380,7 @@ type AdminCreateBookingResult = {
 async function runAdminCreateBookingNotifications(
   result: AdminCreateBookingResult
 ) {
-  const profiler = createAdminBookingProfiler(
+  const profiler = createPerformanceProfiler(
     "ADMIN_CREATE_BOOKING_BACKGROUND_TIMINGS"
   );
 
@@ -458,10 +393,14 @@ async function runAdminCreateBookingNotifications(
           try {
             await notifyAbandonedBookingsByIds(result.abandonedBookingIds);
           } catch (notifyError) {
-            console.error(
-              "ADMIN_CREATE_BOOKING_ABANDONMENT_NOTIFY_FAILED",
-              notifyError
-            );
+            appLogger.warn("ADMIN_CREATE_BOOKING_ABANDONMENT_NOTIFY_FAILED", {
+              bookingId: result.bookingId,
+              bookingRef: result.bookingRef,
+              message:
+                notifyError instanceof Error
+                  ? notifyError.message
+                  : "Unknown notification error",
+            });
           }
         }
       );
@@ -472,7 +411,14 @@ async function runAdminCreateBookingNotifications(
         try {
           await sendBookingApprovedEmail(result.bookingId);
         } catch (error) {
-          console.error("ADMIN_PAY_LATER_APPROVED_EMAIL_FAILED", error);
+          appLogger.warn("ADMIN_PAY_LATER_APPROVED_EMAIL_FAILED", {
+            bookingId: result.bookingId,
+            bookingRef: result.bookingRef,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unknown email notification error",
+          });
         }
       });
       return;
@@ -590,23 +536,30 @@ async function runAdminCreateBookingNotifications(
     if (bookingForNotification.contactEmail && emailData) {
       notificationTasks.push(
         profiler.measure("Customer email/PDF send", "Non-critical", async () => {
-        try {
-          const emailSent = await sendBookingConfirmationEmail({
-            to: bookingForNotification.contactEmail!,
-            bookingRef: bookingForNotification.bookingRef,
-            emailData,
-            theme: process.env.BOOKING_EMAIL_THEME,
-          });
+          try {
+            const emailSent = await sendBookingConfirmationEmail({
+              to: bookingForNotification.contactEmail!,
+              bookingRef: bookingForNotification.bookingRef,
+              emailData,
+              theme: process.env.BOOKING_EMAIL_THEME,
+            });
 
-          if (emailSent) {
-            await prisma.booking.update({
-              where: { id: bookingForNotification.id },
-              data: { confirmationEmailSent: true },
+            if (emailSent) {
+              await prisma.booking.update({
+                where: { id: bookingForNotification.id },
+                data: { confirmationEmailSent: true },
+              });
+            }
+          } catch (emailError) {
+            appLogger.warn("ADMIN_OFFLINE_CONFIRMATION_EMAIL_FAILED", {
+              bookingId: bookingForNotification.id,
+              bookingRef: bookingForNotification.bookingRef,
+              message:
+                emailError instanceof Error
+                  ? emailError.message
+                  : "Unknown customer email error",
             });
           }
-        } catch (emailError) {
-          console.error("ADMIN_OFFLINE_CONFIRMATION_EMAIL_FAILED", emailError);
-        }
         })
       );
     }
@@ -614,18 +567,22 @@ async function runAdminCreateBookingNotifications(
     if (emailData) {
       notificationTasks.push(
         profiler.measure("Admin email send", "Non-critical", async () => {
-        try {
-          await sendAdminBookingConfirmationEmail({
-            bookingRef: bookingForNotification.bookingRef,
-            emailData,
-            confirmationSource: "ADMIN_OFFLINE_CREATE",
-          });
-        } catch (adminEmailError) {
-          console.error(
-            "ADMIN_OFFLINE_ADMIN_CONFIRMATION_EMAIL_FAILED",
-            adminEmailError
-          );
-        }
+          try {
+            await sendAdminBookingConfirmationEmail({
+              bookingRef: bookingForNotification.bookingRef,
+              emailData,
+              confirmationSource: "ADMIN_OFFLINE_CREATE",
+            });
+          } catch (adminEmailError) {
+            appLogger.warn("ADMIN_OFFLINE_ADMIN_CONFIRMATION_EMAIL_FAILED", {
+              bookingId: bookingForNotification.id,
+              bookingRef: bookingForNotification.bookingRef,
+              message:
+                adminEmailError instanceof Error
+                  ? adminEmailError.message
+                  : "Unknown admin email error",
+            });
+          }
         })
       );
     }
@@ -633,28 +590,32 @@ async function runAdminCreateBookingNotifications(
     if (bookingForNotification.contactPhone && emailData) {
       notificationTasks.push(
         profiler.measure("WhatsApp send", "Non-critical", async () => {
-        try {
-          await sendBookingConfirmationWhatsApp({
-            phone: bookingForNotification.contactPhone!.startsWith("91")
-              ? bookingForNotification.contactPhone!
-              : `91${bookingForNotification.contactPhone}`,
-            customerName: emailData.customerName,
-            bookingRef: bookingForNotification.bookingRef,
-            location: emailData.locationName,
-            theatre: emailData.theatreName,
-            dateTime: `${emailData.date}, ${emailData.timeSlot}`,
-            guests: String(emailData.guestCount),
-            totalAmount: String(emailData.totalAmount),
-            advancePaid: String(emailData.advancePaid),
-            payAtTheatre: String(emailData.remainingPayable),
-            bookingUrl: emailData.successUrl,
-          });
-        } catch (whatsappError) {
-          console.error(
-            "ADMIN_OFFLINE_CONFIRMATION_WHATSAPP_FAILED",
-            whatsappError
-          );
-        }
+          try {
+            await sendBookingConfirmationWhatsApp({
+              phone: bookingForNotification.contactPhone!.startsWith("91")
+                ? bookingForNotification.contactPhone!
+                : `91${bookingForNotification.contactPhone}`,
+              customerName: emailData.customerName,
+              bookingRef: bookingForNotification.bookingRef,
+              location: emailData.locationName,
+              theatre: emailData.theatreName,
+              dateTime: `${emailData.date}, ${emailData.timeSlot}`,
+              guests: String(emailData.guestCount),
+              totalAmount: String(emailData.totalAmount),
+              advancePaid: String(emailData.advancePaid),
+              payAtTheatre: String(emailData.remainingPayable),
+              bookingUrl: emailData.successUrl,
+            });
+          } catch (whatsappError) {
+            appLogger.warn("ADMIN_OFFLINE_CONFIRMATION_WHATSAPP_FAILED", {
+              bookingId: bookingForNotification.id,
+              bookingRef: bookingForNotification.bookingRef,
+              message:
+                whatsappError instanceof Error
+                  ? whatsappError.message
+                  : "Unknown WhatsApp notification error",
+            });
+          }
         })
       );
     }
@@ -669,7 +630,7 @@ async function runAdminCreateBookingNotifications(
 }
 
 export async function POST(req: Request) {
-  const profiler = createAdminBookingProfiler("ADMIN_CREATE_BOOKING_TIMINGS");
+  const profiler = createPerformanceProfiler("ADMIN_CREATE_BOOKING_TIMINGS");
   try {
     const authenticatedAdminId = await profiler.measure(
       "Authenticate admin",
@@ -1665,7 +1626,10 @@ export async function POST(req: Request) {
       );
     }
 
-    console.error("ADMIN_CREATE_BOOKING_ERROR", error);
+    appLogger.error("ADMIN_CREATE_BOOKING_ERROR", {
+      message:
+        error instanceof Error ? error.message : "Unknown admin booking error",
+    });
     profiler.report({ outcome: "unhandled_error" });
     return bookingErrorResponse(
       500,

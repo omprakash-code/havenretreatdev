@@ -67,4 +67,27 @@ describe("booking ticket payment rows", () => {
       rows.some((row) => row.label.startsWith("Extra Guests"))
     ).toBe(false);
   });
+
+  it("does not expose payment provider or method details to customers", () => {
+    const rows = buildPaymentRows(
+      makeBookingData({
+        payment: {
+          provider: "OFFLINE",
+          method: "CASH",
+          transactionId: "internal-ref",
+          status: "PAID",
+          amount: 150,
+        },
+      })
+    );
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Amount Paid", value: "$150" }),
+      ])
+    );
+    expect(rows.some((row) => row.label.includes("Offline"))).toBe(false);
+    expect(rows.some((row) => row.label.includes("Online"))).toBe(false);
+    expect(rows.some((row) => row.label === "Payment Method")).toBe(false);
+  });
 });

@@ -100,14 +100,6 @@ export default function AnimatedTicketCard({
   const showRemainingRow =
     !isFullPayment && (isCustomerAdvanceFlow || isAdminAdvanceFlow);
   const remainingLabel = "Remaining Balance";
-  const showAdminPaymentMeta = data.createdByRole === "ADMIN";
-  const paymentModeLabel =
-    data.payment?.provider === "OFFLINE"
-      ? "Offline"
-      : data.payment?.provider === "RAZORPAY"
-        ? "Online"
-        : null;
-
   const handleWhatsAppShare = () => {
     const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "";
     const shareUrl =
@@ -437,7 +429,7 @@ ${shareUrl}`;
             {hasCollectedPayment ? (
               <PriceRow
                 label={
-                  data.createdByRole === "ADMIN" ? "Amount Paid" : "Paid Online"
+                  "Amount Paid"
                 }
                 value={formatCurrency(data.advancePaid)}
                 success
@@ -462,25 +454,6 @@ ${shareUrl}`;
                 <p className="text-[11px] leading-5 text-slate-500 sm:text-xs">
                   {BOOKING_PAYMENT_APPLIED_MESSAGE}
                 </p>
-              </div>
-            )}
-            {showAdminPaymentMeta && (
-              <div className="mt-2 space-y-1.5 border-t border-slate-200 pt-2">
-                {paymentModeLabel && (
-                  <PriceRow label="Payment Mode" value={paymentModeLabel} />
-                )}
-                {data.payment?.method && (
-                  <PriceRow
-                    label="Payment Method"
-                    value={data.payment.method}
-                  />
-                )}
-                {data.payment?.transactionId && (
-                  <PriceRow
-                    label="Reference ID"
-                    value={data.payment.transactionId}
-                  />
-                )}
               </div>
             )}
           </div>

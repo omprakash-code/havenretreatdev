@@ -1,3 +1,5 @@
+import { appLogger } from "@/lib/app-logger";
+
 type WhatsAppBookingData = {
   phone: string;
   customerName: string;
@@ -81,7 +83,7 @@ function logAuthExpiredError(error: WhatsAppApiError) {
   }
 
   lastWhatsAppAuthExpiredLogAt = now;
-  console.error("[WHATSAPP] Access token expired.", {
+  appLogger.error("WHATSAPP_AUTH_FAILED", {
     message: error.message ?? "Unknown auth error",
     code: error.code ?? null,
     errorSubcode: error.error_subcode ?? null,
@@ -92,7 +94,9 @@ function logAuthExpiredError(error: WhatsAppApiError) {
 
 function logWhatsAppApiError(error: WhatsAppApiError | undefined) {
   if (!error) {
-    console.error("[WHATSAPP] Send failed with an unknown API error response.");
+    appLogger.warn("WHATSAPP_SEND_FAILED", {
+      message: "Unknown API error response",
+    });
     return;
   }
 
@@ -102,16 +106,17 @@ function logWhatsAppApiError(error: WhatsAppApiError | undefined) {
   }
 
   if (isTestRecipientError(error)) {
-    console.warn(
-      "[WHATSAPP][TEST_MODE] Message NOT sent. " +
-        "Reason: Recipient phone number is not whitelisted. " +
-        "Action: Add this number as a test recipient in Meta Dashboard " +
-        "or use a real business number for production."
-    );
+    appLogger.warn("WHATSAPP_TEST_RECIPIENT_NOT_ALLOWED", {
+      message: error.message ?? "Recipient phone number is not whitelisted.",
+      code: error.code ?? null,
+      errorSubcode: error.error_subcode ?? null,
+      action:
+        "Add this number as a test recipient in Meta Dashboard or use a real business number for production.",
+    });
     return;
   }
 
-  console.error("[WHATSAPP] Send failed", {
+  appLogger.warn("WHATSAPP_SEND_FAILED", {
     message: error.message ?? "Unknown API error",
     type: error.type ?? null,
     code: error.code ?? null,
@@ -208,11 +213,11 @@ export async function sendBookingConfirmationWhatsApp(
     return false;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      console.error(`[WHATSAPP] Request timed out after ${timeoutMs}ms.`);
+      appLogger.warn("WHATSAPP_REQUEST_TIMEOUT", { timeoutMs });
       return false;
     }
 
-    console.error("[WHATSAPP] Request failed", {
+    appLogger.warn("WHATSAPP_REQUEST_FAILED", {
       message: error instanceof Error ? error.message : "Unknown network error",
     });
     return false;

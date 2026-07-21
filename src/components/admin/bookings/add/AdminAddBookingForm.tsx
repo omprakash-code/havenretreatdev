@@ -2584,11 +2584,6 @@ export function AdminAddBookingForm({
                 className={inputClass}
                 placeholder="e.g. Cleaning Fee"
               />
-              {errors.additionalChargeReason ? (
-                <p className="mt-1 text-xs text-red-600">
-                  {errors.additionalChargeReason}
-                </p>
-              ) : null}
             </div>
           </div>
         </section>

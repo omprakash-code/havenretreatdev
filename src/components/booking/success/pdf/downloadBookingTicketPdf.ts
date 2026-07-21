@@ -244,13 +244,6 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
   const discountAmount = data.discountAmount ?? 0;
   const showDiscountBreakdown = discountAmount > 0;
   const subtotalBeforeDiscount = data.totalAmount + discountAmount;
-  const showAdminPaymentMeta = data.createdByRole === "ADMIN";
-  const adminPaymentModeLabel =
-    data.payment?.provider === "OFFLINE"
-      ? "Offline"
-      : data.payment?.provider === "RAZORPAY"
-        ? "Online"
-        : null;
   const rows: SectionRow[] = [];
 
   const packageAmount = data.packageAmount ?? 0;
@@ -335,12 +328,7 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
   // is listed.
   if (data.advancePaid > 0) {
     rows.push({
-      label:
-        showAdminPaymentMeta && adminPaymentModeLabel
-          ? `Amount Paid (${adminPaymentModeLabel})`
-          : data.createdByRole === "ADMIN"
-            ? "Amount Paid"
-            : "Paid Online",
+      label: "Amount Paid",
       value: formatCurrency(data.advancePaid),
       tone: "success",
     });

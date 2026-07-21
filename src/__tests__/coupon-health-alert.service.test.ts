@@ -6,6 +6,7 @@ import {
 } from "@/services/coupon/coupon-health-alert.service";
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
 const warningHealth = {
   level: "WARNING" as const,
@@ -30,6 +31,7 @@ describe("dispatchCouponHealthAlert", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.unstubAllEnvs();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-02-25T00:00:00.000Z"));
@@ -39,6 +41,7 @@ describe("dispatchCouponHealthAlert", () => {
 
   afterEach(() => {
     consoleErrorSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -98,7 +101,6 @@ describe("dispatchCouponHealthAlert", () => {
   it("skips quietly when enabled without a webhook URL", async () => {
     vi.stubEnv("COUPON_HEALTH_ALERT_ENABLED", "true");
     vi.stubEnv("COUPON_HEALTH_ALERT_MIN_LEVEL", "WARNING");
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
 
     const result = await dispatchCouponHealthAlert({
@@ -110,9 +112,7 @@ describe("dispatchCouponHealthAlert", () => {
 
     expect(result).toEqual({ dispatched: false, reason: "not_configured" });
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(warnSpy).not.toHaveBeenCalled();
-
-    warnSpy.mockRestore();
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
   });
 
   it("enforces cooldown for same level alerts", async () => {

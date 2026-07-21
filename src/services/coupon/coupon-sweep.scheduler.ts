@@ -2,6 +2,7 @@ import { releaseStaleReservedCoupons } from "@/services/coupon/coupon-release.se
 import { getCouponAuditReport } from "@/services/coupon/coupon-audit.service";
 import { assessCouponHealth } from "@/services/coupon/coupon-health.service";
 import { dispatchCouponHealthAlert } from "@/services/coupon/coupon-health-alert.service";
+import { appLogger } from "@/lib/app-logger";
 
 const COUPON_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -78,7 +79,7 @@ async function logCouponHealthSnapshot(trigger: "startup" | "interval") {
 async function runSweep(trigger: "startup" | "interval") {
   const state = getState();
   if (state.running) {
-    console.info("COUPON_SWEEP_SKIP", { trigger, reason: "already_running" });
+    appLogger.debug("COUPON_SWEEP_SKIP", { trigger, reason: "already_running" });
     return;
   }
 
@@ -114,7 +115,6 @@ export function startCouponSweepScheduler() {
   }
 
   if (!isSweepEnabled()) {
-    console.info("COUPON_SWEEP_DISABLED", { env: process.env.NODE_ENV ?? "unknown" });
     return;
   }
 

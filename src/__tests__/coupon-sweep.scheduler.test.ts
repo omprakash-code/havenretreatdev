@@ -81,16 +81,14 @@ describe("coupon sweep scheduler", () => {
   });
 
   it("does not run when scheduler is disabled", async () => {
-    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
-
     startCouponSweepScheduler();
     await flushMicrotasks();
 
     expect(releaseStaleReservedCouponsMock).not.toHaveBeenCalled();
     expect(getCouponAuditReportMock).not.toHaveBeenCalled();
-    expect(infoSpy).toHaveBeenCalledWith(
+    expect(consoleInfoSpy).not.toHaveBeenCalledWith(
       "COUPON_SWEEP_DISABLED",
-      { env: "production" }
+      expect.anything()
     );
   });
 
@@ -126,7 +124,7 @@ describe("coupon sweep scheduler", () => {
     );
     releaseStaleReservedCouponsMock.mockReturnValue(pendingSweep);
 
-    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => undefined);
 
     startCouponSweepScheduler();
     await flushMicrotasks();
@@ -136,18 +134,13 @@ describe("coupon sweep scheduler", () => {
     await flushMicrotasks();
 
     expect(releaseStaleReservedCouponsMock).toHaveBeenCalledTimes(1);
-    expect(infoSpy).toHaveBeenCalledWith(
-      "COUPON_SWEEP_SKIP",
-      expect.objectContaining({
-        trigger: "interval",
-        reason: "already_running",
-      })
-    );
+    expect(debugSpy).not.toHaveBeenCalled();
 
     resolveSweep({ releasedCount: 0, affectedBookings: [] });
     await flushMicrotasks();
     expect(getCouponAuditReportMock).toHaveBeenCalledTimes(1);
     expect(assessCouponHealthMock).toHaveBeenCalledTimes(1);
+    debugSpy.mockRestore();
   });
 
   it("dispatches alert when health level is not OK", async () => {

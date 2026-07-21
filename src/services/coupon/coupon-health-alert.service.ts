@@ -3,6 +3,7 @@ import type {
   CouponHealthAssessment,
   CouponHealthLevel,
 } from "@/services/coupon/coupon-health.service";
+import { appLogger } from "@/lib/app-logger";
 
 type CouponHealthAlertSource = "scheduler" | "manual";
 type CouponHealthAlertTrigger = "startup" | "interval" | "on-demand";
@@ -171,7 +172,7 @@ export async function dispatchCouponHealthAlert(
     markAlertSent(input.health.level, nowMs);
     return { dispatched: true, reason: "dispatched" };
   } catch (error) {
-    console.error("COUPON_HEALTH_ALERT_ERROR", {
+    appLogger.warn("COUPON_HEALTH_ALERT_FAILED", {
       timestamp: new Date().toISOString(),
       source: input.source,
       trigger: input.trigger ?? "on-demand",

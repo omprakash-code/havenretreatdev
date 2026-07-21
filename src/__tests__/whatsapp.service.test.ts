@@ -91,7 +91,7 @@ describe("whatsapp service", () => {
     });
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "[WHATSAPP] Access token expired.",
+      "WHATSAPP_AUTH_FAILED",
       expect.objectContaining({
         code: 190,
         errorSubcode: 463,
@@ -187,7 +187,7 @@ describe("whatsapp service", () => {
 
     expect(
       errorSpy.mock.calls.filter(
-        (call) => call[0] === "[WHATSAPP] Access token expired."
+        (call) => call[0] === "WHATSAPP_AUTH_FAILED"
       )
     ).toHaveLength(1);
   });
