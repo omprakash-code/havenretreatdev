@@ -13,8 +13,27 @@ import {
   UserPlus,
   Mail,
   X,
+  ShieldCheck,
+  BadgeCheck,
+  CircleCheckBig,
+  CircleCheck,
+  Workflow,
+  ListChecks,
+  Route,
+  ArrowRightCircle,
+  Send,
+  CreditCard,
+  CalendarClock,
+  CircleDashed,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   useBooking,
@@ -42,8 +61,9 @@ import {
 import { getDurationPricingBreakdown } from "@/lib/product-duration-pricing";
 import {
   BOOKING_NO_PAYMENT_TODAY_TITLE,
-  BOOKING_REVIEW_FOLLOWUP_MESSAGE,
-  buildAdvancePaymentNotice,
+  BOOKING_REVIEW_FOLLOWUP_TITLE,
+  BOOKING_REVIEW_FOLLOWUP_STEPS,
+  buildAdvancePaymentSteps,
 } from "@/constants/booking-status-copy";
 
 const APPLY_ERROR_MAP: Record<string, string> = {
@@ -97,16 +117,14 @@ export default function BookingSummary({
 }: BookingSummaryProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const {
-    booking,
-    setCouponState,
-    clearCouponState,
-    resetBooking,
-  } = useBooking();
+  const { booking, setCouponState, clearCouponState, resetBooking } =
+    useBooking();
   const [couponCode, setCouponCode] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [showCouponInput, setShowCouponInput] = useState(false);
-  const [couponFeedback, setCouponFeedback] = useState<CouponFeedback | null>(null);
+  const [couponFeedback, setCouponFeedback] = useState<CouponFeedback | null>(
+    null,
+  );
 
   const selectedPackage = booking.package;
   const schedule = booking.schedule;
@@ -148,7 +166,9 @@ export default function BookingSummary({
   const [isSubmitShaking, setIsSubmitShaking] = useState(false);
   const [showInlineMobileSubmit, setShowInlineMobileSubmit] = useState(false);
   const [showCouponLockHint, setShowCouponLockHint] = useState(false);
-  const couponLockHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const couponLockHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const sessionExpiryHandledRef = useRef(false);
 
   const updateScrollFades = useCallback(() => {
@@ -185,9 +205,10 @@ export default function BookingSummary({
       return;
     }
 
-    const rootFontSize = Number(
-      getComputedStyle(document.documentElement).fontSize.replace("px", "")
-    ) || 16;
+    const rootFontSize =
+      Number(
+        getComputedStyle(document.documentElement).fontSize.replace("px", ""),
+      ) || 16;
     const maxHeight = window.innerHeight - rootFontSize * 8;
 
     const middleStyles = getComputedStyle(middleEl);
@@ -269,7 +290,8 @@ export default function BookingSummary({
   }, []);
 
   const resolvedSubmitLabel =
-    submitLabel ?? (isFinalExtrasPage ? "Continue to Agreement" : "Save & Continue");
+    submitLabel ??
+    (isFinalExtrasPage ? "Continue to Agreement" : "Save & Continue");
   const resolvedSubmitLabelText =
     typeof resolvedSubmitLabel === "string" ||
     typeof resolvedSubmitLabel === "number" ||
@@ -321,7 +343,7 @@ export default function BookingSummary({
         root: null,
         threshold: 0.01,
         rootMargin: "0px 0px -72px 0px",
-      }
+      },
     );
 
     observer.observe(target);
@@ -384,7 +406,8 @@ export default function BookingSummary({
   }, [clearCouponState]);
   const lockExpiresAt =
     booking.schedule && "lockExpiresAt" in booking.schedule
-      ? (booking.schedule as { lockExpiresAt?: string | null }).lockExpiresAt ?? null
+      ? ((booking.schedule as { lockExpiresAt?: string | null })
+          .lockExpiresAt ?? null)
       : null;
   useLockCountdown({
     lockExpiresAt: booking.bookingId ? lockExpiresAt : null,
@@ -401,7 +424,7 @@ export default function BookingSummary({
     return (
       <div className="bg-white rounded-2xl border border-gray-300 p-6 shadow-sm w-full">
         <h3 className="text-lg font-bold mb-4 text-black">
-          Your Booking Summary
+          Your Reservation Request
         </h3>
         <p className="text-sm text-gray-400">
           Select a schedule to see pricing details.
@@ -422,7 +445,10 @@ export default function BookingSummary({
   // correct if booking.durationHours is temporarily stale in context.
   const snapshotBookedHours =
     Number(booking.rangePricingSnapshot?.bookedDurationHours ?? 0) || 0;
-  const rentalDurationHours = snapshotBookedHours > 0 ? snapshotBookedHours : (Number(booking.durationHours) || 0);
+  const rentalDurationHours =
+    snapshotBookedHours > 0
+      ? snapshotBookedHours
+      : Number(booking.durationHours) || 0;
   const extrasPrice = Number(pricing.extras) || 0;
   const decorationPrice = Number(pricing.decoration) || 0;
   const productsPrice = Number(pricing?.products ?? 0);
@@ -434,13 +460,13 @@ export default function BookingSummary({
     basePrice + extraHoursPrice + extrasPrice + decorationPrice + productsPrice;
   const displayedGuestCount = Math.max(
     booking.guestCount ?? selectedPackage.baseGuests,
-    selectedPackage.baseGuests
+    selectedPackage.baseGuests,
   );
   const fallbackOccasionLabel = booking.occasion?.key
     ? booking.occasion.key
-      .replace(/_/g, " ")
-      .toLowerCase()
-      .replace(/\b\w/g, (char) => char.toUpperCase())
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase())
     : undefined;
   const occasionLabel = occasionPreview?.label ?? fallbackOccasionLabel;
   const occasionRawData = occasionPreview?.data ?? booking.occasion?.data ?? {};
@@ -456,7 +482,8 @@ export default function BookingSummary({
   const isExtrasFlowPage = pathname.startsWith("/booking/extras/");
   const headerStepText = (() => {
     if (pathname.startsWith("/booking/payment")) return "Review and payment";
-    if (pathname.startsWith("/booking/agreement")) return "Review and signature";
+    if (pathname.startsWith("/booking/agreement"))
+      return "Review and signature";
     return undefined;
   })();
   const summaryStepNumber = (() => {
@@ -472,7 +499,7 @@ export default function BookingSummary({
       ? {
           current: Math.max(
             1,
-            (extrasProgress.findIndex((step) => step.active) ?? -1) + 1
+            (extrasProgress.findIndex((step) => step.active) ?? -1) + 1,
           ),
           total: extrasProgress.length,
         }
@@ -504,7 +531,10 @@ export default function BookingSummary({
 
   async function handleApplyCoupon() {
     if (!booking.bookingId) {
-      setCouponFeedback({ message: "Booking is not ready yet.", tone: "error" });
+      setCouponFeedback({
+        message: "Booking is not ready yet.",
+        tone: "error",
+      });
       return;
     }
     if (couponInputLocked) {
@@ -529,7 +559,9 @@ export default function BookingSummary({
           bookingId: booking.bookingId,
           couponCode: couponCode.trim().toUpperCase(),
           contactPhone:
-            couponIdentityOverride?.phone?.trim() || booking.contact?.phone || null,
+            couponIdentityOverride?.phone?.trim() ||
+            booking.contact?.phone ||
+            null,
         }),
       });
 
@@ -544,14 +576,20 @@ export default function BookingSummary({
         if (handled) return;
 
         const reason = data?.reason as string | undefined;
-        const severity = data?.severity as "error" | "info" | "warning" | undefined;
+        const severity = data?.severity as
+          | "error"
+          | "info"
+          | "warning"
+          | undefined;
         const message =
           data?.message ||
           (reason ? APPLY_ERROR_MAP[reason] : undefined) ||
           "Unable to apply coupon.";
         setCouponFeedback({
           message,
-          tone: isCouponConditionMessage({ reason, message, severity }) ? "help" : "error",
+          tone: isCouponConditionMessage({ reason, message, severity })
+            ? "help"
+            : "error",
         });
         return;
       }
@@ -613,7 +651,11 @@ export default function BookingSummary({
           tone: isCouponConditionMessage({
             reason: data?.reason as string | undefined,
             message: data?.message as string | undefined,
-            severity: data?.severity as "error" | "info" | "warning" | undefined,
+            severity: data?.severity as
+              | "error"
+              | "info"
+              | "warning"
+              | undefined,
           })
             ? "help"
             : "error",
@@ -639,12 +681,18 @@ export default function BookingSummary({
     }
   }
 
-  return (
-    <div
-      className="w-full border border-[#2f7e7a]/20 bg-[#f6f8f7] lg:flex lg:flex-col lg:h-auto"
-    >
+  const StepBadge = ({ number }: { number: number }) => (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#347f7c] text-[10px] font-semibold text-white">
+      {number}
+    </span>
+  );
 
-      <div ref={headerRef} className="shrink-0 border-b border-[#d7e4e1] bg-white">
+  return (
+    <div className="w-full border border-[#2f7e7a]/20 bg-[#f6f8f7] lg:flex lg:flex-col lg:h-auto">
+      <div
+        ref={headerRef}
+        className="shrink-0 border-b border-[#d7e4e1] bg-white"
+      >
         <div className="relative px-4 py-3">
           {isExtrasFlowPage && onSkipExtras && (
             <button
@@ -656,8 +704,8 @@ export default function BookingSummary({
             </button>
           )}
           <div className="px-12 text-center">
-            <h3 className="text-lg font-bold text-black">
-              Your Booking Summary
+            <h3 className="text-md font-bold text-black lg:text-lg">
+              Your Reservation Request
             </h3>
 
             {headerStepText && (
@@ -674,7 +722,6 @@ export default function BookingSummary({
               className="mt-2 hidden lg:block !max-w-none !px-0 !py-0"
             />
           )}
-
         </div>
       </div>
 
@@ -699,7 +746,9 @@ export default function BookingSummary({
                     <Ticket size={14} className="text-gray-400" />
                     <span>
                       Package{" "}
-                      <span className="text-gray-400">({selectedPackage.name})</span>
+                      <span className="text-gray-400">
+                        ({selectedPackage.name})
+                      </span>
                     </span>
                   </span>
                 }
@@ -710,7 +759,7 @@ export default function BookingSummary({
                 value={`${booking.date ? formatCalendarDateShort(booking.date) : "—"}, ${schedule.time}`}
                 labelClassName="text-gray-500 text-sm font-normal"
                 customLabel={
-                  <span className="inline-flex items-center gap-1.5">                    
+                  <span className="inline-flex items-center gap-1.5">
                     <Clock3 size={14} className="text-gray-400" /> Date & Time
                   </span>
                 }
@@ -718,7 +767,11 @@ export default function BookingSummary({
 
               <SummaryRow
                 label="Duration"
-                value={extraHoursPrice > 0 ? formatCurrency(extraHoursPrice) : "Included"}
+                value={
+                  extraHoursPrice > 0
+                    ? formatCurrency(extraHoursPrice)
+                    : "Included"
+                }
                 labelClassName="text-gray-500 text-sm font-normal"
                 customLabel={
                   <span className="inline-flex items-center gap-1.5">
@@ -729,7 +782,8 @@ export default function BookingSummary({
                         ({formatDurationHours(rentalDurationHours * 60)}
                         {extraHoursPrice > 0
                           ? ` · ${formatDurationHours(extraDurationHours * 60)} extra`
-                          : ""})
+                          : ""}
+                        )
                       </span>
                     </span>
                   </span>
@@ -772,7 +826,9 @@ export default function BookingSummary({
                         className="flex items-center justify-between gap-3 text-xs"
                       >
                         <p className="text-gray-500">{entry.label}</p>
-                        <p className="truncate font-semibold text-gray-900">{entry.value}</p>
+                        <p className="truncate font-semibold text-gray-900">
+                          {entry.value}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -782,7 +838,9 @@ export default function BookingSummary({
 
             {(products.length > 0 || productsPrice > 0) && (
               <section className="border border-[#d7e4e1] bg-white p-3.5">
-                <p className="mb-2 text-sm font-semibold text-gray-700">Add-ons</p>
+                <p className="mb-2 text-sm font-semibold text-gray-700">
+                  Add-ons
+                </p>
 
                 <div className="space-y-2">
                   {products.map((item) => (
@@ -798,143 +856,169 @@ export default function BookingSummary({
 
                 {productsPrice > 0 && (
                   <div className="mt-3 flex items-center justify-between border-t border-black/10 pt-3">
-                    <p className="text-sm font-semibold text-gray-700">Add-ons Total</p>
-                    <p className="text-sm font-bold text-gray-900">{formatCurrency(productsPrice)}</p>
+                    <p className="text-sm font-semibold text-gray-700">
+                      Add-ons Total
+                    </p>
+                    <p className="text-sm font-bold text-gray-900">
+                      {formatCurrency(productsPrice)}
+                    </p>
                   </div>
                 )}
               </section>
             )}
 
-            {showCouponControls && (canApplyCoupon || appliedCoupons.length > 0) && (
-              <section className="border border-[#d7e4e1] bg-white p-3.5">
-                {canApplyCoupon && (
-                  <div className="space-y-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-gray-700">Coupon</p>
-                      <button
-                        type="button"
-                        onClick={() => setShowCouponInput((prev) => !prev)}
-                        className="cursor-pointer text-xs font-medium text-gray-500 underline underline-offset-2 transition-colors hover:text-gray-800"
-                      >
-                        {showCouponInput
-                          ? "Enter coupon code"
-                          : appliedCoupons.length > 0
-                            ? "Add another coupon"
-                            : "Do you have a coupon?"}
-                      </button>
-                    </div>
-
-                    <div
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        showCouponInput
-                          ? "mt-2.5 max-h-32 translate-y-0 opacity-100"
-                          : "mt-0 max-h-0 -translate-y-1 opacity-0 pointer-events-none"
-                      }`}
-                      aria-hidden={!showCouponInput}
-                    >
-                      <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white text-green-600">
-                          <Percent size={12} />
-                        </div>
-
-                        <input
-                          type="text"
-                          value={couponCode}
-                          onChange={(e) => {
-                            if (couponInputReadOnly) return;
-                            setCouponCode(e.target.value.toUpperCase());
-                            if (couponFeedback) {
-                              setCouponFeedback(null);
-                            }
-                          }}
-                          onClick={couponInputReadOnly ? triggerCouponLockHint : undefined}
-                          onFocus={couponInputReadOnly ? triggerCouponLockHint : undefined}
-                          placeholder="Enter coupon code"
-                          disabled={couponInputDisabled}
-                          readOnly={couponInputReadOnly}
-                          aria-disabled={couponInputReadOnly}
-                          className="h-8 min-w-0 flex-1 rounded-md border border-dashed border-green-500 bg-white px-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-black no-underline outline-none placeholder:tracking-[0.06em] placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-70 read-only:cursor-not-allowed read-only:bg-gray-50"
-                        />
-
-                        {showApplyAction && (
-                          <button
-                            type="button"
-                            disabled={couponInputDisabled || couponInputReadOnly || !couponCode.trim()}
-                            onClick={handleApplyCoupon}
-                            className="shrink-0 cursor-pointer text-xs font-semibold text-green-700 disabled:text-gray-400"
-                          >
-                            {couponLoading ? "Applying..." : "Apply"}
-                          </button>
-                        )}
+            {showCouponControls &&
+              (canApplyCoupon || appliedCoupons.length > 0) && (
+                <section className="border border-[#d7e4e1] bg-white p-3.5">
+                  {canApplyCoupon && (
+                    <div className="space-y-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-700">
+                          Coupon
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowCouponInput((prev) => !prev)}
+                          className="cursor-pointer text-xs font-medium text-gray-500 underline underline-offset-2 transition-colors hover:text-gray-800"
+                        >
+                          {showCouponInput
+                            ? "Enter coupon code"
+                            : appliedCoupons.length > 0
+                              ? "Add another coupon"
+                              : "Do you have a coupon?"}
+                        </button>
                       </div>
-                    </div>
-                    {couponInputLocked ? (
-                      <p
-                        className={`overflow-hidden text-xs font-medium text-sky-700 transition-all duration-200 ${
-                          showCouponLockHint
-                            ? "mt-1 max-h-10 translate-y-0 opacity-100"
-                            : "mt-0 max-h-0 -translate-y-1 opacity-0"
-                        }`}
-                      >
-                        {couponIdentityGate.message}
-                      </p>
-                    ) : null}
 
-                    {couponFeedback ? (
                       <div
-                        className={`mt-1 flex items-start gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium ${
-                          couponFeedback.tone === "help"
-                            ? "border-sky-200 bg-sky-50 text-sky-700"
-                            : "border-rose-200 bg-rose-50 text-rose-700"
+                        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                          showCouponInput
+                            ? "mt-2.5 max-h-32 translate-y-0 opacity-100"
+                            : "mt-0 max-h-0 -translate-y-1 opacity-0 pointer-events-none"
                         }`}
+                        aria-hidden={!showCouponInput}
                       >
-                        {couponFeedback.tone === "help" ? (
-                          <Info size={13} className="mt-[1px] shrink-0" />
-                        ) : (
-                          <CircleAlert size={13} className="mt-[1px] shrink-0" />
-                        )}
-                        <span>{couponFeedback.message}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-
-                {appliedCoupons.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {appliedCoupons.map((coupon) => (
-                      <div
-                        key={coupon.id}
-                        className="relative overflow-hidden border border-dashed border-[#d7e4e1] bg-white px-4 py-2.5"
-                      >
-                        <span className="absolute -left-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-[#d7e4e1] bg-[#f6f8f7]" />
-                        <span className="absolute -right-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-[#d7e4e1] bg-[#f6f8f7]" />
-
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0 flex items-center gap-2">
-                            <Tag size={14} className="text-green-700" />
-                            <p className="truncate text-sm font-semibold text-gray-900">
-                              {getCouponDisplayCode(coupon.code)}
-                            </p>
-                            <p className="shrink-0 text-sm font-semibold text-green-700">
-                              (Saved {formatCurrency(Number(coupon.discountAmount || 0))})
-                            </p>
+                        <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1.5">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-white text-green-600">
+                            <Percent size={12} />
                           </div>
-                          {canApplyCoupon && (
+
+                          <input
+                            type="text"
+                            value={couponCode}
+                            onChange={(e) => {
+                              if (couponInputReadOnly) return;
+                              setCouponCode(e.target.value.toUpperCase());
+                              if (couponFeedback) {
+                                setCouponFeedback(null);
+                              }
+                            }}
+                            onClick={
+                              couponInputReadOnly
+                                ? triggerCouponLockHint
+                                : undefined
+                            }
+                            onFocus={
+                              couponInputReadOnly
+                                ? triggerCouponLockHint
+                                : undefined
+                            }
+                            placeholder="Enter coupon code"
+                            disabled={couponInputDisabled}
+                            readOnly={couponInputReadOnly}
+                            aria-disabled={couponInputReadOnly}
+                            className="h-8 min-w-0 flex-1 rounded-md border border-dashed border-green-500 bg-white px-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-black no-underline outline-none placeholder:tracking-[0.06em] placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-70 read-only:cursor-not-allowed read-only:bg-gray-50"
+                          />
+
+                          {showApplyAction && (
                             <button
                               type="button"
-                              onClick={() => handleRemoveCoupon(coupon.id)}
-                              className="shrink-0 cursor-pointer text-xs font-medium text-gray-500 hover:text-red-700"
+                              disabled={
+                                couponInputDisabled ||
+                                couponInputReadOnly ||
+                                !couponCode.trim()
+                              }
+                              onClick={handleApplyCoupon}
+                              className="shrink-0 cursor-pointer text-xs font-semibold text-green-700 disabled:text-gray-400"
                             >
-                              Remove
+                              {couponLoading ? "Applying..." : "Apply"}
                             </button>
                           )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
+                      {couponInputLocked ? (
+                        <p
+                          className={`overflow-hidden text-xs font-medium text-sky-700 transition-all duration-200 ${
+                            showCouponLockHint
+                              ? "mt-1 max-h-10 translate-y-0 opacity-100"
+                              : "mt-0 max-h-0 -translate-y-1 opacity-0"
+                          }`}
+                        >
+                          {couponIdentityGate.message}
+                        </p>
+                      ) : null}
+
+                      {couponFeedback ? (
+                        <div
+                          className={`mt-1 flex items-start gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium ${
+                            couponFeedback.tone === "help"
+                              ? "border-sky-200 bg-sky-50 text-sky-700"
+                              : "border-rose-200 bg-rose-50 text-rose-700"
+                          }`}
+                        >
+                          {couponFeedback.tone === "help" ? (
+                            <Info size={13} className="mt-[1px] shrink-0" />
+                          ) : (
+                            <CircleAlert
+                              size={13}
+                              className="mt-[1px] shrink-0"
+                            />
+                          )}
+                          <span>{couponFeedback.message}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {appliedCoupons.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {appliedCoupons.map((coupon) => (
+                        <div
+                          key={coupon.id}
+                          className="relative overflow-hidden border border-dashed border-[#d7e4e1] bg-white px-4 py-2.5"
+                        >
+                          <span className="absolute -left-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-[#d7e4e1] bg-[#f6f8f7]" />
+                          <span className="absolute -right-2 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border border-[#d7e4e1] bg-[#f6f8f7]" />
+
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex items-center gap-2">
+                              <Tag size={14} className="text-green-700" />
+                              <p className="truncate text-sm font-semibold text-gray-900">
+                                {getCouponDisplayCode(coupon.code)}
+                              </p>
+                              <p className="shrink-0 text-sm font-semibold text-green-700">
+                                (Saved{" "}
+                                {formatCurrency(
+                                  Number(coupon.discountAmount || 0),
+                                )}
+                                )
+                              </p>
+                            </div>
+                            {canApplyCoupon && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCoupon(coupon.id)}
+                                className="shrink-0 cursor-pointer text-xs font-medium text-gray-500 hover:text-red-700"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
 
             {discountPrice > 0 && (
               <section className="border border-[#d7e4e1] bg-white p-3.5">
@@ -951,7 +1035,19 @@ export default function BookingSummary({
                 />
               </section>
             )}
+          </div>
 
+          <div ref={payConfirmRef} className="mt-3">
+            <div className="border-1 border-emerald-500 bg-emerald-50 px-4 py-4 text-center">
+              <p className="text-base font-bold text-emerald-800 flex items-center justify-center gap-1">
+                <ShieldCheck size={14} className="text-[#347f7c]" />{" "}
+                <span>No payment is required today</span>
+              </p>
+              <p className="mt-1 text-sm text-emerald-700">
+                After approval, we&apos;ll email you a secure payment link for
+                your reservation deposit.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -969,7 +1065,10 @@ export default function BookingSummary({
             className="summary-scroll-indicator absolute bottom-3 left-1/2 z-20 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 transition cursor-pointer"
             aria-label="Scroll to bottom"
           >
-            <span className="summary-scroll-indicator__arrow" aria-hidden="true" />
+            <span
+              className="summary-scroll-indicator__arrow"
+              aria-hidden="true"
+            />
           </button>
         )}
 
@@ -992,14 +1091,22 @@ export default function BookingSummary({
       >
         <div
           className={`mb-2 flex justify-between text-lg font-bold ${
-            hideSubmitOnMobile && !showInlineMobileSubmit ? "hidden lg:flex" : ""
+            hideSubmitOnMobile && !showInlineMobileSubmit
+              ? "hidden lg:flex"
+              : ""
           }`}
         >
-          <span>Total Amount</span>
+          <span>Estimated Event Total</span>
           <span>{formatCurrency(totalPrice)}</span>
         </div>
 
-        <div className={hideSubmitOnMobile && !showInlineMobileSubmit ? "hidden lg:block" : ""}>
+        <div
+          className={
+            hideSubmitOnMobile && !showInlineMobileSubmit
+              ? "hidden lg:block"
+              : ""
+          }
+        >
           <button
             type="button"
             onClick={handleSubmitClick}
@@ -1008,12 +1115,17 @@ export default function BookingSummary({
               isTrulySubmitDisabled
                 ? "is-disabled cursor-not-allowed"
                 : "cursor-pointer"
-              } ${isSubmitShaking ? "is-shaking" : ""}`}
+            } ${isSubmitShaking ? "is-shaking" : ""}`}
           >
             <div className="summary-submit-btn__surface">
               <span className="summary-submit-btn__content">
                 {resolvedSubmitLabel}
-                {showSubmitArrow && <span className="summary-submit-btn__arrow" aria-hidden="true" />}
+                {showSubmitArrow && (
+                  <span
+                    className="summary-submit-btn__arrow"
+                    aria-hidden="true"
+                  />
+                )}
               </span>
             </div>
           </button>
@@ -1024,31 +1136,47 @@ export default function BookingSummary({
           )}
         </div>
 
-        {/* Kept outside the mobile-hidden wrapper so the confirmation copy stays
-            available as the summary footer enters the viewport. */}
-        <div ref={payConfirmRef} className="mt-2.5 text-center">
-          <p className="text-sm font-semibold text-[#245e5b]">
-            {BOOKING_NO_PAYMENT_TODAY_TITLE}.
-          </p>
-        </div>
-
         <div className="mt-4 px-1">
-          <div className="flex items-start gap-2 border border-[#b9d8d3] bg-[#f2f8f6] px-3 py-2.5">
-            <Info size={13} className="mt-0.5 shrink-0 text-[#347f7c]" />
-            <div>
-              <p className="text-xs leading-relaxed text-[#245e5b]">
-                {BOOKING_REVIEW_FOLLOWUP_MESSAGE}
-              </p>
-              {advancePay > 0 && (
-                <p className="mt-1.5 text-xs leading-relaxed text-[#347f7c]">
-                  {buildAdvancePaymentNotice(
-                    formatCurrency(advancePay),
-                    formatCurrency(remainingAtTheatre)
-                  )}
+          <div className="border border-[#b9d8d3] bg-[#f2f8f6] px-3 py-3">
+            <div className="flex items-start gap-2">
+              <Route size={15} className="mt-0.5 shrink-0 text-[#347f7c]" />
+
+              <div className="flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#245e5b]">
+                  {BOOKING_REVIEW_FOLLOWUP_TITLE}
                 </p>
-              )}
+
+                <ul className="mt-2 space-y-3 text-xs leading-relaxed text-[#245e5b]">
+                  <li className="flex items-start gap-3">
+                    <StepBadge number={1} />
+                    <span>{BOOKING_REVIEW_FOLLOWUP_STEPS[0]}</span>
+                  </li>
+
+                  {advancePay > 0 && (
+                    <>
+                      <li className="flex items-start gap-3">
+                        <StepBadge number={2} />
+                        <span>
+                          Once your reservation is approved, we&apos;ll email
+                          you a secure payment link for the{" "}
+                          {formatCurrency(advancePay)} deposit.
+                        </span>
+                      </li>
+
+                      <li className="flex items-start gap-3">
+                        <StepBadge number={3} />
+                        <span>
+                          The remaining {formatCurrency(remainingAtTheatre)} is
+                          due one week before your event.
+                        </span>
+                      </li>
+                    </>
+                  )}
+                </ul>
+              </div>
             </div>
           </div>
+
           <p className="mt-2.5 flex items-center justify-center gap-2 text-xs text-gray-500">
             <Mail size={14} className="text-[#347f7c]" />
             Updates are sent by email.
@@ -1116,7 +1244,8 @@ export default function BookingSummary({
           transform: translateX(0);
         }
 
-        .summary-submit-btn:not(.is-disabled):active .summary-submit-btn__content {
+        .summary-submit-btn:not(.is-disabled):active
+          .summary-submit-btn__content {
           transform: translateY(2px);
         }
 
@@ -1221,7 +1350,7 @@ function SummaryProductRow({
       productSlug: item.productSlug,
       name: item.productName,
     },
-    item.quantity
+    item.quantity,
   );
   const isPackageIncluded = includedQuantity > 0;
   const canRemove = Boolean(onRemoveItem) && !isPackageIncluded;
@@ -1253,10 +1382,10 @@ function SummaryProductRow({
   if (durationBreakdown && durationBreakdown.extraHours > 0) {
     lineItems.push(
       `${formatCurrency(durationBreakdown.baseUnitPrice)} + ${formatCurrency(
-        durationBreakdown.extraHourlyRate
+        durationBreakdown.extraHourlyRate,
       )}/hr × ${durationBreakdown.extraHours} ${
         durationBreakdown.extraHours === 1 ? "hr" : "hrs"
-      }`
+      }`,
     );
   }
 
@@ -1328,16 +1457,18 @@ function SummaryRow({
   return (
     <div className="flex justify-between pb-3 border-b border-black/10 mb-3">
       <span className={labelClassName ?? "text-gray-700 text-sm font-semibold"}>
-        {customLabel ? customLabel : Icon ? (
+        {customLabel ? (
+          customLabel
+        ) : Icon ? (
           <span className="inline-flex items-center gap-1.5">
             <Icon size={14} className="text-gray-400" />
             {label}
           </span>
-        ) : label}
+        ) : (
+          label
+        )}
       </span>
-      <span className="text-gray-900 text-sm font-bold">
-        {value}
-      </span>
+      <span className="text-gray-900 text-sm font-bold">{value}</span>
     </div>
   );
 }

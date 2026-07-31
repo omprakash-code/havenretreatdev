@@ -8,7 +8,9 @@ import {
   BOOKING_REVIEW_FOLLOWUP_MESSAGE,
   BOOKING_REVIEW_MESSAGE,
   BOOKING_REVIEW_TITLE,
-  buildAdvancePaymentNotice,
+  BOOKING_REVIEW_FOLLOWUP_TITLE,
+  BOOKING_REVIEW_FOLLOWUP_STEPS,
+  buildAdvancePaymentSteps,
 } from "@/constants/booking-status-copy";
 
 /**
@@ -45,13 +47,17 @@ describe("booking status copy", () => {
     expect(BOOKING_REVIEW_FOLLOWUP_MESSAGE).not.toContain("No payment");
   });
 
-  it("keeps the amounts out of the headline and in the advance notice", () => {
-    const notice = buildAdvancePaymentNotice("$150", "$542");
+  it("keeps payment amounts in the post-approval booking steps", () => {
+  const steps = buildAdvancePaymentSteps("$150", "$542");
 
-    expect(notice).toContain("advance payment of $150");
-    expect(notice).toContain("remaining $542 is due one week before your event");
-    expect(BOOKING_NO_PAYMENT_TODAY_TITLE).not.toMatch(/\d/);
-  });
+  expect(BOOKING_NO_PAYMENT_TODAY_TITLE).toBe(
+    "No payment is required today"
+  );
+
+  expect(steps.join(" ")).toContain("$150");
+  expect(steps.join(" ")).toContain("$542");
+  expect(steps.join(" ")).toContain("approved");
+});
 
   it("never asks a review-flow customer for money", () => {
     const lowered = reviewCopy.toLowerCase();

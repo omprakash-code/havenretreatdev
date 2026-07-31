@@ -13,22 +13,31 @@ export const BOOKING_REVIEW_MESSAGE =
 // twice.
 export const BOOKING_NO_PAYMENT_TODAY_TITLE = "No payment is required today";
 
+export const BOOKING_REVIEW_FOLLOWUP_TITLE =
+  "What happens after you submit?";
+
+export const BOOKING_REVIEW_FOLLOWUP_STEPS = [
+  "Submit your booking request.",
+] as const;
+
 export const BOOKING_REVIEW_FOLLOWUP_MESSAGE =
-  "We'll review your booking and contact you shortly.";
+  "What happens next?";
 
-export const BOOKING_NO_PAYMENT_DUE_MESSAGE = `${BOOKING_NO_PAYMENT_TODAY_TITLE}. ${BOOKING_REVIEW_FOLLOWUP_MESSAGE}`;
-
-/**
- * When money is actually asked for, spelled out once, away from the headline.
- * The caller passes already-formatted amounts so the pricing math stays where
- * it is.
+  /**
+ * Payment timeline shown after the booking process.
  */
-export function buildAdvancePaymentNotice(
+export function buildAdvancePaymentSteps(
   advanceAmount: string,
   remainingAmount: string
 ) {
-  return `An advance payment of ${advanceAmount} will be requested after your booking is confirmed. The remaining ${remainingAmount} is due one week before your event.`;
+  return [
+    `Once your reservation is approved, we'll email you a secure payment link for the ${advanceAmount} deposit.`,
+    `The remaining ${remainingAmount} is due one week before your event.`,
+  ];
 }
+
+export const BOOKING_NO_PAYMENT_DUE_MESSAGE = `${BOOKING_NO_PAYMENT_TODAY_TITLE}. ${BOOKING_REVIEW_FOLLOWUP_MESSAGE}`;
+
 
 // The ticket card and PDF list a status and a payment line as summary rows
 // rather than a sentence. The status value is only a fallback: a booking that
