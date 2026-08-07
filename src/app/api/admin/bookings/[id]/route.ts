@@ -870,6 +870,7 @@ export async function PATCH(
             select: {
               name: true,
               eventDurationHours: true,
+              hourlyRate: true,
               guestLimit: true,
               venueId: true,
               venue: {
@@ -1299,8 +1300,32 @@ export async function PATCH(
         guestLimit?: number;
         subtotalAmount?: number;
         extraPersonPrice?: number;
+        eventDurationHours?: number;
       } | null;
+      const previousPricingSnapshot =
+        booking.pricingSnapshot &&
+        typeof booking.pricingSnapshot === "object" &&
+        !Array.isArray(booking.pricingSnapshot)
+          ? (booking.pricingSnapshot as Record<string, Prisma.JsonValue>)
+          : {};
       const effectiveDecorationRequired = decorationRequired;
+
+      // Extra-hour inputs follow the create flows: the live package record is
+      // the source of truth, with the booking's own snapshot as the fallback
+      // for packages that were unlinked or had their hourly rate cleared after
+      // the booking was priced. bookingDurationHours is already derived from
+      // the requested range above.
+      const includedDurationHours =
+        booking.eventPackage?.eventDurationHours ??
+        packageSnap?.eventDurationHours ??
+        toMoney(previousPricingSnapshot.includedDurationHours as number | null);
+      const extraHourlyRate =
+        booking.eventPackage?.hourlyRate ||
+        toNonNegativeMoney(previousPricingSnapshot.extraHourlyRate as number | null);
+      const packageGuestLimit =
+        booking.eventPackage?.guestLimit ??
+        packageSnap?.guestLimit ??
+        toMoney(previousPricingSnapshot.packageGuestLimit as number | null);
 
       const pricingBase = calculateBookingPricing({
         slotBasePrice: packageSnap?.subtotalAmount ?? 0,
@@ -1312,6 +1337,9 @@ export async function PATCH(
         additionalChargeAmount,
         discountAmount: 0,
         advancePaid: 0,
+        durationHours: bookingDurationHours,
+        includedDurationHours,
+        extraHourlyRate,
       });
 
       const couponResult = await evaluateAdminCoupons(tx, {
@@ -1400,6 +1428,9 @@ export async function PATCH(
         additionalChargeAmount,
         discountAmount: couponDiscount,
         advancePaid: desiredAdvance,
+        durationHours: bookingDurationHours,
+        includedDurationHours,
+        extraHourlyRate,
       });
 
       const currentAdvancePaid = Math.min(
@@ -1601,13 +1632,6 @@ export async function PATCH(
         }
       }
 
-      const previousPricingSnapshot =
-        booking.pricingSnapshot &&
-        typeof booking.pricingSnapshot === "object" &&
-        !Array.isArray(booking.pricingSnapshot)
-          ? (booking.pricingSnapshot as Record<string, Prisma.JsonValue>)
-          : {};
-
       const updated = await tx.booking.update({
         where: { id: booking.id },
         data: {
@@ -1630,8 +1654,18 @@ export async function PATCH(
           guestCount,
           decorationRequired: effectiveDecorationRequired,
           specialInstructions,
+          // Written in full from the freshly calculated pricing: merging over
+          // the previous snapshot left extra-hour fields describing a charge
+          // the recalculated total no longer carried.
           pricingSnapshot: {
-            ...previousPricingSnapshot,
+            packageAmount: pricing.packageBaseAmount,
+            packageGuestLimit,
+            includedDurationHours,
+            bookedDurationHours: bookingDurationHours,
+            extraDurationHours: pricing.extraDurationHours,
+            extraHourlyRate: pricing.extraHourlyRate,
+            extraDurationAmount: pricing.extraHoursAmount,
+            extraGuestPrice: PACKAGE_EXTRA_PERSON_PRICE,
             extraGuestAmount: pricing.extrasAmount,
             productsAmount: pricing.productsAmount,
             additionalChargeAmount: pricing.additionalChargeAmount,
