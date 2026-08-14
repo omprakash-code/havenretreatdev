@@ -246,11 +246,24 @@ export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
   const subtotalBeforeDiscount = data.totalAmount + discountAmount;
   const rows: SectionRow[] = [];
 
-  const packageAmount = data.packageAmount ?? 0;
+  // The published price is shown, with the reduction as its own line, so the
+  // rows still add up to the same base amount.
+  const packageAdjustmentAmount = data.packageAdjustmentAmount ?? 0;
+  const packageAmount =
+    packageAdjustmentAmount > 0
+      ? data.packageListAmount ?? data.packageAmount ?? 0
+      : data.packageAmount ?? 0;
   if (packageAmount > 0) {
     rows.push({
       label: "Package",
       value: formatCurrency(packageAmount),
+    });
+  }
+
+  if (packageAdjustmentAmount > 0) {
+    rows.push({
+      label: "Included Items Reduced",
+      value: `- ${formatCurrency(packageAdjustmentAmount)}`,
     });
   }
 

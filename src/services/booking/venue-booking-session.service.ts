@@ -20,6 +20,7 @@ import {
 import { prisma } from "@/lib/db";
 import {
   buildInitialPricingSnapshot,
+  buildPackageIncludedSnapshot,
   buildPackageSnapshot,
 } from "@/services/booking/booking-snapshot.service";
 import { allocateBookingRef } from "@/services/booking/bookingId.service";
@@ -298,6 +299,12 @@ export async function createOrReplaceVenueBookingSession(
       range.durationMinutes,
       tx
     );
+    // Frozen here, when the package is chosen. Switching packages rewrites it,
+    // which is correct: the new package carries its own allowance and rates.
+    const packageIncludedSnapshot = await buildPackageIncludedSnapshot(
+      eventPackage,
+      tx
+    );
     const baseAmount =
       pricingSnapshot.packageAmount + pricingSnapshot.extraDurationAmount;
     const decorationRequired = eventPackage.decorationDefault;
@@ -333,6 +340,8 @@ export async function createOrReplaceVenueBookingSession(
           guestCount: eventPackage.guestLimit,
           packageSnapshot,
           pricingSnapshot,
+          packageIncludedSnapshot,
+          packageAdjustmentAmount: 0,
           baseAmount,
           extrasAmount: 0,
           productsAmount: 0,
@@ -368,6 +377,8 @@ export async function createOrReplaceVenueBookingSession(
           guestCount: eventPackage.guestLimit,
           packageSnapshot,
           pricingSnapshot,
+          packageIncludedSnapshot,
+          packageAdjustmentAmount: 0,
           baseAmount,
           extrasAmount: 0,
           productsAmount: 0,

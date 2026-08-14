@@ -28,6 +28,10 @@ import {
   emitBookingSessionExpired,
 } from "@/lib/booking-session-expiry";
 import { repriceDurationPricedItems } from "@/lib/product-duration-pricing";
+import {
+  getPackageIncludedProductQuantity,
+  priceIncludedProductLine,
+} from "@/lib/package-included-products";
 
 /* -----------------------------
  Types
@@ -60,7 +64,12 @@ export type SelectedPackage = {
 
 export type BookingPricing = {
   base: number;
+  /** Package price after any included-item reduction. */
   packageBase: number;
+  /** Package price as listed, before any reduction. */
+  packageListPrice: number;
+  /** Credit for included items reduced below the package quantity. */
+  packageAdjustment: number;
   extraDurationHours: number;
   extraHourlyRate: number;
   extraHours: number;
@@ -85,6 +94,11 @@ export type BookingItemSnapshot = {
   baseUnitPrice?: number;
   quantity: number;
   totalPrice: number;
+  // Package-included allowance for this line, snapshotted server-side at
+  // booking time. quantity below includedQuantity credits the difference off
+  // the package price at includedUnitPrice.
+  includedQuantity?: number;
+  includedUnitPrice?: number;
   productImage?: string;
   productSlug?: string;
   ledNumber?: string;
@@ -126,6 +140,8 @@ type ServerBookingItem = {
   baseUnitPrice?: number | null;
   quantity: number;
   totalPrice: number;
+  includedQuantity?: number | null;
+  includedUnitPrice?: number | null;
   ledNumber?: string | null;
   productImage?: string | null;
   productSlug?: string | null;
@@ -152,6 +168,8 @@ function normalizeBookingItems(
       typeof item.baseUnitPrice === "number" ? item.baseUnitPrice : undefined,
     quantity: Number(item.quantity) || 0,
     totalPrice: Number(item.totalPrice) || 0,
+    includedQuantity: Number(item.includedQuantity) || 0,
+    includedUnitPrice: Number(item.includedUnitPrice) || 0,
     ledNumber:
       typeof item.ledNumber === "string" ? item.ledNumber : undefined,
     productImage:
@@ -169,6 +187,8 @@ function normalizeBookingItems(
 type BookingState = {
   rangePricingSnapshot?: {
     packageAmount?: number;
+    packageListAmount?: number;
+    packageAdjustmentAmount?: number;
     extraDurationAmount?: number;
     extraDurationHours?: number;
     extraHourlyRate?: number;
@@ -578,10 +598,41 @@ const loadBooking = async () => {
       return undefined;
 
       const snapshot = booking.rangePricingSnapshot ?? {};
-      const packageBase = Math.max(
-        Number(snapshot.packageAmount ?? booking.schedule.basePrice) || 0,
+      // The list price is the fixed basis; the reduction is recomputed from the
+      // current selection every render so the total updates live as the
+      // customer changes included quantities. packageAmount is already net, so
+      // it is only a fallback for snapshots written before this feature.
+      const packageListPrice = Math.max(
+        Number(
+          snapshot.packageListAmount ??
+            snapshot.packageAmount ??
+            booking.schedule.basePrice
+        ) || 0,
         0
       );
+      const packageAdjustment = Math.min(
+        booking.bookingItems.reduce(
+          (sum, item) =>
+            sum +
+            priceIncludedProductLine({
+              // Sessions started before allowances were snapshotted hydrate with
+              // 0; fall back to package config and the line's own unit price so
+              // the preview matches what the server's legacy rebuild will charge.
+              includedQuantity:
+                item.includedQuantity ||
+                getPackageIncludedProductQuantity(booking.package, {
+                  productSlug: item.productSlug,
+                  name: item.productName,
+                }),
+              includedUnitPrice: item.includedUnitPrice || item.unitPrice,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+            }).adjustmentAmount,
+          0
+        ),
+        packageListPrice
+      );
+      const packageBase = Math.max(packageListPrice - packageAdjustment, 0);
       const extraHours = Math.max(
         Number(snapshot.extraDurationAmount ?? 0) || 0,
         0
@@ -615,6 +666,8 @@ const loadBooking = async () => {
       return {
         base: packageBase + extraHours,
         packageBase,
+        packageListPrice,
+        packageAdjustment,
         extraDurationHours: snapshotExtraDurationHours > 0 ? snapshotExtraDurationHours : localExtraDurationHours,
         extraHourlyRate: Number(snapshot.extraHourlyRate ?? 0) || 0,
         extraHours,

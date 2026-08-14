@@ -17,10 +17,13 @@ vi.mock("@/services/booking/booking-snapshot.service", () => ({
   buildPackageSnapshot: vi.fn().mockReturnValue({ name: "Test Package" }),
   buildInitialPricingSnapshot: vi.fn().mockResolvedValue({
     packageAmount: 1500,
+    packageListAmount: 1500,
+    packageAdjustmentAmount: 0,
     extraDurationAmount: 0,
     totalAmount: 1500,
     remainingPayable: 1350,
   }),
+  buildPackageIncludedSnapshot: vi.fn().mockResolvedValue([]),
 }));
 
 import {

@@ -22,8 +22,10 @@ import {
 import { resolveLocationDisplayName } from "@/lib/location-display";
 import { timeToMinutes } from "@/lib/time";
 import {
-  getPackageIncludedProductTotalPrice,
+  buildPackageIncludedAllowances,
+  priceIncludedProductLine,
   resolvePackageIncludedProducts,
+  type PackageIncludedAllowance,
 } from "@/lib/package-included-products";
 import { createBookingSessionToken } from "@/services/booking/bookingSession.server";
 import { allocateBookingRef } from "@/services/booking/bookingId.service";
@@ -955,8 +957,11 @@ export async function POST(req: Request) {
           );
         }
 
-        if (quantity === 0) return;
-
+        // Zero-quantity entries are retained here on purpose: for a
+        // package-included product, an explicit 0 is "reduce this line to
+        // nothing" and must be told apart from "not sent at all", which keeps
+        // the package's default quantity. Non-allowance zeros are dropped
+        // further down, once the allowance snapshot is known.
         const key = `${productId}:${variantId}`;
         const existing = normalizedItemsMap.get(key);
         normalizedItemsMap.set(key, {
@@ -978,6 +983,7 @@ export async function POST(req: Request) {
         includedProductSource
       );
       const packageIncludedProductSlugs = Object.keys(packageIncludedProducts);
+      let packageIncludedAllowances: PackageIncludedAllowance[] = [];
 
       if (packageIncludedProductSlugs.length > 0) {
         const includedProducts = await profiler.measure(
@@ -1002,26 +1008,36 @@ export async function POST(req: Request) {
             })
         );
 
-        includedProducts.forEach((product) => {
-          const includedQuantity =
-            packageIncludedProducts[product.slug] ?? 0;
-          const variant =
-            product.variants.find((item) => item.isDefault) ??
-            product.variants[0];
-          if (includedQuantity <= 0 || !variant) return;
+        // Snapshot the allowance — quantity AND rate — at creation time. This is
+        // the frozen basis for every future package adjustment on this booking.
+        packageIncludedAllowances = buildPackageIncludedAllowances({
+          source: includedProductSource,
+          products: includedProducts,
+        });
 
-          const key = `${product.id}:${variant.id}`;
-          const existing = normalizedItemsMap.get(key);
+        // Seed any included line the payload did not mention at all with the
+        // package's default quantity. An explicit 0 in the payload is honoured
+        // as a deliberate reduction and is NOT raised back up here.
+        packageIncludedAllowances.forEach((allowance) => {
+          const key = `${allowance.productId}:${allowance.variantId}`;
+          if (normalizedItemsMap.has(key)) return;
           normalizedItemsMap.set(key, {
-            productId: product.id,
-            variantId: variant.id,
-            quantity: Math.max(existing?.quantity ?? 0, includedQuantity),
-            ledNumber: existing?.ledNumber,
+            productId: allowance.productId,
+            variantId: allowance.variantId,
+            quantity: allowance.includedQuantity,
           });
         });
       }
 
-      const normalizedItems = Array.from(normalizedItemsMap.values());
+      const allowanceByVariantId = new Map(
+        packageIncludedAllowances.map((entry) => [entry.variantId, entry])
+      );
+
+      // Drop zero-quantity lines that carry no allowance — they are ordinary
+      // deselected add-ons, not reductions.
+      const normalizedItems = Array.from(normalizedItemsMap.values()).filter(
+        (item) => item.quantity > 0 || allowanceByVariantId.has(item.variantId)
+      );
       const variantIds = [...new Set(normalizedItems.map((item) => item.variantId))];
 
       const variants = await profiler.measure(
@@ -1064,6 +1080,7 @@ export async function POST(req: Request) {
 
       const bookingItemsToCreate: Prisma.BookingItemCreateManyInput[] = [];
       let productsAmount = 0;
+      let packageAdjustmentAmount = 0;
       const ledNumbers: string[] = [];
 
       profiler.measureSync("Product pricing calculation", "Critical", () => {
@@ -1094,17 +1111,23 @@ export async function POST(req: Request) {
           baseUnitPrice: toMoney(variant.salePrice ?? variant.regularPrice),
           durationHours: bookingDurationHours,
         });
-        const totalPrice = getPackageIncludedProductTotalPrice({
-          source: variant.isDefault ? includedProductSource : null,
-          product: {
-            slug: variant.product.slug,
-            name: variant.product.name,
-          },
+        // Included lines price through the snapshotted allowance: quantities
+        // above it are charged at the live rate, quantities below it credit the
+        // package price at the snapshotted rate.
+        const allowance = allowanceByVariantId.get(variant.id) ?? null;
+        const linePricing = priceIncludedProductLine({
+          includedQuantity: allowance?.includedQuantity ?? 0,
+          includedUnitPrice: allowance?.includedUnitPrice ?? 0,
           quantity: item.quantity,
           unitPrice,
         });
+        const totalPrice = linePricing.totalPrice;
           productsAmount = centsToMoney(
             toCents(productsAmount) + toCents(totalPrice)
+          );
+          packageAdjustmentAmount = centsToMoney(
+            toCents(packageAdjustmentAmount) +
+              toCents(linePricing.adjustmentAmount)
           );
 
         if (
@@ -1128,6 +1151,8 @@ export async function POST(req: Request) {
           unitPrice,
           quantity: item.quantity,
           totalPrice,
+          includedQuantity: linePricing.includedQuantity,
+          includedUnitPrice: linePricing.includedUnitPrice,
         });
       });
       });
@@ -1293,6 +1318,7 @@ export async function POST(req: Request) {
             theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
             productsAmount,
             additionalChargeAmount,
+            packageAdjustmentAmount,
             discountAmount: 0,
             advancePaid: 0,
             durationHours: bookingDurationHours,
@@ -1390,6 +1416,7 @@ export async function POST(req: Request) {
             theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
             productsAmount,
             additionalChargeAmount,
+            packageAdjustmentAmount,
             discountAmount: couponDiscount,
             advancePaid: desiredAdvance,
             durationHours: bookingDurationHours,
@@ -1450,6 +1477,8 @@ export async function POST(req: Request) {
         pricingSnapshot: selectedPackage
           ? {
               packageAmount: selectedPackage.subtotalAmount,
+              packageListAmount: pricing.packageListAmount,
+              packageAdjustmentAmount: pricing.packageAdjustmentAmount,
               packageGuestLimit: selectedPackage.guestLimit,
               includedDurationHours,
               bookedDurationHours: bookingDurationHours,
@@ -1479,6 +1508,11 @@ export async function POST(req: Request) {
         productsAmount: pricing.productsAmount,
         additionalChargeAmount: pricing.additionalChargeAmount,
         additionalChargeReason,
+        packageAdjustmentAmount: pricing.packageAdjustmentAmount,
+        packageIncludedSnapshot:
+          packageIncludedAllowances.length > 0
+            ? packageIncludedAllowances
+            : undefined,
         discountAmount: pricing.discountAmount,
         totalAmount: pricing.totalAmount,
         decorationAmount: pricing.decorationAmount,

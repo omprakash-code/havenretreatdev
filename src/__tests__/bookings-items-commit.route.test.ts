@@ -94,6 +94,8 @@ function createTxMock() {
         packageSnapshot: {
           capacity: 6,
         },
+        packageIncludedSnapshot: null,
+        items: [],
       }),
       update: vi.fn().mockResolvedValue({}),
     },

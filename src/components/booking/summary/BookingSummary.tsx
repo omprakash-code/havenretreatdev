@@ -56,7 +56,6 @@ import { trackMetaCtaClick } from "@/lib/meta/browser";
 import { getCouponDisplayCode } from "@/lib/coupon-display";
 import {
   getPackageIncludedProductQuantity,
-  getPackageIncludedProductExtraQuantity,
 } from "@/lib/package-included-products";
 import { getDurationPricingBreakdown } from "@/lib/product-duration-pricing";
 import {
@@ -439,6 +438,7 @@ export default function BookingSummary({
   ------------------------------ */
   const basePrice = Number(pricing.base) || 0;
   const packageBasePrice = Number(pricing.packageBase) || 0;
+  const packageAdjustment = Number(pricing.packageAdjustment) || 0;
   const extraHoursPrice = Number(pricing.extraHours) || 0;
   const extraDurationHours = Number(pricing.extraDurationHours) || 0;
   // For range bookings use the server snapshot's booked duration so the label stays
@@ -753,6 +753,23 @@ export default function BookingSummary({
                   </span>
                 }
               />
+
+              {packageAdjustment > 0 ? (
+                <SummaryRow
+                  label="Included items reduced"
+                  value={`− ${formatCurrency(packageAdjustment)}`}
+                  labelClassName="text-gray-500 text-sm font-normal"
+                  customLabel={
+                    <span className="inline-flex items-center gap-1.5">
+                      <Ticket size={14} className="text-gray-400" />
+                      <span>
+                        Included items{" "}
+                        <span className="text-gray-400">(reduced)</span>
+                      </span>
+                    </span>
+                  }
+                />
+              ) : null}
 
               <SummaryRow
                 label="Date & Time"
@@ -1340,18 +1357,18 @@ function SummaryProductRow({
   durationHours?: number | null;
   onRemoveItem?: (id: string) => void;
 }) {
-  const includedQuantity = getPackageIncludedProductQuantity(selectedPackage, {
-    productSlug: item.productSlug,
-    name: item.productName,
-  });
-  const extraQuantity = getPackageIncludedProductExtraQuantity(
-    selectedPackage,
-    {
+  // The line's own allowance snapshot wins; package config is the fallback for
+  // items added locally before the server has replied, and for sessions started
+  // before allowances were snapshotted (those hydrate as 0, which `??` would not
+  // fall through on).
+  const includedQuantity =
+    item.includedQuantity ||
+    getPackageIncludedProductQuantity(selectedPackage, {
       productSlug: item.productSlug,
       name: item.productName,
-    },
-    item.quantity,
-  );
+    });
+  const extraQuantity = Math.max(item.quantity - includedQuantity, 0);
+  const reducedQuantity = Math.max(includedQuantity - item.quantity, 0);
   const isPackageIncluded = includedQuantity > 0;
   const canRemove = Boolean(onRemoveItem) && !isPackageIncluded;
   // Package-included furniture (Tables/Chairs) reads as a count + product noun
@@ -1364,6 +1381,11 @@ function SummaryProductRow({
     // "extra" = count beyond what the package covers (furniture only).
     if (extraQuantity > 0) {
       lineItems.push(`${extraQuantity} extra`);
+    }
+    // "fewer" = count given up below what the package covers, which is what
+    // earns the package-price credit shown in the totals.
+    if (reducedQuantity > 0) {
+      lineItems.push(`${reducedQuantity} fewer than included`);
     }
   } else if (item.quantity > 1) {
     lineItems.push(`${item.quantity}× ${item.productName}`);

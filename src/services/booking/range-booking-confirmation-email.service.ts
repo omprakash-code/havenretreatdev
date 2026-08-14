@@ -209,10 +209,14 @@ export async function sendRangeBookingConfirmationEmails({
     Number(pricingSnapshot?.extraDurationAmount ?? 0)
   ) || null;
   const addonItems = buildAddonItems(
-    booking.items.map((item) => ({
-      ...item,
-      totalPrice: toMoney(item.totalPrice),
-    })),
+    // A quantity-0 row is an included line reduced to nothing — a pricing
+    // record, not something to list as a booked add-on.
+    booking.items
+      .filter((item) => item.quantity > 0)
+      .map((item) => ({
+        ...item,
+        totalPrice: toMoney(item.totalPrice),
+      })),
     booking.occasionData as Prisma.JsonValue | null
   );
 

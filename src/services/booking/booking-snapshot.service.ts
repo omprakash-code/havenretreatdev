@@ -1,7 +1,12 @@
-import type { EventPackage, PackageFeature, Venue } from "@prisma/client";
+import type { EventPackage, PackageFeature, Prisma, Venue } from "@prisma/client";
 
 import { resolveBookingDurationPricingConfig } from "@/lib/booking-duration-pricing";
 import { centsToMoney, multiplyMoney, toCents, toNonNegativeMoney } from "@/lib/money";
+import {
+  buildPackageIncludedAllowances,
+  resolvePackageIncludedProducts,
+  type PackageIncludedAllowance,
+} from "@/lib/package-included-products";
 
 type PackageRecord = EventPackage & {
   venue: Venue;
@@ -45,6 +50,61 @@ export function buildPackageSnapshot(eventPackage: PackageRecord) {
   };
 }
 
+type ProductAllowanceReader = Pick<Prisma.TransactionClient, "product">;
+
+/**
+ * Snapshots the package's included tables/chairs — quantity AND unit price — at
+ * the moment the customer picks a package. Everything downstream (reductions,
+ * extras, edits) prices against this frozen snapshot, so a later product price
+ * change can never move an existing booking's total.
+ */
+export async function buildPackageIncludedSnapshot(
+  eventPackage: Pick<EventPackage, "name" | "guestLimit" | "locationId">,
+  reader: ProductAllowanceReader
+): Promise<PackageIncludedAllowance[]> {
+  const source = {
+    name: eventPackage.name,
+    baseGuests: eventPackage.guestLimit,
+  };
+  const products = await loadIncludedProductCatalogue(
+    reader,
+    source,
+    eventPackage.locationId
+  );
+
+  return buildPackageIncludedAllowances({ source, products });
+}
+
+/**
+ * The catalogue rows behind a package's included lines, for the package's
+ * location. Shared by the snapshot builder and by the admin read/write paths so
+ * every caller resolves allowances against the same set of products; a
+ * mismatched query is how a line ends up "included" on one path and billable on
+ * the other.
+ */
+export async function loadIncludedProductCatalogue(
+  reader: ProductAllowanceReader,
+  source: Parameters<typeof resolvePackageIncludedProducts>[0],
+  locationId: string | null
+) {
+  const slugs = Object.keys(resolvePackageIncludedProducts(source));
+  if (slugs.length === 0) return [];
+
+  return reader.product.findMany({
+    where: {
+      slug: { in: slugs },
+      isActive: true,
+      OR: [{ locationId }, { locationId: null }],
+    },
+    include: {
+      variants: {
+        where: { isActive: true },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+}
+
 export async function buildInitialPricingSnapshot(
   eventPackage: PackageRecord,
   durationMinutes: number,
@@ -69,6 +129,11 @@ export async function buildInitialPricingSnapshot(
 
   return {
     packageAmount,
+    // A fresh session has no included-item reduction yet. packageListAmount is
+    // the immutable basis every later adjustment is subtracted from, so it must
+    // never be overwritten with an already-adjusted figure.
+    packageListAmount: packageAmount,
+    packageAdjustmentAmount: 0,
     packageGuestLimit: eventPackage.guestLimit,
     includedDurationHours: eventPackage.eventDurationHours,
     bookedDurationHours: durationHours,

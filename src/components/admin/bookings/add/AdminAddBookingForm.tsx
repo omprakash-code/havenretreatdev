@@ -27,7 +27,7 @@ import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { getVariantMaxAllowed as resolveVariantMaxAllowed } from "@/lib/product-stock";
 import {
   getPackageIncludedProductQuantity,
-  getPackageIncludedProductTotalPrice,
+  priceIncludedProductLine,
   reconcilePackageIncludedProductSelections,
   type PackageIncludedProductSource,
 } from "@/lib/package-included-products";
@@ -45,7 +45,9 @@ import type { UnavailableTimeRange } from "@/components/booking/time-range/TimeR
 import ConfirmActionModal from "@/components/admin/drawer/ConfirmActionModal";
 import {  isValidPhone, normalizePhone,} from "@/lib/phone";
 import {
+  buildEditProductSelections,
   getSelectionKey,
+  parseAdditionalChargeInput,
   getVariantPrice,
   inputClass,
   isValidEmail,
@@ -120,7 +122,17 @@ type EditBookingResponse = {
     quantity: number;
     unitPrice?: number;
     totalPrice?: number;
+    includedQuantity?: number;
+    includedUnitPrice?: number;
     ledNumber: string | null;
+  }>;
+  // The booking's frozen package allowance, used to load included lines that
+  // have no stored BookingItem row.
+  packageIncludedAllowances?: Array<{
+    productId: string;
+    variantId: string;
+    includedQuantity: number;
+    includedUnitPrice: number;
   }>;
   packageId?: string | null;
   payment: {
@@ -427,6 +439,7 @@ export function AdminAddBookingForm({
 
         setDecorationRequired(Boolean(booking.decorationRequired));
         setSpecialInstructions(booking.specialInstructions ?? "");
+        // Ordinary booking data: prefilled, and a typed value replaces it.
         setAdditionalChargeAmountInput(
           Number(booking.pricing.additionalChargeAmount ?? 0) > 0
             ? String(Number(booking.pricing.additionalChargeAmount ?? 0))
@@ -482,7 +495,10 @@ export function AdminAddBookingForm({
         setOfflineMethod(
           normalizedOfflineMethod === "BANK" ? "BANK" : "CASH"
         );
-        setOfflineReference(booking.payment.offlineReference ?? "");
+        // Belongs to the payment already on file; a blank field here means
+        // "not collecting", and a stale reference would be recorded against any
+        // new collection.
+        setOfflineReference("");
         setPaymentStatus(booking.payment.status);
       } catch {
         if (!cancelled) {
@@ -927,32 +943,31 @@ export function AdminAddBookingForm({
     if (editProductsHydrated) return;
     if (!locationId) return;
 
-    const nextSelections: ProductSelectionMap = {};
-    const nextActiveVariants: ActiveVariantMap = {};
-    const nextLedDrafts: LedDraftMap = {};
     const fallbackLedNumbers = extractLedNumbersFromOccasionData(editPrefill.occasionData);
     let fallbackLedIndex = 0;
 
-    editPrefill.items.forEach((item) => {
-      if (!item.productId || !item.variantId || item.quantity <= 0) return;
-      const key = getSelectionKey(item.productId, item.variantId);
-      const itemLooksLikeLed = isNumberDecorationProduct({
-        slug: undefined,
-        name: `${item.productName ?? ""} ${item.variantLabel ?? ""}`,
-      });
-      const ledNumber =
-        item.ledNumber ??
-        (itemLooksLikeLed && fallbackLedNumbers.length > 0
-          ? fallbackLedNumbers[Math.min(fallbackLedIndex++, fallbackLedNumbers.length - 1)]
-          : "");
-      nextSelections[key] = {
-        quantity: item.quantity,
-        ledNumber,
-      };
-      nextActiveVariants[item.productId] = item.variantId;
-      if (ledNumber) {
-        nextLedDrafts[key] = ledNumber;
-      }
+    const {
+      selections: nextSelections,
+      activeVariants: nextActiveVariants,
+      ledDrafts: nextLedDrafts,
+    } = buildEditProductSelections({
+      items: editPrefill.items,
+      // The booking's own frozen allowance, so a package-included line the
+      // booking has no row for loads at the quantity the server will persist
+      // for it. Stored rows always win over this.
+      allowances: editPrefill.packageIncludedAllowances ?? [],
+      resolveLedNumber: (item) => {
+        if (item.ledNumber) return item.ledNumber;
+        const prefillItem = item as (typeof editPrefill.items)[number];
+        const itemLooksLikeLed = isNumberDecorationProduct({
+          slug: undefined,
+          name: `${prefillItem.productName ?? ""} ${prefillItem.variantLabel ?? ""}`,
+        });
+        if (!itemLooksLikeLed || fallbackLedNumbers.length === 0) return "";
+        return fallbackLedNumbers[
+          Math.min(fallbackLedIndex++, fallbackLedNumbers.length - 1)
+        ];
+      },
     });
 
     setProductSelections(nextSelections);
@@ -1030,6 +1045,19 @@ export function AdminAddBookingForm({
     includedProductPackageRef.current = selectedTheatre;
   }, [mode, products, selectedTheatre]);
 
+  // The allowance the server resolved for this booking. Present only in edit
+  // mode, where it is the single source of truth for which lines the package
+  // covers and at what rate.
+  const savedAllowanceByVariantId = useMemo(() => {
+    return new Map(
+      (editPrefill?.packageIncludedAllowances ?? []).map((allowance) => [
+        allowance.variantId,
+        allowance,
+      ])
+    );
+  }, [editPrefill]);
+  const hasSavedAllowances = Boolean(editPrefill?.packageIncludedAllowances);
+
   const prefillItemByKey = useMemo(() => {
     const map = new Map<
       string,
@@ -1041,6 +1069,8 @@ export function AdminAddBookingForm({
         category?: ProductOption["category"];
         unitPrice?: number;
         quantity: number;
+        includedQuantity?: number;
+        includedUnitPrice?: number;
         ledNumber?: string | null;
       }
     >();
@@ -1103,9 +1133,21 @@ export function AdminAddBookingForm({
         : null;
 
     Object.entries(productSelections).forEach(([key, selection]) => {
-      if (selection.quantity <= 0) return;
       const [productId, variantId] = key.split(":");
       if (!productId || !variantId) return;
+
+      // A zero-quantity line is kept only when the package grants an allowance
+      // for it — that is a reduction that must still credit the package price.
+      // Every other zero line is simply a deselected add-on.
+      if (selection.quantity <= 0) {
+        const zeroProduct = productById.get(productId);
+        const hasAllowance = hasSavedAllowances
+          ? savedAllowanceByVariantId.has(variantId)
+          : (zeroProduct
+              ? getPackageIncludedProductQuantity(selectedTheatre, zeroProduct)
+              : 0) > 0;
+        if (!hasAllowance) return;
+      }
 
       const product = productById.get(productId);
       if (!product) {
@@ -1172,13 +1214,28 @@ export function AdminAddBookingForm({
         variant.isDefault ||
         (!product.variants.some((entry) => entry.isDefault) &&
           product.variants[0]?.id === variant.id);
-      const includedQuantity = isIncludedVariant
-        ? Math.min(
-            selection.quantity,
-            getPackageIncludedProductQuantity(selectedTheatre, product)
-          )
-        : 0;
-      const extraQuantity = Math.max(selection.quantity - includedQuantity, 0);
+      // On an edit the server's resolved allowance is authoritative and complete
+      // — the same list PATCH prices against — so the form can never value a
+      // line differently from what saving it would produce. Only a create, which
+      // has no booking yet, falls back to package config at the live price.
+      const savedAllowance = savedAllowanceByVariantId.get(variantId);
+      const allowanceQuantity = savedAllowance
+        ? savedAllowance.includedQuantity
+        : hasSavedAllowances
+          ? 0
+          : isIncludedVariant
+            ? getPackageIncludedProductQuantity(selectedTheatre, product)
+            : 0;
+      const allowanceUnitPrice =
+        savedAllowance && savedAllowance.includedUnitPrice > 0
+          ? savedAllowance.includedUnitPrice
+          : getVariantPrice(variant);
+      const linePricing = priceIncludedProductLine({
+        includedQuantity: allowanceQuantity,
+        includedUnitPrice: allowanceUnitPrice,
+        quantity: selection.quantity,
+        unitPrice,
+      });
       items.push({
         key,
         productId,
@@ -1187,15 +1244,13 @@ export function AdminAddBookingForm({
         productName: product.name,
         variantLabel: variant.label,
         quantity: selection.quantity,
-        includedQuantity,
-        extraQuantity,
+        includedQuantity: Math.min(selection.quantity, allowanceQuantity),
+        allowanceQuantity,
+        extraQuantity: linePricing.extraQuantity,
+        reducedQuantity: Math.max(allowanceQuantity - selection.quantity, 0),
+        adjustmentAmount: linePricing.adjustmentAmount,
         unitPrice,
-        totalPrice: getPackageIncludedProductTotalPrice({
-          source: isIncludedVariant ? selectedTheatre : null,
-          product,
-          quantity: selection.quantity,
-          unitPrice,
-        }),
+        totalPrice: linePricing.totalPrice,
         ledNumber: selection.ledNumber,
       });
     });
@@ -1205,6 +1260,8 @@ export function AdminAddBookingForm({
     productSelections,
     productById,
     prefillItemByKey,
+    savedAllowanceByVariantId,
+    hasSavedAllowances,
     selectedTheatre,
     startTime,
     endTime,
@@ -1215,11 +1272,19 @@ export function AdminAddBookingForm({
     return selectedProductItems.reduce((sum, item) => sum + item.totalPrice, 0);
   }, [selectedProductItems]);
 
-  const additionalChargeAmount = useMemo(() => {
-    if (!additionalChargeAmountInput.trim()) return 0;
-    const parsed = Number(additionalChargeAmountInput);
-    return Number.isFinite(parsed) ? Math.max(parsed, 0) : Number.NaN;
-  }, [additionalChargeAmountInput]);
+  // Credit for included items taken below the package quantity. Subtracted from
+  // the package price before coupons, exactly as the server does it.
+  const packageAdjustmentAmount = useMemo(() => {
+    return selectedProductItems.reduce(
+      (sum, item) => sum + (item.adjustmentAmount ?? 0),
+      0
+    );
+  }, [selectedProductItems]);
+
+  const additionalChargeAmount = useMemo(
+    () => parseAdditionalChargeInput(additionalChargeAmountInput),
+    [additionalChargeAmountInput]
+  );
 
   const pricingBase = useMemo<PricingSummary | null>(() => {
     if (!selectedTheatre) return null;
@@ -1239,6 +1304,7 @@ export function AdminAddBookingForm({
       theatreExtraPersonPrice: selectedTheatre.extraPersonPrice,
       productsAmount,
       additionalChargeAmount,
+      packageAdjustmentAmount,
       discountAmount: 0,
       advancePaid: 0,
       durationHours: bookingDurationHours,
@@ -1259,6 +1325,7 @@ export function AdminAddBookingForm({
     endTime,
     guestCount,
     productsAmount,
+    packageAdjustmentAmount,
     additionalChargeAmount,
     additionalChargeReason,
     minimumBookingDurationHours,
@@ -1322,6 +1389,7 @@ export function AdminAddBookingForm({
       theatreExtraPersonPrice: selectedTheatre.extraPersonPrice,
       productsAmount,
       additionalChargeAmount,
+      packageAdjustmentAmount,
       discountAmount: couponDiscount,
       advancePaid: desiredAdvance,
       durationHours: bookingDurationHours,
@@ -1343,6 +1411,7 @@ export function AdminAddBookingForm({
     endTime,
     guestCount,
     productsAmount,
+    packageAdjustmentAmount,
     additionalChargeAmount,
     additionalChargeReason,
     isEditMode,
@@ -1892,18 +1961,15 @@ export function AdminAddBookingForm({
     if (!variantId) return;
     if (isNumberDecorationProduct({ slug: product.slug, name: product.name })) return;
     const current = getVariantSelection(product.id, variantId);
-    const includedQuantity = getPackageIncludedProductQuantity(
-      selectedTheatre,
-      product
-    );
+    // Package-included quantities are reducible: taking fewer chairs than the
+    // package covers lowers the package price rather than being blocked.
     upsertProductSelection(product.id, variantId, {
       ...current,
-      quantity: Math.max(current.quantity - 1, includedQuantity),
+      quantity: Math.max(current.quantity - 1, 0),
     });
   }, [
     getActiveVariantId,
     getVariantSelection,
-    selectedTheatre,
     upsertProductSelection,
   ]);
 
@@ -1940,17 +2006,20 @@ export function AdminAddBookingForm({
     const selectedItem = selectedProductItems.find(
       (item) => item.key === selectionKey
     );
-    const includedQuantity = selectedItem?.includedQuantity ?? 0;
+    const allowanceQuantity = selectedItem?.allowanceQuantity ?? 0;
 
     setProductSelections((prev) => {
-      if (includedQuantity > 0) {
+      // Removing a package-included line now means "take none of it" — the row
+      // is kept at 0 so the allowance stays known and the package price is
+      // credited, instead of snapping the quantity back to the included count.
+      if (allowanceQuantity > 0) {
         const current = prev[selectionKey];
         if (!current) return prev;
         return {
           ...prev,
           [selectionKey]: {
             ...current,
-            quantity: includedQuantity,
+            quantity: 0,
           },
         };
       }
@@ -1959,7 +2028,7 @@ export function AdminAddBookingForm({
       delete next[selectionKey];
       return next;
     });
-    if (includedQuantity > 0) return;
+    if (allowanceQuantity > 0) return;
 
     setLedDrafts((prev) => {
       const next = { ...prev };
@@ -2328,25 +2397,28 @@ export function AdminAddBookingForm({
         occasionKey: occasionKey || undefined,
         occasionData,
         specialInstructions: specialInstructions.trim() || undefined,
-        additionalChargeAmount:
-          additionalChargeAmount > 0 ? additionalChargeAmount : undefined,
+        // Always an explicit number. Omitting the field made "the admin cleared
+        // the charge" and "the client never sent one" indistinguishable to the
+        // server, which normalises a missing value to 0 — so any payload that
+        // dropped the field silently wiped a stored charge.
+        additionalChargeAmount: additionalChargeAmount > 0 ? additionalChargeAmount : 0,
         additionalChargeReason:
           additionalChargeAmount > 0
             ? additionalChargeReason.trim() || undefined
             : undefined,
         couponCodes: appliedCoupons.map((coupon) => coupon.code),
-        items: Object.entries(productSelections)
-          .map(([selectionKey, selection]) => {
-            const [productId, variantId] = selectionKey.split(":");
-            return {
-              productId,
-              variantId,
-              quantity: selection.quantity,
-              ledNumber: selection.ledNumber,
-            };
-          })
-          .filter((item) => Boolean(item.productId && item.variantId))
-          .filter((item) => item.quantity > 0),
+        // Sent from selectedProductItems so that a package-included line
+        // reduced to zero still reaches the server as an explicit 0. Filtering
+        // it out here would read as "not sent", and the server would restore
+        // the package's default quantity.
+        items: selectedProductItems
+          .map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+            ledNumber: item.ledNumber,
+          }))
+          .filter((item) => Boolean(item.productId && item.variantId)),
         payment: {
           type: paymentType,
           amountMode: paymentAmountModeForApi,
@@ -2511,9 +2583,13 @@ export function AdminAddBookingForm({
             const includedVariant =
               product.variants.find((variant) => variant.isDefault) ??
               product.variants[0];
-            return includedVariant?.id === variantId
-              ? getPackageIncludedProductQuantity(selectedTheatre, product)
-              : 0;
+            if (includedVariant?.id !== variantId) return 0;
+            // Same authoritative allowance the pricing uses, so the badge can
+            // never claim a different included count from the total.
+            const saved = savedAllowanceByVariantId.get(variantId);
+            if (saved) return saved.includedQuantity;
+            if (hasSavedAllowances) return 0;
+            return getPackageIncludedProductQuantity(selectedTheatre, product);
           }}
           getLedDraftValue={getLedDraftValue}
           onVariantChange={onVariantChange}
@@ -2549,22 +2625,12 @@ export function AdminAddBookingForm({
                 className={inputClass}
                 placeholder="e.g. 50.00"
               />
+              {/* Only validation errors belong here. The Booking Summary is the
+                  single place that reports what the charge does to the total,
+                  and it updates live as this field changes. */}
               {errors.additionalChargeAmount ? (
                 <p className="mt-1 text-xs text-red-600">
                   {errors.additionalChargeAmount}
-                </p>
-              ) : additionalChargeAmount > 0 ? (
-                <p className="mt-1 text-xs text-slate-500">
-                  This will increase the booking total by{" "}
-                  {`$${toMoney(additionalChargeAmount).toLocaleString(undefined, {
-                    minimumFractionDigits: Number.isInteger(
-                      toMoney(additionalChargeAmount)
-                    )
-                      ? 0
-                      : 2,
-                    maximumFractionDigits: 2,
-                  })}`}
-                  .
                 </p>
               ) : null}
             </div>

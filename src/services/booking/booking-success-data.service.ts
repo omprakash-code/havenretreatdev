@@ -16,7 +16,6 @@ import { resolveBookingDurationPricingConfig } from "@/lib/booking-duration-pric
 import { PACKAGE_EXTRA_PERSON_PRICE } from "@/lib/package-guest-pricing";
 import { resolveRangePackageGuestLimit } from "@/services/booking/range-booking-pricing.service";
 import {
-  getPackageIncludedProductExtraQuantity,
   getPackageIncludedProductQuantity,
 } from "@/lib/package-included-products";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
@@ -189,20 +188,22 @@ export async function buildBookingSuccessData(
       quantity: item.quantity,
       unitPrice: toMoney(item.unitPrice),
       totalPrice: toMoney(item.totalPrice),
-      includedQuantity: getPackageIncludedProductQuantity(
-        includedProductSource,
-        {
+      // The line's frozen allowance is authoritative; package config is only a
+      // fallback for bookings created before it was snapshotted.
+      includedQuantity:
+        item.includedQuantity ||
+        getPackageIncludedProductQuantity(includedProductSource, {
           slug: item.product?.slug,
           name: item.productName,
-        }
-      ),
-      extraQuantity: getPackageIncludedProductExtraQuantity(
-        includedProductSource,
-        {
-          slug: item.product?.slug,
-          name: item.productName,
-        },
-        item.quantity
+        }),
+      extraQuantity: Math.max(
+        item.quantity -
+          (item.includedQuantity ||
+            getPackageIncludedProductQuantity(includedProductSource, {
+              slug: item.product?.slug,
+              name: item.productName,
+            })),
+        0
       ),
       image: productImageMap.get(item.productId) ?? null,
     })),
@@ -255,7 +256,14 @@ export async function buildBookingSuccessData(
     extraGuestCount,
     extraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
     decorationRequired: booking.decorationRequired,
+    // packageAmount is net of the reduction; packageListAmount is the published
+    // price, so receipts can show "Package $841 / reduced -$66" and still sum
+    // to the same base.
     packageAmount,
+    packageListAmount: centsToMoney(
+      toCents(packageAmount) + toCents(booking.packageAdjustmentAmount)
+    ),
+    packageAdjustmentAmount: toMoney(booking.packageAdjustmentAmount),
     extraDurationAmount:
       extraDurationAmount > 0 ? extraDurationAmount : undefined,
     extrasAmount: toMoney(booking.extrasAmount),

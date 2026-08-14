@@ -299,6 +299,15 @@ model Booking {
   productsAmount   Decimal @default(0) @db.Decimal(12, 2)
   additionalChargeAmount Decimal @default(0) @db.Decimal(12, 2)
   additionalChargeReason String?
+  // Credit for package-included items (tables/chairs) reduced below what the
+  // package price already covers. Stored positive; subtracted from the package
+  // price before coupons. See lib/package-included-products.ts.
+  packageAdjustmentAmount Decimal @default(0) @db.Decimal(12, 2)
+  // Snapshot of the included allowance at booking time:
+  // [{ productSlug, productId, variantId, includedQuantity, includedUnitPrice }]
+  // Frozen so later product price changes never move an existing booking, and
+  // so edits can never re-derive (and reset) a reduction from live config.
+  packageIncludedSnapshot Json?
   discountAmount   Decimal @db.Decimal(12, 2)
   totalAmount      Decimal @db.Decimal(12, 2)
   decorationAmount Decimal @default(0) @db.Decimal(12, 2)
@@ -422,6 +431,11 @@ model BookingItem {
   unitPrice    Decimal @db.Decimal(12, 2)
   quantity     Int
   totalPrice   Decimal @db.Decimal(12, 2)
+  // Quantity of this line the package price already covers, and the rate it was
+  // covered at. Both snapshotted at booking time. quantity below
+  // includedQuantity credits the difference back off the package price.
+  includedQuantity  Int     @default(0)
+  includedUnitPrice Decimal @default(0) @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
 

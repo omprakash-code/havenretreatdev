@@ -15,7 +15,6 @@ import { calculateBookingPricing } from "@/lib/booking-pricing";
 import {
   centsToMoney,
   hasMoreThanTwoDecimals,
-  multiplyMoney,
   toCents,
   toMoney,
   toNonNegativeMoney,
@@ -48,7 +47,11 @@ import {
   persistAdminBookingCoupons,
 } from "@/app/api/admin/bookings/_coupon";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
-import { getPackageIncludedProductTotalPrice } from "@/lib/package-included-products";
+import {
+  priceIncludedProductLine,
+  resolveBookingPackageAllowances,
+} from "@/lib/package-included-products";
+import { loadIncludedProductCatalogue } from "@/services/booking/booking-snapshot.service";
 import {
   getDurationAdjustedUnitPrice,
   rebaseDurationAdjustedUnitPrice,
@@ -265,6 +268,9 @@ export async function GET(
             id: true,
             name: true,
             locationId: true,
+            // Needed to rebuild the allowance for bookings that predate
+            // packageIncludedSnapshot.
+            guestLimit: true,
           },
         },
         items: {
@@ -277,6 +283,8 @@ export async function GET(
             quantity: true,
             unitPrice: true,
             totalPrice: true,
+            includedQuantity: true,
+            includedUnitPrice: true,
             category: true,
             product: {
               select: {
@@ -350,6 +358,21 @@ export async function GET(
     if (booking.cancelledReason === ADMIN_SOFT_DELETE_REASON) {
       return bookingErrorResponse(404, "BOOKING_NOT_FOUND", "Booking not found.");
     }
+
+    // The catalogue behind the package's included lines. Needed to resolve an
+    // allowance for a booking that predates packageIncludedSnapshot AND has no
+    // stored row for an included product — there is nothing to rebuild from
+    // otherwise, and the edit form would show the line as unselected.
+    const includedProductCatalogue = await loadIncludedProductCatalogue(
+      prisma,
+      booking.eventPackage
+        ? {
+            name: booking.eventPackage.name,
+            baseGuests: booking.eventPackage.guestLimit,
+          }
+        : null,
+      booking.eventPackage?.locationId ?? null
+    );
 
     const latestPayment = booking.payment[0] ?? null;
     const latestSignedAgreement = booking.signedAgreements[0] ?? null;
@@ -515,7 +538,17 @@ export async function GET(
             total: toMoney(booking.totalAmount),
             advancePaid: toMoney(booking.advancePaid),
             remainingPayable: toMoney(booking.remainingPayable),
+            // packageAmount stays NET so the existing extra-hours derivation
+            // (baseAmount - packageAmount) keeps working. The list price is sent
+            // alongside it purely so the drawer can show the reduction as its
+            // own line and still have the rows sum to baseAmount.
             packageAmount: effectivePackageAmount,
+            packageListAmount:
+              effectivePackageAmount != null
+                ? effectivePackageAmount +
+                  toMoney(booking.packageAdjustmentAmount)
+                : null,
+            packageAdjustmentAmount: toMoney(booking.packageAdjustmentAmount),
             extraDurationAmount: effectiveExtraDurationAmount,
             extraDurationHours: effectiveExtraDurationHours,
           },
@@ -537,6 +570,8 @@ export async function GET(
               quantity: item.quantity,
               unitPrice: toMoney(item.unitPrice),
               totalPrice: toMoney(item.totalPrice),
+              includedQuantity: item.includedQuantity,
+              includedUnitPrice: toMoney(item.includedUnitPrice),
               image: item.product?.image ?? null,
               category: item.category,
               ledNumber,
@@ -671,10 +706,40 @@ export async function GET(
             quantity: item.quantity,
             unitPrice: toMoney(item.unitPrice),
             totalPrice: toMoney(item.totalPrice),
+            // The frozen allowance, so the edit form previews reductions at the
+            // rate the booking was actually priced at.
+            includedQuantity: item.includedQuantity,
+            includedUnitPrice: toMoney(item.includedUnitPrice),
             category: item.category,
             ledNumber,
           };
         }),
+        // The booking's resolved allowance. The edit form needs it so a
+        // package-included line loads and prices exactly as PATCH will treat it,
+        // instead of being re-derived (and mis-valued) client-side.
+        packageIncludedAllowances: resolveBookingPackageAllowances({
+          snapshot: booking.packageIncludedSnapshot,
+          source: booking.eventPackage
+            ? {
+                name: booking.eventPackage.name,
+                baseGuests: booking.eventPackage.guestLimit,
+              }
+            : null,
+          items: booking.items.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            productSlug: item.product?.slug,
+            productName: item.productName,
+            unitPrice: item.unitPrice,
+            includedUnitPrice: item.includedUnitPrice,
+          })),
+          products: includedProductCatalogue,
+        }).map((allowance) => ({
+          productId: allowance.productId,
+          variantId: allowance.variantId,
+          includedQuantity: allowance.includedQuantity,
+          includedUnitPrice: allowance.includedUnitPrice,
+        })),
         payment: {
           type: paymentType,
           amountMode: paymentAmountMode,
@@ -889,6 +954,8 @@ export async function PATCH(
               category: true,
               unitPrice: true,
               quantity: true,
+              includedQuantity: true,
+              includedUnitPrice: true,
             },
           },
         },
@@ -985,8 +1052,9 @@ export async function PATCH(
           );
         }
 
-        if (quantity === 0) return;
-
+        // Zero-quantity entries are kept: for a package-included line an
+        // explicit 0 means "reduced to nothing" and must survive the edit.
+        // Non-allowance zeros are dropped once the allowance is known.
         const key = `${productId}:${variantId}`;
         const existing = normalizedItemsMap.get(key);
         normalizedItemsMap.set(key, {
@@ -997,7 +1065,54 @@ export async function PATCH(
         });
       });
 
-      const normalizedItems = Array.from(normalizedItemsMap.values());
+      // Resolved exactly as the GET does, so a line the edit form loaded as
+      // package-included is priced as included here rather than billed as a
+      // fresh add-on.
+      const packageIncludedAllowances = resolveBookingPackageAllowances({
+        snapshot: booking.packageIncludedSnapshot,
+        source: booking.eventPackage
+          ? {
+              name: booking.eventPackage.name,
+              baseGuests: booking.eventPackage.guestLimit,
+            }
+          : null,
+        items: booking.items.map((item) => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          productName: item.productName,
+          unitPrice: item.unitPrice,
+          includedUnitPrice: item.includedUnitPrice,
+        })),
+        products: await loadIncludedProductCatalogue(
+          tx,
+          booking.eventPackage
+            ? {
+                name: booking.eventPackage.name,
+                baseGuests: booking.eventPackage.guestLimit,
+              }
+            : null,
+          body.locationId ?? null
+        ),
+      });
+
+      const allowanceByVariantId = new Map(
+        packageIncludedAllowances.map((entry) => [entry.variantId, entry])
+      );
+
+      // An allowance line the payload never mentioned keeps the package default.
+      packageIncludedAllowances.forEach((allowance) => {
+        const key = `${allowance.productId}:${allowance.variantId}`;
+        if (normalizedItemsMap.has(key)) return;
+        normalizedItemsMap.set(key, {
+          productId: allowance.productId,
+          variantId: allowance.variantId,
+          quantity: allowance.includedQuantity,
+        });
+      });
+
+      const normalizedItems = Array.from(normalizedItemsMap.values()).filter(
+        (item) => item.quantity > 0 || allowanceByVariantId.has(item.variantId)
+      );
       const variantIds = [...new Set(normalizedItems.map((item) => item.variantId))];
       const existingVariantIds = [...new Set(booking.items.map((item) => item.variantId))];
 
@@ -1059,12 +1174,9 @@ export async function PATCH(
       // The tables and chairs a package includes are already paid for inside the
       // package price, so they must stay free on an edit exactly as they are on
       // create. Re-pricing them here silently inflated the customer's total.
-      const includedProductSource = booking.eventPackage
-        ? {
-            name: booking.eventPackage.name,
-            baseGuests: booking.eventPackage.guestLimit,
-          }
-        : null;
+      // Quantities BELOW the allowance credit the package price, at the
+      // snapshotted rate held in packageIncludedAllowances.
+      let packageAdjustmentAmount = 0;
       const bookingDurationHours =
         calculateDurationHours(rangeStartTime, rangeEndTime) ?? 0;
       // Existing item snapshots were priced for the booking's previous times.
@@ -1100,17 +1212,20 @@ export async function PATCH(
             baseUnitPrice: toMoney(variant.salePrice ?? variant.regularPrice),
             durationHours: bookingDurationHours,
           });
-          const totalPrice = getPackageIncludedProductTotalPrice({
-            source: variant.isDefault ? includedProductSource : null,
-            product: {
-              slug: variant.product.slug,
-              name: variant.product.name,
-            },
+          const allowance = allowanceByVariantId.get(variant.id) ?? null;
+          const linePricing = priceIncludedProductLine({
+            includedQuantity: allowance?.includedQuantity ?? 0,
+            includedUnitPrice: allowance?.includedUnitPrice ?? 0,
             quantity: item.quantity,
             unitPrice,
           });
+          const totalPrice = linePricing.totalPrice;
           productsAmount = centsToMoney(
             toCents(productsAmount) + toCents(totalPrice)
+          );
+          packageAdjustmentAmount = centsToMoney(
+            toCents(packageAdjustmentAmount) +
+              toCents(linePricing.adjustmentAmount)
           );
 
           if (
@@ -1134,6 +1249,8 @@ export async function PATCH(
             unitPrice,
             quantity: item.quantity,
             totalPrice,
+            includedQuantity: linePricing.includedQuantity,
+            includedUnitPrice: linePricing.includedUnitPrice,
           });
           return;
         }
@@ -1156,9 +1273,23 @@ export async function PATCH(
           fromDurationHours: previousDurationHours,
           toDurationHours: bookingDurationHours,
         });
-        const totalPrice = multiplyMoney(unitPrice, item.quantity);
+        // The allowance survives the variant being deleted, so an included
+        // line keeps pricing (and crediting) correctly here too.
+        const fallbackAllowance =
+          allowanceByVariantId.get(fallback.variantId) ?? null;
+        const fallbackPricing = priceIncludedProductLine({
+          includedQuantity: fallbackAllowance?.includedQuantity ?? 0,
+          includedUnitPrice: fallbackAllowance?.includedUnitPrice ?? 0,
+          quantity: item.quantity,
+          unitPrice,
+        });
+        const totalPrice = fallbackPricing.totalPrice;
         productsAmount = centsToMoney(
           toCents(productsAmount) + toCents(totalPrice)
+        );
+        packageAdjustmentAmount = centsToMoney(
+          toCents(packageAdjustmentAmount) +
+            toCents(fallbackPricing.adjustmentAmount)
         );
 
         if (
@@ -1182,6 +1313,8 @@ export async function PATCH(
           unitPrice,
           quantity: item.quantity,
           totalPrice,
+          includedQuantity: fallbackPricing.includedQuantity,
+          includedUnitPrice: fallbackPricing.includedUnitPrice,
         });
       });
 
@@ -1335,6 +1468,7 @@ export async function PATCH(
         theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         productsAmount,
         additionalChargeAmount,
+        packageAdjustmentAmount,
         discountAmount: 0,
         advancePaid: 0,
         durationHours: bookingDurationHours,
@@ -1426,6 +1560,7 @@ export async function PATCH(
         theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
         productsAmount,
         additionalChargeAmount,
+        packageAdjustmentAmount,
         discountAmount: couponDiscount,
         advancePaid: desiredAdvance,
         durationHours: bookingDurationHours,
@@ -1659,6 +1794,8 @@ export async function PATCH(
           // the recalculated total no longer carried.
           pricingSnapshot: {
             packageAmount: pricing.packageBaseAmount,
+            packageListAmount: pricing.packageListAmount,
+            packageAdjustmentAmount: pricing.packageAdjustmentAmount,
             packageGuestLimit,
             includedDurationHours,
             bookedDurationHours: bookingDurationHours,
@@ -1681,6 +1818,13 @@ export async function PATCH(
           productsAmount: pricing.productsAmount,
           additionalChargeAmount: pricing.additionalChargeAmount,
           additionalChargeReason,
+          packageAdjustmentAmount: pricing.packageAdjustmentAmount,
+          // Re-persisted so a booking that predates the snapshot gains one on
+          // its first edit, and so an existing snapshot is never dropped.
+          packageIncludedSnapshot:
+            packageIncludedAllowances.length > 0
+              ? packageIncludedAllowances
+              : Prisma.JsonNull,
           discountAmount: pricing.discountAmount,
           totalAmount: pricing.totalAmount,
           decorationAmount: pricing.decorationAmount,

@@ -3,7 +3,6 @@ import { buildOccasionDetails } from "@/lib/booking-celebration";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { getNumberDecorationLabel } from "@/lib/product-numbering";
 import {
-  getPackageIncludedProductExtraQuantity,
   getPackageIncludedProductQuantity,
 } from "@/lib/package-included-products";
 import type { AdminBooking } from "@/types/admin/booking-admin";
@@ -69,6 +68,11 @@ export function mapAdminBookingToSuccessData(
         : null,
     extraDurationHours: booking.pricing.extraDurationHours ?? null,
     packageAmount: booking.pricing.packageAmount ?? booking.pricing.base,
+    packageListAmount:
+      booking.pricing.packageListAmount ??
+      booking.pricing.packageAmount ??
+      booking.pricing.base,
+    packageAdjustmentAmount: booking.pricing.packageAdjustmentAmount ?? null,
     extraDurationAmount: booking.pricing.extraDurationAmount ?? null,
     extrasAmount: booking.pricing.extras,
     decorationAmount: booking.pricing.decoration,
@@ -102,14 +106,20 @@ export function mapAdminBookingToSuccessData(
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
-      includedQuantity: getPackageIncludedProductQuantity(
-        { name: booking.package?.name ?? null },
-        { name: item.productName }
-      ),
-      extraQuantity: getPackageIncludedProductExtraQuantity(
-        { name: booking.package?.name ?? null },
-        { name: item.productName },
-        item.quantity
+      includedQuantity:
+        item.includedQuantity ||
+        getPackageIncludedProductQuantity(
+          { name: booking.package?.name ?? null },
+          { name: item.productName }
+        ),
+      extraQuantity: Math.max(
+        item.quantity -
+          (item.includedQuantity ||
+            getPackageIncludedProductQuantity(
+              { name: booking.package?.name ?? null },
+              { name: item.productName }
+            )),
+        0
       ),
       image: item.image ?? item.productImage ?? null,
       numberLabel: item.ledNumber

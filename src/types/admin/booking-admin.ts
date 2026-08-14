@@ -9,6 +9,10 @@ export type AdminBookingItem = {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  // Package allowance snapshotted on the line at booking time. quantity below
+  // includedQuantity is what credits the package price.
+  includedQuantity?: number;
+  includedUnitPrice?: number;
   image: string | null;
   category: string;
   ledNumber?: string | null;
@@ -78,7 +82,12 @@ export type AdminBooking = {
     total: number;
     advancePaid: number;
     remainingPayable: number;
+    /** Package price AFTER any included-item reduction. */
     packageAmount?: number | null;
+    /** Package price as listed, before any included-item reduction. */
+    packageListAmount?: number | null;
+    /** Credit for package-included items reduced below the package quantity. */
+    packageAdjustmentAmount?: number | null;
     extraDurationAmount?: number | null;
     extraDurationHours?: number | null;
   };

@@ -72,7 +72,12 @@ export type BookingSuccessData = {
   extraGuestCount?: number | null;
   extraPersonPrice?: number | null;
   decorationRequired?: boolean;
+  /** Package price AFTER any included-item reduction. */
   packageAmount?: number | null;
+  /** Package price as listed, before any included-item reduction. */
+  packageListAmount?: number | null;
+  /** Credit for package-included items reduced below the package quantity. */
+  packageAdjustmentAmount?: number | null;
   extraDurationAmount?: number | null;
   extrasAmount?: number | null;
   decorationAmount?: number | null;

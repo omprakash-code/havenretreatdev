@@ -27,9 +27,25 @@ export function buildRangePricingSnapshot(input: {
   guestCount: number;
   productsAmount: number;
   discountAmount: number;
+  packageAdjustmentAmount?: number;
 }) {
   const previous = asObject(input.pricingSnapshot);
-  const packageAmount = asMoney(previous.packageAmount);
+  // The list price is the fixed basis every adjustment is subtracted from.
+  // Reading packageAmount (which is already net) would compound the reduction
+  // on every recalculation; the fallback only applies to snapshots written
+  // before packageListAmount existed, where the two are equal anyway.
+  const packageListAmount = asMoney(
+    previous.packageListAmount ?? previous.packageAmount
+  );
+  const packageAdjustmentAmount = centsToMoney(
+    Math.min(
+      toCents(toNonNegativeMoney(input.packageAdjustmentAmount ?? 0)),
+      toCents(packageListAmount)
+    )
+  );
+  const packageAmount = centsToMoney(
+    toCents(packageListAmount) - toCents(packageAdjustmentAmount)
+  );
   const extraDurationAmount = asMoney(previous.extraDurationAmount);
   const includedGuests = resolveRangePackageGuestLimit(input.packageSnapshot);
   const extraGuestCount = Math.max(
@@ -55,6 +71,8 @@ export function buildRangePricingSnapshot(input: {
   return {
     ...previous,
     packageAmount,
+    packageListAmount,
+    packageAdjustmentAmount,
     extraDurationAmount,
     packageGuestLimit: includedGuests,
     extraGuestCount,

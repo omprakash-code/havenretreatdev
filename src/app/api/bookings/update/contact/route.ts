@@ -99,6 +99,10 @@ export async function POST(req: Request) {
           pricingSnapshot: booking.pricingSnapshot,
           guestCount: parsedGuestCount,
           productsAmount,
+          // This step edits contact details and guest count, never items, so the
+          // existing reduction must be carried through unchanged. Omitting it
+          // would default to 0 and quietly restore the full package price.
+          packageAdjustmentAmount: toMoney(booking.packageAdjustmentAmount),
           discountAmount: toMoney(booking.discountAmount),
         });
 

@@ -303,12 +303,9 @@ export function PaymentModeSection({
                 </>
               )}
             </select>
-            {hasAdvancePaid ? (
-              <p className="mt-1 text-xs text-slate-500">
-                {formatCurrency(advancePaidAlready)} already collected. Enter a
-                partial amount, pick the remaining balance, or leave empty to collect nothing.
-              </p>
-            ) : null}
+            {/* What has already been collected, and what remains, belong to the
+                Booking Summary — repeating them here duplicated the one source
+                of truth for the booking's state. */}
             {errors.paymentAmountMode && (
               <p className="mt-1 text-xs text-red-600">{errors.paymentAmountMode}</p>
             )}

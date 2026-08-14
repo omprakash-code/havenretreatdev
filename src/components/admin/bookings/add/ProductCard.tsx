@@ -15,6 +15,7 @@ import {
   getDurationPricingLabel,
 } from "@/lib/product-duration-pricing";
 import { getVariantMaxAllowed } from "@/lib/product-stock";
+import { canDecreaseProductQuantity } from "@/lib/package-included-products";
 
 type ProductCardProps = {
   product: ProductOption;
@@ -181,7 +182,7 @@ function ProductCardComponent({
                     <button
                       type="button"
                       onClick={onDecrement}
-                      disabled={quantity <= includedQuantity}
+                      disabled={!canDecreaseProductQuantity(quantity)}
                       className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Minus size={13} />

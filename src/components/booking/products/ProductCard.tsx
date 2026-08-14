@@ -16,8 +16,9 @@ import {
   isNumberDecorationProduct,
 } from "@/lib/product-numbering";
 import {
+  canDecreaseProductQuantity,
   getPackageIncludedProductQuantity,
-  getPackageIncludedProductTotalPrice,
+  priceIncludedProductLine,
 } from "@/lib/package-included-products";
 import {
   getDurationAdjustedUnitPrice,
@@ -148,10 +149,13 @@ export default function ProductCard({
 
   const quantity = existing?.quantity ?? 0;
   const hasLedNumber = Boolean(existing?.ledNumber?.trim());
-  const includedQuantity = getPackageIncludedProductQuantity(
-    booking.package,
-    product
-  );
+  // Prefer the allowance snapshot carried on the line; fall back to package
+  // config for a product the customer has not touched yet in this session, and
+  // for sessions started before allowances were snapshotted (those hydrate as 0,
+  // which `??` would not fall through on).
+  const includedQuantity =
+    existing?.includedQuantity ||
+    getPackageIncludedProductQuantity(booking.package, product);
   const isPackageIncluded = includedQuantity > 0;
   /* -----------------------------
      Local-only update (NO API)
@@ -165,8 +169,8 @@ export default function ProductCard({
         product,
         variant: activeVariant,
         quantity: nextQty,
-        minimumQuantity: includedQuantity,
-        selectedPackage: booking.package,
+        includedQuantity,
+        includedUnitPrice: existing?.includedUnitPrice,
         durationHours: booking.durationHours,
       })
     );
@@ -196,9 +200,10 @@ export default function ProductCard({
 
     updateQuantity(isSingleSelect ? 1 : quantity + 1);
   };
-  const decrement = () => updateQuantity(Math.max(quantity - 1, includedQuantity));
-  const toggleDecoration = () =>
-    updateQuantity(quantity > includedQuantity ? includedQuantity : Math.max(1, includedQuantity));
+  // Included quantities are reducible: the package price drops by the removed
+  // quantity, so the floor is 0 rather than the package's included count.
+  const decrement = () => updateQuantity(Math.max(quantity - 1, 0));
+  const toggleDecoration = () => updateQuantity(quantity > 0 ? 0 : 1);
   const handleAdd = () => {
     increment();
     if (isNumberDecoration) {
@@ -396,15 +401,15 @@ export default function ProductCard({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ duration: 0.12, ease: "easeOut" }}
-                className="absolute inset-0 flex h-full w-full items-center justify-between bg-white px-1 ring-1 ring-gray-200"
+                className="absolute inset-0 flex h-full w-full items-center justify-between bg-white px-1.5 ring-1 ring-gray-200"
               >
                 <button
                   type="button"
                   onClick={decrement}
                   title="Decrease quantity"
                   aria-label="Decrease quantity"
-                  disabled={quantity <= includedQuantity}
-                  className="flex aspect-square h-6 w-6 items-center justify-center leading-none cursor-pointer text-gray-600 hover:bg-gray-100 active:scale-95 transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:w-7"
+                  disabled={!canDecreaseProductQuantity(quantity)}
+                  className="flex h-[18px] w-[18px] items-center justify-center bg-gray-100 leading-none cursor-pointer text-gray-700 hover:bg-gray-200 active:scale-95 transition disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:opacity-100"
                 >
                   <Minus size={10} />
                 </button>
@@ -419,7 +424,7 @@ export default function ProductCard({
                   title="Increase quantity"
                   aria-label="Increase quantity"
                   disabled={outOfStock || reachedLimit}
-                  className="flex aspect-square h-6 w-6 items-center justify-center leading-none cursor-pointer text-gray-600 hover:bg-gray-100 active:scale-95 transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-7 sm:w-7"
+                  className="flex h-[18px] w-[18px] items-center justify-center bg-gray-100 leading-none cursor-pointer text-gray-700 hover:bg-gray-200 active:scale-95 transition disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:opacity-100"
                 >
                   <Plus size={11} />
                 </button>
@@ -702,16 +707,16 @@ function upsertItem({
   product,
   variant,
   quantity,
-  minimumQuantity = 0,
-  selectedPackage,
+  includedQuantity = 0,
+  includedUnitPrice,
   durationHours,
 }: {
   prev: BookingItemSnapshot[];
   product: Product;
   variant: Variant;
   quantity: number;
-  minimumQuantity?: number;
-  selectedPackage?: { name?: string | null; capacity?: number | null } | null;
+  includedQuantity?: number;
+  includedUnitPrice?: number;
   durationHours?: number | null;
 }): BookingItemSnapshot[] {
   const priceMeta = getVariantPriceMeta(variant);
@@ -720,7 +725,22 @@ function upsertItem({
     baseUnitPrice: priceMeta.displayPrice,
     durationHours,
   });
-  const resolvedQuantity = Math.max(quantity, minimumQuantity);
+  // No clamping to the included quantity: reductions are the point of the
+  // feature. The package price drops instead of the quantity being pushed back.
+  const resolvedQuantity = Math.max(quantity, 0);
+  // The snapshot rate is authoritative once the server has issued one; a
+  // brand-new local line falls back to the live variant price, which the server
+  // reconciles against the real snapshot on commit.
+  const resolvedIncludedUnitPrice =
+    typeof includedUnitPrice === "number" && includedUnitPrice > 0
+      ? includedUnitPrice
+      : priceMeta.displayPrice;
+  const linePricing = priceIncludedProductLine({
+    includedQuantity,
+    includedUnitPrice: resolvedIncludedUnitPrice,
+    quantity: resolvedQuantity,
+    unitPrice,
+  });
 
   // Single-select variants are exclusive package choices (e.g. Photo Booth
   // Premium vs Classic): adding one replaces any other variant of the product.
@@ -738,17 +758,15 @@ function upsertItem({
       i.variantId === variant.id
   );
 
-  if (resolvedQuantity === 0) {
+  // A line with a package allowance is kept at quantity 0 rather than removed:
+  // the row is the only record that the customer reduced it to nothing, and it
+  // is what stops seeding from re-adding the full included quantity.
+  if (resolvedQuantity === 0 && includedQuantity <= 0) {
     if (index !== -1) items.splice(index, 1);
     return items;
   }
 
-  const totalPrice = getPackageIncludedProductTotalPrice({
-    source: selectedPackage,
-    product,
-    quantity: resolvedQuantity,
-    unitPrice,
-  });
+  const totalPrice = linePricing.totalPrice;
 
   if (index !== -1) {
     items[index] = {
@@ -757,6 +775,8 @@ function upsertItem({
       unitPrice,
       baseUnitPrice: priceMeta.displayPrice,
       totalPrice,
+      includedQuantity,
+      includedUnitPrice: resolvedIncludedUnitPrice,
     };
   } else {
     items.push({
@@ -772,6 +792,8 @@ function upsertItem({
       baseUnitPrice: priceMeta.displayPrice,
       quantity: resolvedQuantity,
       totalPrice,
+      includedQuantity,
+      includedUnitPrice: resolvedIncludedUnitPrice,
     });
   }
 

@@ -754,7 +754,12 @@ export default function BookingDetails({
 
                   {/* Product Grid - 2 per row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {booking.items.map((item) => (
+                    {/* A quantity-0 row records an included line the customer
+                        reduced to nothing; it is a pricing record, not an item
+                        the venue has to set up. */}
+                    {booking.items
+                      .filter((item) => item.quantity > 0)
+                      .map((item) => (
                       <ProductCard key={item.id} item={item} />
                     ))}
                   </div>
@@ -942,9 +947,24 @@ export default function BookingDetails({
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-600">Package</span>
                         <span className="text-sm font-medium text-slate-900">
-                          ${booking.pricing.packageAmount.toLocaleString()}
+                          $
+                          {(
+                            booking.pricing.packageListAmount ??
+                            booking.pricing.packageAmount
+                          ).toLocaleString()}
                         </span>
                       </div>
+                      {(booking.pricing.packageAdjustmentAmount ?? 0) > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-slate-600">
+                            Included items reduced
+                          </span>
+                          <span className="text-sm font-medium text-emerald-700">
+                            −$
+                            {booking.pricing.packageAdjustmentAmount!.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
                       {(booking.pricing.extraDurationAmount ?? 0) > 0 && (
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-slate-600">

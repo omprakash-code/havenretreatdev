@@ -183,6 +183,10 @@ export async function GET() {
         unitPrice: item.unitPrice,
         quantity: item.quantity,
         totalPrice: item.totalPrice,
+        // The allowance snapshot travels to the client so the live price
+        // preview reduces the package by the same rate the server will.
+        includedQuantity: item.includedQuantity,
+        includedUnitPrice: item.includedUnitPrice,
         category: item.category,
         createdAt: item.createdAt,
         productImage: item.product?.image ?? null,

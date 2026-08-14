@@ -16,13 +16,24 @@ type CalculateBookingPricingInput = {
   extraHourlyRate?: number | null;
   productsAmount?: number;
   additionalChargeAmount?: number;
+  /**
+   * Credit for package-included items (tables/chairs) reduced below the
+   * quantity the package price already paid for. Passed as a positive number
+   * and subtracted from the package price BEFORE coupons, so package-only
+   * coupons discount the adjusted package price.
+   */
+  packageAdjustmentAmount?: number;
   discountAmount?: number;
   advancePaid?: number;
 };
 
 export type BookingPricingBreakdown = {
   baseAmount: number;
+  /** Package price after the included-item reduction. */
   packageBaseAmount: number;
+  /** Package price as listed, before any included-item reduction. */
+  packageListAmount: number;
+  packageAdjustmentAmount: number;
   extraDurationHours: number;
   extraHourlyRate: number;
   extraHoursAmount: number;
@@ -39,8 +50,18 @@ export type BookingPricingBreakdown = {
 export function calculateBookingPricing(
   input: CalculateBookingPricingInput
 ): BookingPricingBreakdown {
-  const packageBaseAmount = toNonNegativeMoney(
+  const packageListAmount = toNonNegativeMoney(
     input.slotFinalPrice ?? input.slotBasePrice
+  );
+  // The reduction can never exceed the package price itself.
+  const packageAdjustmentAmount = centsToMoney(
+    Math.min(
+      toCents(toNonNegativeMoney(input.packageAdjustmentAmount ?? 0)),
+      toCents(packageListAmount)
+    )
+  );
+  const packageBaseAmount = centsToMoney(
+    toCents(packageListAmount) - toCents(packageAdjustmentAmount)
   );
   const durationHours =
     typeof input.durationHours === "number" && Number.isFinite(input.durationHours)
@@ -97,6 +118,8 @@ export function calculateBookingPricing(
   return {
     baseAmount,
     packageBaseAmount,
+    packageListAmount,
+    packageAdjustmentAmount,
     extraDurationHours,
     extraHourlyRate,
     extraHoursAmount,

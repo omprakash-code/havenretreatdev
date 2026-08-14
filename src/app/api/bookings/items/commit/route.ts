@@ -42,8 +42,9 @@ import {
   maxGuestsForIncluded,
 } from "@/lib/package-guest-pricing";
 import {
-  getPackageIncludedProductTotalPrice,
-  resolvePackageIncludedProducts,
+  parsePackageIncludedAllowances,
+  priceIncludedProductLine,
+  rebuildLegacyPackageIncludedAllowances,
 } from "@/lib/package-included-products";
 import { getRangeBookingApiIdentity } from "@/services/booking/range-booking-api-session";
 import {
@@ -124,8 +125,9 @@ export async function POST(req: Request) {
         throw new Error("INVALID_REQUEST");
       }
 
-      if (quantity === 0) return;
-
+      // Zero is retained: on a package-included line it means "reduced to
+      // nothing", which is different from omitting the line entirely (that
+      // keeps the package default). Non-allowance zeros are filtered later.
       const key = `${productId}:${variantId}`;
       const existing = normalizedItemsMap.get(key);
       normalizedItemsMap.set(key, {
@@ -149,7 +151,20 @@ export async function POST(req: Request) {
       // 0 Lock booking FIRST
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
-        include: { eventPackage: { select: { locationId: true } } },
+        include: {
+          eventPackage: { select: { locationId: true } },
+          // Needed only to rebuild an allowance for bookings that predate
+          // packageIncludedSnapshot.
+          items: {
+            select: {
+              productId: true,
+              variantId: true,
+              productName: true,
+              unitPrice: true,
+              includedUnitPrice: true,
+            },
+          },
+        },
       });
 
       if (!booking) {
@@ -192,46 +207,49 @@ export async function POST(req: Request) {
       });
       const effectiveItemsMap = new Map(normalizedItemsMap);
       const includedProductSource = { capacity: resolveRangePackageGuestLimit(booking.packageSnapshot) };
-      const packageIncludedProducts = resolvePackageIncludedProducts(includedProductSource);
-      const packageIncludedProductSlugs = Object.keys(packageIncludedProducts);
 
-      if (packageIncludedProductSlugs.length > 0) {
-        const packageProducts = await tx.product.findMany({
-          where: {
-            slug: { in: packageIncludedProductSlugs },
-            isActive: true,
-            bookingCategorySlug: "add-ons",
-            ...(locationId
-              ? { OR: [{ locationId }, { locationId: null }] }
-              : {}),
-          },
-          include: {
-            variants: {
-              where: { isActive: true },
-              orderBy: { sortOrder: "asc" },
-            },
-          },
+      // The allowance was frozen when the package was chosen. Rebuilding it from
+      // live products here would reprice an in-progress booking whenever an
+      // admin changed a product price mid-session.
+      const persistedAllowances = parsePackageIncludedAllowances(
+        booking.packageIncludedSnapshot
+      );
+      const packageIncludedAllowances =
+        persistedAllowances.length > 0
+          ? persistedAllowances
+          : rebuildLegacyPackageIncludedAllowances({
+              source: includedProductSource,
+              items: booking.items.map((item) => ({
+                productId: item.productId,
+                variantId: item.variantId,
+                productName: item.productName,
+                unitPrice:
+                  toMoney(item.includedUnitPrice) > 0
+                    ? item.includedUnitPrice
+                    : item.unitPrice,
+              })),
+            });
+
+      const allowanceByVariantId = new Map(
+        packageIncludedAllowances.map((entry) => [entry.variantId, entry])
+      );
+
+      // An included line the client never sent keeps the package default; an
+      // explicit 0 is a deliberate reduction and is left alone.
+      packageIncludedAllowances.forEach((allowance) => {
+        const key = `${allowance.productId}:${allowance.variantId}`;
+        if (effectiveItemsMap.has(key)) return;
+        effectiveItemsMap.set(key, {
+          productId: allowance.productId,
+          variantId: allowance.variantId,
+          quantity: allowance.includedQuantity,
+          ledNumber: "",
         });
+      });
 
-        packageProducts.forEach((product) => {
-          const includedQuantity = packageIncludedProducts[product.slug] ?? 0;
-          const variant =
-            product.variants.find((item) => item.isDefault) ??
-            product.variants[0];
-          if (includedQuantity <= 0 || !variant) return;
-
-          const key = `${product.id}:${variant.id}`;
-          const existing = effectiveItemsMap.get(key);
-          effectiveItemsMap.set(key, {
-            productId: product.id,
-            variantId: variant.id,
-            quantity: Math.max(existing?.quantity ?? 0, includedQuantity),
-            ledNumber: existing?.ledNumber ?? "",
-          });
-        });
-      }
-
-      const effectiveItems = Array.from(effectiveItemsMap.values());
+      const effectiveItems = Array.from(effectiveItemsMap.values()).filter(
+        (item) => item.quantity > 0 || allowanceByVariantId.has(item.variantId)
+      );
       const variantIds = [...new Set(effectiveItems.map((item) => item.variantId))];
       const variants =
         variantIds.length > 0
@@ -272,7 +290,9 @@ export async function POST(req: Request) {
 
         const maxAllowed = getVariantMaxAllowed(variant);
 
-        if (maxAllowed <= 0 || item.quantity > maxAllowed) {
+        // A reduced-to-zero included line is never a stock problem, so it must
+        // not trip the out-of-stock guard.
+        if (item.quantity > 0 && (maxAllowed <= 0 || item.quantity > maxAllowed)) {
           throw new Error(
             `PRODUCT_LIMIT_EXCEEDED:${variant.product.name}:${maxAllowed}`
           );
@@ -286,12 +306,10 @@ export async function POST(req: Request) {
           baseUnitPrice: resolveVariantBaseUnitPrice(variant),
           durationHours,
         });
-        const totalPrice = getPackageIncludedProductTotalPrice({
-          source: includedProductSource,
-          product: {
-            slug: variant.product.slug,
-            name: variant.product.name,
-          },
+        const allowance = allowanceByVariantId.get(variant.id) ?? null;
+        const linePricing = priceIncludedProductLine({
+          includedQuantity: allowance?.includedQuantity ?? 0,
+          includedUnitPrice: allowance?.includedUnitPrice ?? 0,
           quantity: item.quantity,
           unitPrice,
         });
@@ -302,7 +320,10 @@ export async function POST(req: Request) {
           variantLabel: variant.label,
           unitPrice,
           quantity: item.quantity,
-          totalPrice,
+          totalPrice: linePricing.totalPrice,
+          includedQuantity: linePricing.includedQuantity,
+          includedUnitPrice: linePricing.includedUnitPrice,
+          adjustmentAmount: linePricing.adjustmentAmount,
           category: variant.product.category,
           ledNumber: item.ledNumber,
           productSlug: variant.product.slug,
@@ -314,7 +335,9 @@ export async function POST(req: Request) {
         where: { bookingId },
       });
 
-      // 2 Insert fresh snapshot
+      // 2 Insert fresh snapshot. Reduced-to-zero included lines are persisted
+      // too: the row is the record that the customer chose to take none, and
+      // dropping it would let the next page load re-seed the full quantity.
       for (const item of validatedItems) {
         await tx.bookingItem.create({
           data: {
@@ -326,6 +349,8 @@ export async function POST(req: Request) {
             unitPrice: item.unitPrice,
             quantity: item.quantity,
             totalPrice: item.totalPrice,
+            includedQuantity: item.includedQuantity,
+            includedUnitPrice: item.includedUnitPrice,
             category: item.category,
           },
         });
@@ -357,7 +382,12 @@ export async function POST(req: Request) {
 
       // 3 Recalculate product totals
       const productsAmount = validatedItems.reduce(
-        (sum, i) => sum + i.totalPrice,
+        (sum, i) => centsToMoney(toCents(sum) + toCents(i.totalPrice)),
+        0
+      );
+      // Reductions below the package allowance credit the package price.
+      const packageAdjustmentAmount = validatedItems.reduce(
+        (sum, i) => centsToMoney(toCents(sum) + toCents(i.adjustmentAmount)),
         0
       );
 
@@ -393,6 +423,7 @@ export async function POST(req: Request) {
         pricingSnapshot: booking.pricingSnapshot,
         guestCount: requestedGuestCount,
         productsAmount,
+        packageAdjustmentAmount,
         discountAmount: 0,
       });
       const pricingBase = rangePricing
@@ -413,6 +444,7 @@ export async function POST(req: Request) {
             theatreBaseGuests: includedGuestCount,
             theatreExtraPersonPrice: PACKAGE_EXTRA_PERSON_PRICE,
             productsAmount: 0,
+            packageAdjustmentAmount,
             discountAmount: 0,
             advancePaid: 0,
           });
@@ -472,6 +504,7 @@ export async function POST(req: Request) {
         pricingSnapshot: booking.pricingSnapshot,
         guestCount: requestedGuestCount,
         productsAmount,
+        packageAdjustmentAmount,
         discountAmount: totalDiscount,
       });
 
@@ -488,6 +521,7 @@ export async function POST(req: Request) {
           extrasAmount: pricingBase.extrasAmount,
           decorationAmount: pricingBase.decorationAmount,
           productsAmount,
+          packageAdjustmentAmount,
           discountAmount: totalDiscount,
           totalAmount,
           pricingSnapshot: finalRangePricing ?? undefined,
