@@ -4,7 +4,7 @@ import { formatVenueDateTime, formatSlotTime } from "@/lib/formatters";
 import { SUCCESS_VENUE_IMAGE } from "@/components/booking/success/assets";
 import { HAVEN_AGREEMENT_TOTAL_CLAUSES } from "@/constants/haven-agreement-content";
 import {
-  BOOKING_NO_PAYMENT_DUE_MESSAGE,
+  BOOKING_NO_PAYMENT_TODAY_TITLE,
   BOOKING_PAYMENT_APPLIED_MESSAGE,
   BOOKING_PENDING_REVIEW_STATUS_VALUE,
 } from "@/constants/booking-status-copy";
@@ -41,6 +41,8 @@ type SectionRow = {
   value: string;
   tone?: RowTone;
 };
+
+export const BOOKING_TICKET_NO_PAYMENT_MESSAGE = `${BOOKING_NO_PAYMENT_TODAY_TITLE}.`;
 
 const COLORS = {
   paper: [255, 255, 255] as const,
@@ -198,7 +200,7 @@ export async function buildBookingTicketPdf(
       value:
         data.advancePaid > 0
           ? BOOKING_PAYMENT_APPLIED_MESSAGE
-          : BOOKING_NO_PAYMENT_DUE_MESSAGE,
+          : BOOKING_TICKET_NO_PAYMENT_MESSAGE,
       tone: "normal",
     },
     {

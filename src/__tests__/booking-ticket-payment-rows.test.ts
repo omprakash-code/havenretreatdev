@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPaymentRows } from "@/components/booking/success/pdf/downloadBookingTicketPdf";
+import {
+  BOOKING_TICKET_NO_PAYMENT_MESSAGE,
+  buildPaymentRows,
+} from "@/components/booking/success/pdf/downloadBookingTicketPdf";
 import type { BookingSuccessData } from "@/components/booking/success/types";
 
 function makeBookingData(
@@ -37,6 +40,15 @@ function makeBookingData(
 }
 
 describe("booking ticket payment rows", () => {
+  it("uses the short no-payment sentence for the PDF payment row", () => {
+    expect(BOOKING_TICKET_NO_PAYMENT_MESSAGE).toBe(
+      "No payment is required today."
+    );
+    expect(BOOKING_TICKET_NO_PAYMENT_MESSAGE).not.toContain(
+      "What happens next"
+    );
+  });
+
   it("shows package, extra hours, and decoration as separate charges", () => {
     const rows = buildPaymentRows(makeBookingData());
 
