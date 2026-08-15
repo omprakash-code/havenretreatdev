@@ -91,12 +91,18 @@ vi.mock("@/services/booking/booking-abandonment-email.service", () => ({
 }));
 vi.mock("@/services/whatsapp.service", () => ({
   buildCustomerBookingWhatsAppMessage: vi.fn().mockReturnValue(""),
+  isBookingConfirmationWhatsAppEnabled: vi.fn().mockReturnValue(false),
+  sendBookingConfirmationWhatsApp: vi.fn().mockResolvedValue(undefined),
   sendWhatsAppMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { PATCH } from "@/app/api/admin/bookings/[id]/route";
 import { POST as CREATE } from "@/app/api/admin/bookings/create/route";
 import { createOrReplaceVenueBookingSession } from "@/services/booking/venue-booking-session.service";
+import { after } from "next/server";
+import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
+import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
+import { sendBookingApprovedEmail } from "@/services/booking/booking-review-email.service";
 
 // ─── Fixtures: the Premium package from the reported booking ────────────────
 
@@ -141,7 +147,9 @@ function existingSixHourBooking() {
     venueId: PACKAGE.venueId,
     packageId: PACKAGE.id,
     userId: null,
+    contactName: "Regression Customer",
     contactPhone: "9998887777",
+    contactEmail: "regression@example.com",
     bookingStatus: "APPROVED",
     paymentStatus: "INITIALIZED",
     createdByRole: "ADMIN",
@@ -350,6 +358,68 @@ describe("extra-hour pricing survives every booking flow", () => {
     expect(snapshot.extraDurationAmount).toBe(EXTRA_HOURS_AMOUNT);
     expect(baseAmount).toBe(EXPECTED_TOTAL);
     expect(totalAmount).toBe(EXPECTED_TOTAL);
+  });
+
+  it("admin create pay-later sends confirmation emails, not the review approval email", async () => {
+    const tx = withTx(makeTx());
+    vi.mocked(sendBookingConfirmationEmail).mockResolvedValueOnce(true);
+    const notificationBooking = {
+      ...existingSixHourBooking(),
+      venue: { city: "Miami", name: "Haven Retreat" },
+      items: [],
+      payment: [],
+    };
+    const notificationBookingUpdate = vi.fn().mockResolvedValue(notificationBooking);
+    Object.assign(prismaMock, {
+      booking: {
+        findUnique: vi.fn().mockResolvedValue(notificationBooking),
+        update: notificationBookingUpdate,
+      },
+    });
+
+    const res = await CREATE(
+      new Request("http://localhost/api/admin/bookings/create", {
+        method: "POST",
+        body: JSON.stringify({
+          mode: "CREATE",
+          ...adminBookingPayload({
+            payment: {
+              type: "OFFLINE",
+              collectNow: false,
+              amountMode: "ADVANCE",
+              advanceAmount: 0,
+            },
+          }),
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+
+    const afterCallback = vi.mocked(after).mock.calls.at(-1)?.[0];
+    expect(afterCallback).toBeTypeOf("function");
+    await (afterCallback as () => Promise<void>)();
+
+    expect(tx.payment.create).not.toHaveBeenCalled();
+    expect(sendBookingApprovedEmail).not.toHaveBeenCalled();
+    expect(sendBookingConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "regression@example.com",
+        bookingRef: "HR-TEST-0001",
+        subject: "Your Haven Retreat booking has been booked – HR-TEST-0001",
+      })
+    );
+    expect(sendAdminBookingConfirmationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingRef: "HR-TEST-0001",
+        confirmationSource: "ADMIN_OFFLINE_CREATE",
+      })
+    );
+    expect(notificationBookingUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "booking-1" },
+        data: { confirmationEmailSent: true },
+      })
+    );
   });
 
   it("admin edit: editing unrelated fields keeps the extra hours in the total", async () => {

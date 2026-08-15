@@ -99,7 +99,6 @@ export default function AdminPaymentReceivedBookingFailedEmail({
             eyebrow="Operations Update"
             title="Payment Captured, Booking Failed"
             backgroundColor="#ffffff"
-            textColor={dangerHeaderText}
             logoBorder={logoBorder}
             fallbackBackgroundColor={dangerHeaderText}
             fallbackTextColor="#ef4444"

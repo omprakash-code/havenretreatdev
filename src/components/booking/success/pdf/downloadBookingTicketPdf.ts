@@ -9,6 +9,7 @@ import {
   BOOKING_PENDING_REVIEW_STATUS_VALUE,
 } from "@/constants/booking-status-copy";
 import { HAVEN_WHATSAPP_DISPLAY_NUMBER } from "@/constants/haven-contact";
+import { buildBookingPaymentRows } from "@/lib/booking-payment-rows";
 
 export type PdfImage = {
   dataUrl: string;
@@ -243,99 +244,28 @@ export async function downloadBookingTicketPdf(
 }
 
 export function buildPaymentRows(data: BookingSuccessData): SectionRow[] {
-  const discountAmount = data.discountAmount ?? 0;
-  const showDiscountBreakdown = discountAmount > 0;
-  const subtotalBeforeDiscount = data.totalAmount + discountAmount;
-  const rows: SectionRow[] = [];
-
-  // The published price is shown, with the reduction as its own line, so the
-  // rows still add up to the same base amount.
-  const packageAdjustmentAmount = data.packageAdjustmentAmount ?? 0;
-  const packageAmount =
-    packageAdjustmentAmount > 0
-      ? data.packageListAmount ?? data.packageAmount ?? 0
-      : data.packageAmount ?? 0;
-  if (packageAmount > 0) {
-    rows.push({
-      label: "Package",
-      value: formatCurrency(packageAmount),
-    });
-  }
-
-  if (packageAdjustmentAmount > 0) {
-    rows.push({
-      label: "Included Items Reduced",
-      value: `- ${formatCurrency(packageAdjustmentAmount)}`,
-    });
-  }
-
-  const extraDurationAmount = data.extraDurationAmount ?? 0;
-  const extraDurationHours = data.extraDurationHours ?? 0;
-  if (extraDurationAmount > 0) {
-    const rateLabel =
-      extraDurationHours > 0
-        ? ` (${formatHourValue(extraDurationHours)} × ${formatCurrency(Math.round(extraDurationAmount / extraDurationHours))}/hr)`
-        : "";
-    rows.push({
-      label: `Extra Hours${rateLabel}`,
-      value: formatCurrency(extraDurationAmount),
-    });
-  }
-
-  const decorationAmount = data.decorationAmount ?? 0;
-  if (decorationAmount > 0) {
-    rows.push({
-      label: "Decoration",
-      value: formatCurrency(decorationAmount),
-    });
-  }
-
-  data.items
-    .filter((item) =>
-      item.extraQuantity !== null && item.extraQuantity !== undefined
-        ? item.extraQuantity > 0
-        : item.totalPrice > 0
-    )
-    .forEach((item) => {
-      const chargedQuantity =
-        item.extraQuantity ??
-        (item.unitPrice > 0 ? Math.max(Math.round(item.totalPrice / item.unitPrice), 1) : item.quantity);
-
-      rows.push({
-        label: `${sanitizeDisplayText(item.productName)} (${chargedQuantity} × ${formatCurrency(item.unitPrice)})`,
-        value: formatCurrency(item.totalPrice),
-      });
-    });
-
-  const additionalChargeAmount = data.additionalChargeAmount ?? 0;
-  if (additionalChargeAmount > 0) {
-    rows.push({
-      label: data.additionalChargeReason
-        ? `Additional Charge (${sanitizeDisplayText(data.additionalChargeReason)})`
-        : "Additional Charge",
-      value: formatCurrency(additionalChargeAmount),
-    });
-  }
-
-  if (showDiscountBreakdown) {
-    rows.push({
-      label: "Subtotal (Before Discount)",
-      value: formatCurrency(subtotalBeforeDiscount),
-    });
-
-    rows.push({
-      label: "Discount",
-      value: `-${formatCurrency(discountAmount)}`,
-      tone: "success",
-    });
-  }
-
-  rows.push({
-    label: showDiscountBreakdown
-      ? "Final Total (After Discount)"
-      : "Total Amount",
-    value: formatCurrency(data.totalAmount),
-    tone: "strong",
+  // The pricing breakdown is shared with both confirmation emails so the three
+  // surfaces cannot report different money. Only the payment-state rows below
+  // are receipt-specific.
+  const rows: SectionRow[] = buildBookingPaymentRows({
+    packageAmount: data.packageAmount,
+    packageListAmount: data.packageListAmount,
+    packageAdjustmentAmount: data.packageAdjustmentAmount,
+    extraDurationAmount: data.extraDurationAmount,
+    extraDurationHours: data.extraDurationHours,
+    decorationAmount: data.decorationAmount,
+    additionalChargeAmount: data.additionalChargeAmount,
+    additionalChargeReason: data.additionalChargeReason,
+    discountAmount: data.discountAmount,
+    totalAmount: data.totalAmount,
+    items: data.items.map((item) => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+      includedQuantity: item.includedQuantity,
+      extraQuantity: item.extraQuantity,
+    })),
   });
 
   // A booking awaiting review has collected nothing. Reporting a payment row

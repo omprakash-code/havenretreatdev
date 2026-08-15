@@ -9,7 +9,8 @@ import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { resolveLocationDisplayName } from "@/lib/location-display";
-import { toMoney } from "@/lib/money";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
+import { buildBookingPaymentRows } from "@/lib/booking-payment-rows";
 import { sendEmail, type EmailAttachment } from "@/services/email.service";
 import { resolveAdminBookingNotificationRecipients } from "@/services/booking/booking-notification-recipients.service";
 import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
@@ -113,6 +114,7 @@ function buildAddonItemsWithNumberValues(
     variantLabel: string;
     quantity: number;
     totalPrice: number;
+    includedQuantity?: number;
   }>,
   occasionData: Prisma.JsonValue | null
 ): BookingConfirmationAddonItem[] {
@@ -128,6 +130,8 @@ function buildAddonItemsWithNumberValues(
       variantLabel: item.variantLabel,
       quantity: item.quantity,
       totalPrice: item.totalPrice,
+      includedQuantity: item.includedQuantity ?? 0,
+      extraQuantity: Math.max(item.quantity - (item.includedQuantity ?? 0), 0),
       numberValue,
     };
   });
@@ -173,7 +177,9 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
           productName: true,
           variantLabel: true,
           quantity: true,
+          unitPrice: true,
           totalPrice: true,
+          includedQuantity: true,
         },
       },
       payment: {
@@ -230,6 +236,54 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
       })),
     (booking.occasionData as Prisma.JsonValue | null) ?? null
   );
+  // Resolved exactly as the customer email and PDF resolve it, then handed to
+  // the one shared row builder. No pricing is recalculated here.
+  const adminPricingSnapshot =
+    booking.pricingSnapshot &&
+    typeof booking.pricingSnapshot === "object" &&
+    !Array.isArray(booking.pricingSnapshot)
+      ? (booking.pricingSnapshot as Record<string, unknown>)
+      : null;
+  const adminPackageSnapshot =
+    booking.packageSnapshot &&
+    typeof booking.packageSnapshot === "object" &&
+    !Array.isArray(booking.packageSnapshot)
+      ? (booking.packageSnapshot as Record<string, unknown>)
+      : null;
+  const adminPackageAmount = Number(
+    adminPricingSnapshot?.packageAmount ??
+      adminPackageSnapshot?.subtotalAmount ??
+      adminPackageSnapshot?.finalAmount ??
+      0
+  );
+  const adminPackageAdjustment = toMoney(booking.packageAdjustmentAmount);
+  const adminPackageListAmount = Number(
+    adminPricingSnapshot?.packageListAmount ??
+      centsToMoney(
+        toCents(adminPackageAmount) + toCents(adminPackageAdjustment)
+      )
+  );
+  const paymentRows = buildBookingPaymentRows({
+    packageAmount: adminPackageAmount,
+    packageListAmount: adminPackageListAmount,
+    packageAdjustmentAmount: adminPackageAdjustment,
+    extraDurationAmount: Number(adminPricingSnapshot?.extraDurationAmount ?? 0),
+    extraDurationHours: Number(adminPricingSnapshot?.extraDurationHours ?? 0),
+    decorationAmount: toMoney(booking.decorationAmount),
+    additionalChargeAmount: toMoney(booking.additionalChargeAmount),
+    additionalChargeReason: booking.additionalChargeReason,
+    discountAmount: toMoney(booking.discountAmount),
+    totalAmount: toMoney(booking.totalAmount),
+    items: booking.items.map((item) => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: toMoney(item.unitPrice),
+      totalPrice: toMoney(item.totalPrice),
+      includedQuantity: item.includedQuantity,
+      extraQuantity: Math.max(item.quantity - item.includedQuantity, 0),
+    })),
+  });
+
   const emailData: BookingConfirmationEmailProps = {
     bookingRef: booking.bookingRef,
     customerName: booking.contactName ?? "Guest",
@@ -247,6 +301,7 @@ export async function sendAdminBookingConfirmationEmailByBookingId(
       (booking.occasionData as Prisma.JsonValue | null) ?? null
     ),
     addonItems,
+    paymentRows,
     signedAgreement: signedAgreement
       ? {
           id: signedAgreement.agreementRef,

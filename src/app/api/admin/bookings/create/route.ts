@@ -36,7 +36,6 @@ import {
   sendBookingConfirmationWhatsApp,
 } from "@/services/whatsapp.service";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
-import { sendBookingApprovedEmail } from "@/services/booking/booking-review-email.service";
 import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
 import { notifyAbandonedBookingsByIds } from "@/services/booking/booking-abandonment-email.service";
 import {
@@ -411,24 +410,6 @@ async function runAdminCreateBookingNotifications(
       );
     }
 
-    if (result.awaitingPayment) {
-      await profiler.measure("Review/payment email", "Non-critical", async () => {
-        try {
-          await sendBookingApprovedEmail(result.bookingId);
-        } catch (error) {
-          appLogger.warn("ADMIN_PAY_LATER_APPROVED_EMAIL_FAILED", {
-            bookingId: result.bookingId,
-            bookingRef: result.bookingRef,
-            message:
-              error instanceof Error
-                ? error.message
-                : "Unknown email notification error",
-          });
-        }
-      });
-      return;
-    }
-
     if (result.paymentType !== "OFFLINE") {
       return;
     }
@@ -547,6 +528,7 @@ async function runAdminCreateBookingNotifications(
               bookingRef: bookingForNotification.bookingRef,
               emailData,
               theme: process.env.BOOKING_EMAIL_THEME,
+              subject: `Your Haven Retreat booking has been booked – ${bookingForNotification.bookingRef}`,
             });
 
             if (emailSent) {

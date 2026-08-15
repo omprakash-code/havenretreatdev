@@ -141,7 +141,6 @@ type ActionButtonProps = {
   href: string;
   label: string;
   backgroundColor: string;
-  textColor: string;
   uppercase?: boolean;
 };
 
@@ -149,7 +148,6 @@ export function BookingEmailCenteredActionButton({
   href,
   label,
   backgroundColor,
-  textColor,
   uppercase = true,
 }: ActionButtonProps) {
   return (
@@ -173,7 +171,7 @@ export function BookingEmailCenteredActionButton({
                   <td
                     style={{
                       backgroundColor,
-                      borderRadius: 4,
+                      borderRadius: 0,
                     }}
                   >
                     <a
@@ -181,7 +179,7 @@ export function BookingEmailCenteredActionButton({
                       style={{
                         display: "inline-block",
                         padding: "10px 14px",
-                        color: textColor,
+                        color: "#ffffff",
                         textDecoration: "none",
                         fontSize: 12,
                         fontWeight: 600,

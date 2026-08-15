@@ -1,16 +1,21 @@
-import BookingEmailFontStyles from "@/emails/components/BookingEmailFontStyles";
-import { BOOKING_EMAIL_BRAND_LOGO_URL } from "@/emails/theme/booking-email-branding";
+import BookingEmailHeader from "@/emails/components/BookingEmailHeader";
+import type { PaymentSummaryRow } from "@/lib/booking-payment-rows";
 import { bookingEmailColors, bookingEmailFonts } from "@/emails/theme/booking-email-colors";
 import {
   BOOKING_PAYMENT_APPLIED_MESSAGE,
   BOOKING_CONFIRMED_MESSAGE,
   BOOKING_CONFIRMED_TITLE,
+  BOOKING_PAY_LATER_MESSAGE,
 } from "@/constants/booking-status-copy";
 export type BookingConfirmationAddonItem = {
   name: string;
   variantLabel?: string;
   quantity: number;
   totalPrice: number;
+  /** Final quantity the package covers, after any reduction. */
+  includedQuantity?: number;
+  /** Quantity billed above the package allowance. */
+  extraQuantity?: number;
   numberValue?: string;
   image?: string | null;
 };
@@ -49,6 +54,12 @@ export type BookingConfirmationEmailProps = {
   occasionLabel?: string;
   occasionDetails?: BookingConfirmationDetail[];
   addonItems?: BookingConfirmationAddonItem[];
+  /**
+   * The pricing breakdown, built by buildBookingPaymentRows() and shared with
+   * the PDF receipt and the admin email. Rendered verbatim so the surfaces
+   * cannot report different money.
+   */
+  paymentRows?: PaymentSummaryRow[];
   signedAgreement?: BookingConfirmationSignedAgreement | null;
   paymentType?: string;
   paymentMethod?: string;
@@ -76,7 +87,6 @@ const moneyFormatter = new Intl.NumberFormat("en-US", {
 
 const color = bookingEmailColors.dark;
 
-const BRAND_LOGO_URL = BOOKING_EMAIL_BRAND_LOGO_URL;
 
 function formatMoney(value: number) {
   const amount = Math.max(0, Number(value) || 0);
@@ -220,8 +230,10 @@ export default function BookingConfirmationEmail({
   totalAmount,
   advancePaid,
   remainingPayable,
+  paymentRows,
 }: BookingConfirmationEmailProps) {
   const showBalanceAtVenue = remainingPayable > 0;
+  const isPayLater = advancePaid <= 0 && remainingPayable > 0;
   const sanitizedDetails = occasionDetails
     .filter(
       (detail) =>
@@ -243,7 +255,6 @@ export default function BookingConfirmationEmail({
         fontFamily: bookingEmailFonts.body,
       }}
     >
-      <BookingEmailFontStyles />
       <table
         role="presentation"
         cellPadding={0}
@@ -262,112 +273,13 @@ export default function BookingConfirmationEmail({
         }}
       >
         <tbody>
-          <tr>
-            <td style={{ backgroundColor: "#ffffff", padding: "14px 12px 12px" }}>
-              <table
-                role="presentation"
-                cellPadding={0}
-                cellSpacing={0}
-                width="100%"
-                style={{ width: "100%", tableLayout: "fixed" }}
-              >
-                <tbody>
-                  <tr>
-                    <td style={{ verticalAlign: "middle", width: "60%", paddingRight: 8 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: 10,
-                          letterSpacing: "0.2em",
-                          color: color.cardBg,
-                          fontWeight: 700,
-                          textTransform: "uppercase" as const,
-                        }}
-                      >
-                        Haven Retreat
-                      </p>
-                      <h1
-                        style={{
-                          margin: "6px 0 0",
-                          fontSize: 22,
-                          fontWeight: 900,
-                          color: color.cardBg,
-                          letterSpacing: "-0.02em",
-                          lineHeight: 1.05,
-                          fontFamily: bookingEmailFonts.heading,
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        Booking Received
-                      </h1>
-                    </td>
-                    <td
-                      align="right"
-                      style={{
-                        width: "40%",
-                        minWidth: 56,
-                        verticalAlign: "middle",
-                        textAlign: "right",
-                        fontSize: 0,
-                        lineHeight: 0,
-                      }}
-                    >
-                      <table
-                        role="presentation"
-                        align="right"
-                        cellPadding={0}
-                        cellSpacing={0}
-                        style={{ marginLeft: "auto" }}
-                      >
-                        <tbody>
-                          <tr>
-                            <td align="right" style={{ textAlign: "right" }}>
-                              {BRAND_LOGO_URL ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={BRAND_LOGO_URL}
-                                  alt=""
-                                  width={168}
-                                  height={95}
-                                  style={{
-                                    width: 168,
-                                    height: 95,
-                                    margin: 0,
-                                    display: "block",
-                                    border: 0,
-                                    objectFit: "contain",
-                                  }}
-                                />
-                              ) : (
-                                <div
-                                  style={{
-                                    width: 52,
-                                    height: 52,
-                                    borderRadius: 6,
-                                    backgroundColor: color.cardBg,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 16,
-                                    fontWeight: 800,
-                                    color: bookingEmailColors.brandAccent,
-                                    letterSpacing: "0.08em",
-                                    lineHeight: "52px",
-                                  }}
-                                >
-                                  DS
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
+          <BookingEmailHeader
+            title={bookingRef}
+            referenceTitle
+            eyebrow="Booking Received"
+            backgroundColor="#ffffff"
+            logoBorder={color.logoBorder}
+          />
 
           <tr>
             <td
@@ -432,10 +344,9 @@ export default function BookingConfirmationEmail({
                         {BOOKING_CONFIRMED_TITLE}
                       </p>
                       <p style={{ margin: "4px 0 0", fontSize: 11, color: "#2b6a67", lineHeight: 1.5, fontFamily: bookingEmailFonts.body }}>
-                        {BOOKING_CONFIRMED_MESSAGE}
-                      </p>
-                      <p style={{ margin: "6px 0 0", fontSize: 10, color: "#2b6a67", fontFamily: bookingEmailFonts.body }}>
-                        {BOOKING_PAYMENT_APPLIED_MESSAGE}
+                        {isPayLater
+                          ? BOOKING_PAY_LATER_MESSAGE
+                          : `${BOOKING_CONFIRMED_MESSAGE} ${BOOKING_PAYMENT_APPLIED_MESSAGE}`}
                       </p>
                     </td>
                   </tr>
@@ -640,6 +551,16 @@ export default function BookingConfirmationEmail({
                                     {item.name}
                                     {item.variantLabel ? ` (${item.variantLabel})` : ""}
                                     {item.numberValue ? ` — #${item.numberValue}` : ""}
+                                    {/* The booking's FINAL included quantity, after
+                                        any reduction — never the package default. */}
+                                    {item.includedQuantity && item.includedQuantity > 0 ? (
+                                      <div style={{ fontSize: 11, color: color.textMuted, paddingTop: 2 }}>
+                                        Included: {item.includedQuantity}
+                                        {item.extraQuantity && item.extraQuantity > 0
+                                          ? ` · ${item.extraQuantity} extra`
+                                          : ""}
+                                      </div>
+                                    ) : null}
                                   </td>
                                   <td
                                     align="center"
@@ -705,6 +626,44 @@ export default function BookingConfirmationEmail({
                     <td style={{ paddingTop: 10 }}>
                       <table role="presentation" cellPadding={0} cellSpacing={0} style={{ width: "100%" }}>
                         <tbody>
+                          {/* Rendered from the shared builder so this matches
+                              the PDF and the admin email row for row. The legacy
+                              fields below are the fallback for callers that do
+                              not supply rows yet. */}
+                          {paymentRows && paymentRows.length > 0
+                            ? paymentRows
+                                .filter((row) => row.tone !== "strong")
+                                .map((row, index) => (
+                                  <tr key={`${row.label}-${index}`}>
+                                    <td
+                                      style={{
+                                        fontSize: 12,
+                                        color:
+                                          row.tone === "success"
+                                            ? bookingEmailColors.success
+                                            : color.textSecondary,
+                                        padding: "4px 0",
+                                      }}
+                                    >
+                                      {row.label}
+                                    </td>
+                                    <td
+                                      align="right"
+                                      style={{
+                                        fontSize: 12,
+                                        color:
+                                          row.tone === "success"
+                                            ? bookingEmailColors.success
+                                            : color.textMuted,
+                                        padding: "4px 0",
+                                      }}
+                                    >
+                                      {row.value}
+                                    </td>
+                                  </tr>
+                                ))
+                            : (
+                              <>
                           {baseAmount > 0 ? (
                             <tr>
                               <td style={{ fontSize: 12, color: color.textSecondary, padding: "4px 0" }}>Base Amount</td>
@@ -757,6 +716,8 @@ export default function BookingConfirmationEmail({
                               </td>
                             </tr>
                           ) : null}
+                              </>
+                            )}
                           <tr>
                             <td colSpan={2} style={{ padding: "8px 0 0" }}>
                               <div style={{ borderTop: color.borderStrongLine }} />
@@ -765,7 +726,10 @@ export default function BookingConfirmationEmail({
                           <tr>
                             <td style={{ fontSize: 14, fontWeight: 800, color: color.textPrimary, padding: "8px 0 0" }}>TOTAL</td>
                             <td align="right" style={{ fontSize: 18, fontWeight: 900, color: bookingEmailColors.brandAccent, padding: "8px 0 0" }}>
-                              {formatMoney(totalAmount)}
+                              {/* The shared builder's own total string, so the
+                                  figure matches the PDF and admin email exactly. */}
+                              {paymentRows?.find((row) => row.tone === "strong")?.value ??
+                                formatMoney(totalAmount)}
                             </td>
                           </tr>
                         </tbody>
@@ -782,39 +746,41 @@ export default function BookingConfirmationEmail({
                         style={{ width: "100%", border: color.borderLine, backgroundColor: color.panelBg }}
                       >
                         <tbody>
-                          <tr>
-                            <td
-                              align="left"
-                              style={{
-                                padding: "10px 12px",
-                                fontSize: 11,
-                                letterSpacing: "0.1em",
-                                color: color.textSecondary,
-                                textTransform: "uppercase" as const,
-                              }}
-                            >
-                              Amount Paid
-                            </td>
-                            <td
-                              align="right"
-                              style={{
-                                padding: "10px 12px",
-                                fontSize: 14,
-                                fontWeight: 800,
-                                color: color.textPrimary,
-                                textAlign: "right",
-                                whiteSpace: "nowrap" as const,
-                              }}
-                            >
-                              {formatMoney(advancePaid)}
-                            </td>
-                          </tr>
+                          {!isPayLater ? (
+                            <tr>
+                              <td
+                                align="left"
+                                style={{
+                                  padding: "10px 12px",
+                                  fontSize: 11,
+                                  letterSpacing: "0.1em",
+                                  color: color.textSecondary,
+                                  textTransform: "uppercase" as const,
+                                }}
+                              >
+                                Amount Paid
+                              </td>
+                              <td
+                                align="right"
+                                style={{
+                                  padding: "10px 12px",
+                                  fontSize: 14,
+                                  fontWeight: 800,
+                                  color: color.textPrimary,
+                                  textAlign: "right",
+                                  whiteSpace: "nowrap" as const,
+                                }}
+                              >
+                                {formatMoney(advancePaid)}
+                              </td>
+                            </tr>
+                          ) : null}
                           {showBalanceAtVenue ? (
                             <tr>
                               <td
                                 align="left"
                                 style={{
-                                  borderTop: color.borderLine,
+                                  borderTop: isPayLater ? undefined : color.borderLine,
                                   padding: "10px 12px",
                                   fontSize: 11,
                                   letterSpacing: "0.1em",
@@ -822,12 +788,12 @@ export default function BookingConfirmationEmail({
                                   textTransform: "uppercase" as const,
                                 }}
                               >
-                                Balance at Venue
+                                {isPayLater ? "Balance Due" : "Balance at Venue"}
                               </td>
                               <td
                                 align="right"
                                 style={{
-                                  borderTop: color.borderLine,
+                                  borderTop: isPayLater ? undefined : color.borderLine,
                                   padding: "10px 12px",
                                   fontSize: 14,
                                   fontWeight: 900,

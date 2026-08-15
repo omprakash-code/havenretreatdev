@@ -45,7 +45,6 @@ const color =
   resolvedTheme === "light"
     ? bookingEmailColors.light
     : bookingEmailColors.dark;
-const accentTextColor = bookingEmailColors.dark.textStrong;
 const bodyTextColor =
   resolvedTheme === "light"
     ? bookingEmailColors.light.textPrimary
@@ -99,7 +98,6 @@ export default function UserPaymentReceivedBookingFailedEmail({
             eyebrow="Haven Retreat"
             title="Payment Received, Booking Not Confirmed"
             backgroundColor="#ffffff"
-            textColor={accentTextColor}
             logoBorder={logoBorder}
           />
 
@@ -226,7 +224,6 @@ export default function UserPaymentReceivedBookingFailedEmail({
                 href={restartUrl}
                 label="Restart Booking"
                 backgroundColor={bookingEmailColors.brandAccent}
-                textColor={accentTextColor}
               />
             </td>
           </tr>

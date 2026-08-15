@@ -58,7 +58,6 @@ export default function UserBookingAbandonmentEmail({
     resolvedTheme === "light"
       ? bookingEmailColors.light
       : bookingEmailColors.dark;
-  const accentTextColor = bookingEmailColors.dark.textStrong;
   const bodyTextColor =
     resolvedTheme === "light"
       ? bookingEmailColors.light.textPrimary
@@ -110,7 +109,6 @@ export default function UserBookingAbandonmentEmail({
             eyebrow="Haven Retreat"
             title={emailTitle}
             backgroundColor="#ffffff"
-            textColor={accentTextColor}
             logoBorder={logoBorder}
           />
 
@@ -225,7 +223,6 @@ export default function UserBookingAbandonmentEmail({
                 href={resumeUrl}
                 label={ctaLabel}
                 backgroundColor={bookingEmailColors.brandAccent}
-                textColor={accentTextColor}
               />
             </td>
           </tr>

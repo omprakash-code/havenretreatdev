@@ -14,6 +14,7 @@ type SendBookingConfirmationEmailParams = {
   emailData: BookingConfirmationEmailProps;
   theme?: string | null;
   agreementAttachment?: EmailAttachment | null;
+  subject?: string;
 };
 
 export async function sendBookingConfirmationEmail({
@@ -22,6 +23,7 @@ export async function sendBookingConfirmationEmail({
   emailData,
   theme,
   agreementAttachment,
+  subject,
 }: SendBookingConfirmationEmailParams) {
   if (!isEmailConfigured()) {
     return false;
@@ -52,7 +54,8 @@ export async function sendBookingConfirmationEmail({
 
   return sendEmail({
     to,
-    subject: `Your Haven Retreat booking request received - ${bookingRef}`,
+    subject:
+      subject ?? `Your Haven Retreat booking request received - ${bookingRef}`,
     react: renderBookingConfirmationEmail(emailData, theme),
     attachments: attachments.length > 0 ? attachments : undefined,
   });

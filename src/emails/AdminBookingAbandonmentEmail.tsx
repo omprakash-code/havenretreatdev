@@ -104,7 +104,6 @@ export default function AdminBookingAbandonmentEmail({
             eyebrow="Operations Update"
             title={headerTitle}
             backgroundColor="#ffffff"
-            textColor={dangerHeaderText}
             logoBorder={logoBorder}
             fallbackBackgroundColor={dangerHeaderText}
             fallbackTextColor="#EF4444"

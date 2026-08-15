@@ -1,4 +1,6 @@
 import BookingEmailHeader from "@/emails/components/BookingEmailHeader";
+import type { PaymentSummaryRow } from "@/lib/booking-payment-rows";
+import { resolveBookingEmailTheme } from "@/emails/theme/booking-email-theme";
 import {
   BookingEmailCenteredActionButton,
   BookingEmailDataRow,
@@ -38,13 +40,24 @@ export type BookingReviewEmailProps = {
   additionalChargeAmount?: number | null;
   additionalChargeReason?: string | null;
   totalAmount: number;
+  /**
+   * The pricing breakdown from buildBookingPaymentRows() — the same rows the
+   * PDF and the confirmation emails render. Without it the recipient sees only
+   * a total and cannot tell why a reduced package differs from its list price.
+   */
+  paymentRows?: PaymentSummaryRow[];
   agreementSigned: boolean;
   rejectionReason?: string | null;
   actionUrl?: string | null;
   actionLabel?: string;
 };
 
-const color = bookingEmailColors.dark;
+// Resolved like every other template so the look never depends on which flow
+// created the booking.
+const color =
+  resolveBookingEmailTheme(process.env.BOOKING_EMAIL_THEME) === "light"
+    ? bookingEmailColors.light
+    : bookingEmailColors.dark;
 
 const moneyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -101,6 +114,15 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
   const isAdmin = props.variant === "ADMIN_SUBMITTED";
   const isApproved = props.variant === "APPROVED";
   const amountLabel = isAdmin ? "Total Estimate" : "Estimated Total";
+  // Everything above the total. The builder's own final row is dropped so the
+  // wording stays "Estimated Total" / "Total Estimate", but its VALUE is reused
+  // so the figure matches the PDF exactly.
+  const breakdownRows = (props.paymentRows ?? []).filter(
+    (row) => row.tone !== "strong"
+  );
+  const totalValue =
+    props.paymentRows?.find((row) => row.tone === "strong")?.value ??
+    formatMoney(props.totalAmount);
   const rejectionReason =
     props.variant === "REJECTED" ? props.rejectionReason?.trim() : null;
 
@@ -136,7 +158,6 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
             referenceTitle
             eyebrow={copy.eyebrow}
             backgroundColor="#ffffff"
-            textColor={bookingEmailColors.dark.textStrong}
             logoBorder={color.logoBorder}
           />
 
@@ -427,21 +448,27 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                       }
                       valueWeight={700}
                     />
-                    {(props.additionalChargeAmount ?? 0) > 0 && (
+                    {/* The shared breakdown, rendered verbatim so this email
+                        cannot disagree with the PDF or the confirmation emails.
+                        It already carries the additional-charge row, so no row
+                        is repeated here. Empty rows are never produced: the
+                        builder only emits lines that apply. */}
+                    {breakdownRows.map((row, index) => (
                       <BookingEmailDataRow
-                        label={
-                          props.additionalChargeReason
-                            ? `Additional Charge (${props.additionalChargeReason})`
-                            : "Additional Charge"
-                        }
-                        value={formatMoney(props.additionalChargeAmount ?? 0)}
+                        key={`${row.label}-${index}`}
+                        label={row.label}
+                        value={row.value}
                         labelColor={color.textSecondary}
-                        valueColor={color.textPrimary}
+                        valueColor={
+                          row.tone === "success"
+                            ? bookingEmailColors.success
+                            : color.textPrimary
+                        }
                       />
-                    )}
+                    ))}
                     <BookingEmailDataRow
                       label={amountLabel}
-                      value={formatMoney(props.totalAmount)}
+                      value={totalValue}
                       labelColor={color.textSecondary}
                       valueColor={color.textPrimary}
                       valueWeight={700}
@@ -516,7 +543,6 @@ export default function BookingReviewEmail(props: BookingReviewEmailProps) {
                     (isApproved ? "View Your Booking" : "View Booking")
                   }
                   backgroundColor={bookingEmailColors.brandAccent}
-                  textColor={color.textPrimary}
                   uppercase={!isApproved}
                 />
               )}

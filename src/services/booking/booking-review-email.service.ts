@@ -5,7 +5,8 @@ import BookingReviewEmail, {
 import { prisma } from "@/lib/db";
 import { resolveLocationDisplayName } from "@/lib/location-display";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
-import { toMoney } from "@/lib/money";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
+import { buildBookingPaymentRows } from "@/lib/booking-payment-rows";
 import { buildBookingRequestPdfAttachment } from "@/lib/pdf/booking-request";
 import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
 import { sendEmail, type EmailAttachment } from "@/services/email.service";
@@ -29,6 +30,17 @@ async function loadReviewEmailContext(bookingId: string) {
     where: { id: bookingId },
     include: {
       venue: true,
+      // Needed for the payment breakdown: charged lines and the allowance each
+      // was priced against.
+      items: {
+        select: {
+          productName: true,
+          quantity: true,
+          unitPrice: true,
+          totalPrice: true,
+          includedQuantity: true,
+        },
+      },
       signedAgreements: {
         orderBy: { signedAt: "desc" },
         take: 1,
@@ -52,6 +64,56 @@ async function loadReviewEmailContext(bookingId: string) {
 
   const signedAgreement = booking.signedAgreements[0] ?? null;
 
+  // Resolved exactly as the PDF and the confirmation emails resolve it: the
+  // pricing snapshot is authoritative, the package snapshot is the fallback.
+  // Nothing is recalculated — these are the booking's stored values.
+  const reviewPricingSnapshot =
+    booking.pricingSnapshot &&
+    typeof booking.pricingSnapshot === "object" &&
+    !Array.isArray(booking.pricingSnapshot)
+      ? (booking.pricingSnapshot as Record<string, unknown>)
+      : null;
+  const reviewPackageSnapshot =
+    booking.packageSnapshot &&
+    typeof booking.packageSnapshot === "object" &&
+    !Array.isArray(booking.packageSnapshot)
+      ? (booking.packageSnapshot as Record<string, unknown>)
+      : null;
+  const reviewPackageAmount = Number(
+    reviewPricingSnapshot?.packageAmount ??
+      reviewPackageSnapshot?.subtotalAmount ??
+      reviewPackageSnapshot?.finalAmount ??
+      0
+  );
+  const reviewPackageAdjustment = toMoney(booking.packageAdjustmentAmount);
+  const paymentRows = buildBookingPaymentRows({
+    packageAmount: reviewPackageAmount,
+    packageListAmount: Number(
+      reviewPricingSnapshot?.packageListAmount ??
+        centsToMoney(
+          toCents(reviewPackageAmount) + toCents(reviewPackageAdjustment)
+        )
+    ),
+    packageAdjustmentAmount: reviewPackageAdjustment,
+    extraDurationAmount: Number(
+      reviewPricingSnapshot?.extraDurationAmount ?? 0
+    ),
+    extraDurationHours: Number(reviewPricingSnapshot?.extraDurationHours ?? 0),
+    decorationAmount: toMoney(booking.decorationAmount),
+    additionalChargeAmount: toMoney(booking.additionalChargeAmount),
+    additionalChargeReason: booking.additionalChargeReason,
+    discountAmount: toMoney(booking.discountAmount),
+    totalAmount: toMoney(booking.totalAmount),
+    items: booking.items.map((item) => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: toMoney(item.unitPrice),
+      totalPrice: toMoney(item.totalPrice),
+      includedQuantity: item.includedQuantity,
+      extraQuantity: Math.max(item.quantity - item.includedQuantity, 0),
+    })),
+  });
+
   const base: Omit<BookingReviewEmailProps, "variant"> = {
     bookingRef: booking.bookingRef,
     customerName: booking.contactName ?? "Guest",
@@ -69,6 +131,7 @@ async function loadReviewEmailContext(bookingId: string) {
     additionalChargeAmount: toMoney(booking.additionalChargeAmount),
     additionalChargeReason: booking.additionalChargeReason,
     totalAmount: toMoney(booking.totalAmount),
+    paymentRows,
     agreementSigned: Boolean(signedAgreement),
     rejectionReason: booking.rejectionReason,
   };

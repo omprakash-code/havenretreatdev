@@ -7,10 +7,9 @@ export const BOOKING_REVIEW_MESSAGE =
   "Thank you for your booking request. We'll review your booking and contact you shortly.";
 
 // The booking sidebar leads with the takeaway and explains underneath, so the
-// headline and the follow-up are separate. Surfaces with room for only one line
-// (emails, PDF, the success page) use the combined sentence instead. Rendering
-// both the headline and the combined sentence together would say "no payment"
-// twice.
+// headline and the follow-up are separate. Compact review surfaces use the
+// combined sentence instead. Rendering both the headline and the combined
+// sentence together would say "no payment" twice.
 export const BOOKING_NO_PAYMENT_TODAY_TITLE = "No payment is required today";
 
 export const BOOKING_REVIEW_FOLLOWUP_TITLE =
@@ -66,3 +65,6 @@ export const BOOKING_CONFIRMED_MESSAGE =
 
 export const BOOKING_PAYMENT_APPLIED_MESSAGE =
   "Your payment has been applied. The remaining balance is due one week before your event.";
+
+export const BOOKING_PAY_LATER_MESSAGE =
+  "Your date is reserved and your booking is confirmed. No payment has been collected yet. The balance is due one week before your event unless Haven Retreat gives you different instructions.";

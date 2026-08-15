@@ -33,7 +33,6 @@ const color =
   resolvedTheme === "light"
     ? bookingEmailColors.light
     : bookingEmailColors.dark;
-const accentTextColor = bookingEmailColors.dark.textStrong;
 const bodyTextColor =
   resolvedTheme === "light"
     ? bookingEmailColors.light.textPrimary
@@ -79,7 +78,6 @@ export default function BookingPaymentLinkEmail({
             eyebrow="Haven Retreat"
             title="Complete Your Payment"
             backgroundColor="#ffffff"
-            textColor={accentTextColor}
             logoBorder={logoBorder}
           />
 
@@ -127,7 +125,6 @@ export default function BookingPaymentLinkEmail({
                 href={paymentLinkUrl}
                 label="Pay Now"
                 backgroundColor={bookingEmailColors.brandAccent}
-                textColor={accentTextColor}
               />
 
               <p style={{ margin: "14px 0 0", fontSize: 11, color: color.textSecondary }}>

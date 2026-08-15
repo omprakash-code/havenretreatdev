@@ -34,6 +34,7 @@ export const bookingEmailColors = {
     textPrimary: "#111827",
     textSecondary: "#4b5563",
     textMuted: "#6b7280",
+    textSubtle: "#374151",
     textStrong: "#1f2937",
     tableHeader: "#4b5563",
     border: "#d1d5db",

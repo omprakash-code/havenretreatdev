@@ -9,7 +9,8 @@ import { prisma } from "@/lib/db";
 import { resolvePresentedBookingSchedule } from "@/lib/booking-schedule-presenter";
 import { isNumberDecorationProduct } from "@/lib/product-numbering";
 import { resolveLocationDisplayName } from "@/lib/location-display";
-import { toMoney } from "@/lib/money";
+import { centsToMoney, toCents, toMoney } from "@/lib/money";
+import { buildBookingPaymentRows } from "@/lib/booking-payment-rows";
 import { sendBookingConfirmationEmail } from "@/services/booking/booking-confirmation-email.service";
 import { sendAdminBookingConfirmationEmail } from "@/services/booking/admin-booking-confirmation-email.service";
 import { createStoredAgreementAttachment } from "@/lib/pdf/stored-signed-agreement";
@@ -84,6 +85,7 @@ function buildAddonItems(
     variantLabel: string;
     quantity: number;
     totalPrice: number;
+    includedQuantity?: number;
     product: { image: string | null } | null;
   }>,
   occasionData: Prisma.JsonValue | null
@@ -98,6 +100,8 @@ function buildAddonItems(
       variantLabel: item.variantLabel,
       quantity: item.quantity,
       totalPrice: item.totalPrice,
+      includedQuantity: item.includedQuantity ?? 0,
+      extraQuantity: Math.max(item.quantity - (item.includedQuantity ?? 0), 0),
       numberValue,
       image: item.product?.image ?? null,
     };
@@ -122,7 +126,9 @@ export async function sendRangeBookingConfirmationEmails({
           productName: true,
           variantLabel: true,
           quantity: true,
+          unitPrice: true,
           totalPrice: true,
+          includedQuantity: true,
           product: {
             select: {
               image: true,
@@ -220,6 +226,43 @@ export async function sendRangeBookingConfirmationEmails({
     booking.occasionData as Prisma.JsonValue | null
   );
 
+  // Resolved the same way the success page and PDF resolve it: the pricing
+  // snapshot is authoritative, with the package snapshot as the fallback.
+  const packageAmount = Number(
+    pricingSnapshot?.packageAmount ??
+      packageSnapshot?.subtotalAmount ??
+      packageSnapshot?.finalAmount ??
+      0
+  );
+  const packageAdjustmentAmount = toMoney(booking.packageAdjustmentAmount);
+  const packageListAmount = Number(
+    pricingSnapshot?.packageListAmount ??
+      centsToMoney(toCents(packageAmount) + toCents(packageAdjustmentAmount))
+  );
+
+  // One shared builder for the PDF and both emails, fed only with amounts the
+  // booking already stores — no pricing is recalculated here.
+  const paymentRows = buildBookingPaymentRows({
+    packageAmount,
+    packageListAmount,
+    packageAdjustmentAmount,
+    extraDurationAmount,
+    extraDurationHours,
+    decorationAmount: toMoney(booking.decorationAmount),
+    additionalChargeAmount: toMoney(booking.additionalChargeAmount),
+    additionalChargeReason: booking.additionalChargeReason,
+    discountAmount: toMoney(booking.discountAmount),
+    totalAmount: toMoney(booking.totalAmount),
+    items: booking.items.map((item) => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: toMoney(item.unitPrice),
+      totalPrice: toMoney(item.totalPrice),
+      includedQuantity: item.includedQuantity,
+      extraQuantity: Math.max(item.quantity - item.includedQuantity, 0),
+    })),
+  });
+
   const emailData: BookingConfirmationEmailProps = {
     bookingRef: booking.bookingRef,
     customerName: booking.contactName ?? "Guest",
@@ -239,6 +282,7 @@ export async function sendRangeBookingConfirmationEmails({
     occasionLabel: booking.occasionLabel ?? undefined,
     occasionDetails: buildOccasionDetails(booking.occasionData as Prisma.JsonValue | null),
     addonItems,
+    paymentRows,
     signedAgreement: signedAgreement
       ? {
           id: signedAgreement.agreementRef,

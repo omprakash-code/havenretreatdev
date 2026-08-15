@@ -52,6 +52,13 @@ const BOOKING = {
   occasionLabel: "Birthday",
   decorationRequired: true,
   totalAmount: 2400,
+  packageAdjustmentAmount: 0,
+  additionalChargeAmount: 0,
+  additionalChargeReason: null,
+  decorationAmount: 0,
+  discountAmount: 0,
+  pricingSnapshot: { packageAmount: 2400 },
+  items: [],
   rejectionReason: null,
   signedAgreements: [
     { id: "agr_1", pdfFileName: "agreement.pdf", pdfContent: new Uint8Array([1]) },

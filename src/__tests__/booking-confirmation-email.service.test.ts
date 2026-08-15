@@ -148,4 +148,19 @@ describe("sendBookingConfirmationEmail", () => {
       ])
     );
   });
+
+  it("allows callers to override the subject", async () => {
+    await sendBookingConfirmationEmail({
+      to: "demo@example.com",
+      bookingRef: "HR-BOOK-100",
+      emailData: baseEmailData,
+      subject: "Your Haven Retreat booking has been booked – HR-BOOK-100",
+    });
+
+    expect(sendEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: "Your Haven Retreat booking has been booked – HR-BOOK-100",
+      })
+    );
+  });
 });

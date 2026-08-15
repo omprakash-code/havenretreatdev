@@ -22,7 +22,6 @@ const color =
   resolvedTheme === "light"
     ? bookingEmailColors.light
     : bookingEmailColors.admin;
-const accentTextColor = bookingEmailColors.dark.textStrong;
 const logoBorder =
   resolvedTheme === "light"
     ? bookingEmailColors.light.logoBorder
@@ -40,6 +39,23 @@ function formatAddonPrice(value: number) {
 function formatPaymentMethod(method: string) {
   const prefix = method.split(":")[0];
   return prefix.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatPaymentStatus(status: string) {
+  const normalized = status.trim().toUpperCase();
+  if (normalized === "INITIALIZED" || normalized === "PENDING") {
+    return "Awaiting Payment";
+  }
+  if (normalized === "PAID") return "Paid";
+  if (normalized === "OFFLINE") return "Recorded Offline";
+  if (normalized === "FAILED") return "Payment Failed";
+  if (normalized === "REFUNDED") return "Refunded";
+  if (normalized === "MANUAL_REVIEW") return "Manual Review";
+
+  return normalized
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function AdminBookingConfirmationEmail({
@@ -62,7 +78,10 @@ export default function AdminBookingConfirmationEmail({
   paymentMethod,
   paymentStatus,
   paymentReference,
+  paymentRows,
 }: AdminBookingConfirmationEmailProps) {
+  const isPayLater = advancePaid <= 0 && remainingPayable > 0;
+
   return (
     <div
       style={{
@@ -89,10 +108,10 @@ export default function AdminBookingConfirmationEmail({
       >
         <tbody>
           <BookingEmailHeader
-            eyebrow="New Booking"
-            title="Booking Received"
+            eyebrow="Booking Received"
+            title={bookingRef}
+            referenceTitle
             backgroundColor="#ffffff"
-            textColor={accentTextColor}
             logoBorder={logoBorder}
           />
 
@@ -194,7 +213,15 @@ export default function AdminBookingConfirmationEmail({
                       {addonItems.map((item, index) => (
                         <BookingEmailDataRow
                           key={`${item.name}-${item.variantLabel ?? "default"}-${index}`}
-                          label={`${item.name}${item.numberValue ? ` (#${item.numberValue})` : ""}${item.variantLabel ? ` - ${item.variantLabel}` : ""} x${item.quantity}`}
+                          label={`${item.name}${item.numberValue ? ` (#${item.numberValue})` : ""}${item.variantLabel ? ` - ${item.variantLabel}` : ""} x${item.quantity}${
+                            item.includedQuantity && item.includedQuantity > 0
+                              ? ` — included: ${item.includedQuantity}${
+                                  item.extraQuantity && item.extraQuantity > 0
+                                    ? `, ${item.extraQuantity} extra`
+                                    : ""
+                                }`
+                              : ""
+                          }`}
                           value={formatAddonPrice(item.totalPrice)}
                           labelColor={color.textSecondary}
                           last={index === addonItems.length - 1}
@@ -211,18 +238,34 @@ export default function AdminBookingConfirmationEmail({
                     <BookingEmailSectionLabel textColor={color.textSecondary}>
                       Payment Summary
                     </BookingEmailSectionLabel>
+                    {/* The same breakdown the PDF and the customer email show,
+                        so the admin sees why a package differs from its list
+                        price. Built by buildBookingPaymentRows(). */}
+                    {paymentRows && paymentRows.length > 0
+                      ? paymentRows.map((row, index) => (
+                          <BookingEmailDataRow
+                            key={`${row.label}-${index}`}
+                            label={row.label}
+                            value={row.value}
+                            labelColor={color.textSecondary}
+                          />
+                        ))
+                      : (
+                          <BookingEmailDataRow
+                            label="Total"
+                            value={formatMoney(totalAmount)}
+                            labelColor={color.textSecondary}
+                          />
+                        )}
+                    {!isPayLater ? (
+                      <BookingEmailDataRow
+                        label="Paid"
+                        value={formatMoney(advancePaid)}
+                        labelColor={color.textSecondary}
+                      />
+                    ) : null}
                     <BookingEmailDataRow
-                      label="Total"
-                      value={formatMoney(totalAmount)}
-                      labelColor={color.textSecondary}
-                    />
-                    <BookingEmailDataRow
-                      label="Paid"
-                      value={formatMoney(advancePaid)}
-                      labelColor={color.textSecondary}
-                    />
-                    <BookingEmailDataRow
-                      label="Remaining"
+                      label={isPayLater ? "Balance Due" : "Remaining"}
                       value={formatMoney(remainingPayable)}
                       labelColor={color.textSecondary}
                       last={!paymentType && !paymentMethod && !paymentStatus && !paymentReference}
@@ -246,7 +289,7 @@ export default function AdminBookingConfirmationEmail({
                     {paymentStatus ? (
                       <BookingEmailDataRow
                         label="Payment Status"
-                        value={paymentStatus}
+                        value={formatPaymentStatus(paymentStatus)}
                         labelColor={color.textSecondary}
                         last={!paymentReference}
                       />
