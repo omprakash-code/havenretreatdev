@@ -43,9 +43,11 @@ import { ProductsExtrasSection } from "@/components/admin/bookings/add/sections/
 import { ScheduleSection } from "@/components/admin/bookings/add/sections/ScheduleSection";
 import type { UnavailableTimeRange } from "@/components/booking/time-range/TimeRangePicker";
 import ConfirmActionModal from "@/components/admin/drawer/ConfirmActionModal";
+import { formatVenueDateKey } from "@/lib/formatters";
 import {  isValidPhone, normalizePhone,} from "@/lib/phone";
 import {
   buildEditProductSelections,
+  getAdminBookingDateError,
   getSelectionKey,
   parseAdditionalChargeInput,
   getVariantPrice,
@@ -301,6 +303,9 @@ export function AdminAddBookingForm({
   >("AWAITING_PAYMENT");
   const [loadingEditData, setLoadingEditData] = useState(false);
   const [editPrefill, setEditPrefill] = useState<EditBookingResponse | null>(null);
+  // The date the booking already holds. It stays valid after it has passed, so
+  // a finished event can still be edited (e.g. to record a balance payment).
+  const retainedDate = isEditMode ? editPrefill?.date ?? null : null;
   const [editProductsHydrated, setEditProductsHydrated] = useState(false);
   const [initialFullPaid, setInitialFullPaid] = useState(false);
   const [initialAdvancePaid, setInitialAdvancePaid] = useState(0);
@@ -2083,6 +2088,12 @@ export function AdminAddBookingForm({
 
     if (!locationId) nextErrors.locationId = "Location is required.";
     if (!date) nextErrors.date = "Date is required.";
+    const dateError = getAdminBookingDateError(
+      date,
+      formatVenueDateKey(new Date()),
+      retainedDate
+    );
+    if (dateError) nextErrors.date = dateError;
     if (!theatreId) nextErrors.theatreId = "Package is required.";
     if (!startTime || !endTime) nextErrors.timeRange = "Event time is required.";
     if (!name.trim()) nextErrors.name = "Name is required.";
@@ -2512,6 +2523,7 @@ export function AdminAddBookingForm({
         <ScheduleSection
           locationId={locationId}
           date={date}
+          retainedDate={retainedDate}
           theatreId={theatreId}
           startTime={startTime}
           endTime={endTime}

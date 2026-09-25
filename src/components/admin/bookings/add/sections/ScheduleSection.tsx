@@ -7,6 +7,7 @@ import { Calendar } from "@/components/icons";
 import TimeRangePicker, { type UnavailableTimeRange } from "@/components/booking/time-range/TimeRangePicker";
 import { FieldTooltip } from "@/components/admin/bookings/add/FieldTooltip";
 import {
+  getAdminBookingMinDate,
   inputClass,
   sectionClass,
   selectableInputClass,
@@ -17,6 +18,8 @@ import {
 type ScheduleSectionProps = {
   locationId: string;
   date: string;
+  /** Date an existing booking already holds; it stays selectable once past. */
+  retainedDate?: string | null;
   theatreId: string;
   startTime: string | null;
   endTime: string | null;
@@ -51,6 +54,7 @@ function getFormattedDate(value: string) {
 export function ScheduleSection({
   locationId,
   date,
+  retainedDate = null,
   theatreId,
   startTime,
   endTime,
@@ -151,7 +155,7 @@ export function ScheduleSection({
                 type="date"
                 value={date}
                 onChange={(event) => onLocationDateChange(locationId, event.target.value)}
-                min={formatVenueDateKey(new Date())}
+                min={getAdminBookingMinDate(formatVenueDateKey(new Date()), retainedDate)}
                 disabled={!locationId}
                 aria-label="Date"
                 className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"

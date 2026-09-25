@@ -147,6 +147,38 @@ export function parseAdditionalChargeInput(input: string) {
   return Number.isFinite(parsed) ? Math.max(parsed, 0) : Number.NaN;
 }
 
+/**
+ * Earliest date the booking form's date picker accepts, as a venue date key.
+ *
+ * A new booking starts today. An existing booking may keep the date it already
+ * holds after that date has passed: the admin still has to record a balance
+ * payment or correct details once the event is over, and forcing the date
+ * forward to save would move the booking.
+ */
+export function getAdminBookingMinDate(
+  todayDateKey: string,
+  retainedDateKey?: string | null
+) {
+  return retainedDateKey && retainedDateKey < todayDateKey
+    ? retainedDateKey
+    : todayDateKey;
+}
+
+/**
+ * A past date is valid only when it is the date the booking already holds.
+ * Moving an existing booking to a different past date is still rejected, and a
+ * new booking has no retained date at all.
+ */
+export function getAdminBookingDateError(
+  dateKey: string,
+  todayDateKey: string,
+  retainedDateKey?: string | null
+) {
+  if (!dateKey || dateKey >= todayDateKey) return null;
+  if (retainedDateKey && dateKey === retainedDateKey) return null;
+  return "Date cannot be in the past.";
+}
+
 export type EditPrefillItem = {
   productId: string;
   variantId: string;
