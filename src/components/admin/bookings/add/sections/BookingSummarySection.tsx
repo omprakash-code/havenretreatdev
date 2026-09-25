@@ -44,6 +44,8 @@ type BookingSummarySectionProps = {
   wasInitiallyFullyPaid?: boolean;
   hasPriceImpactingChanges?: boolean;
   guidanceMessage?: string | null;
+  /** Renders the guidance as an error (e.g. an invalid date) instead of a hint. */
+  guidanceIsError?: boolean;
   isFormReady: boolean;
   submitting: boolean;
   onRemoveSelectedProduct: (selectionKey: string) => void;
@@ -95,6 +97,7 @@ export function BookingSummarySection({
   wasInitiallyFullyPaid = false,
   hasPriceImpactingChanges = false,
   guidanceMessage = null,
+  guidanceIsError = false,
   isFormReady,
   submitting,
   onRemoveSelectedProduct,
@@ -237,7 +240,11 @@ export function BookingSummarySection({
           ) : null}
 
           {guidanceMessage ? (
-            <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-[#2e7d7a]">
+            <div
+              className={`mt-1 flex items-center gap-1.5 text-sm font-medium ${
+                guidanceIsError ? "text-red-600" : "text-[#2e7d7a]"
+              }`}
+            >
               <ArrowRight size={14} className="shrink-0" />
               <p>{guidanceMessage}</p>
             </div>

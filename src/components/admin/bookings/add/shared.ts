@@ -164,6 +164,8 @@ export function getAdminBookingMinDate(
     : todayDateKey;
 }
 
+export const ADMIN_BOOKING_PAST_DATE_MESSAGE = "Date cannot be in the past.";
+
 /**
  * A past date is valid only when it is the date the booking already holds.
  * Moving an existing booking to a different past date is still rejected, and a
@@ -176,7 +178,7 @@ export function getAdminBookingDateError(
 ) {
   if (!dateKey || dateKey >= todayDateKey) return null;
   if (retainedDateKey && dateKey === retainedDateKey) return null;
-  return "Date cannot be in the past.";
+  return ADMIN_BOOKING_PAST_DATE_MESSAGE;
 }
 
 export type EditPrefillItem = {

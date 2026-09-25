@@ -1,6 +1,14 @@
+import { ADMIN_BOOKING_PAST_DATE_MESSAGE } from "@/components/admin/bookings/add/shared";
+
 export function getSubmitBlockerMessage(errors: Record<string, string>) {
   if (errors.locationId) return "Select a location.";
-  if (errors.date) return "Select a date.";
+  // A chosen-but-invalid date needs its reason; "Select a date." only fits an
+  // empty field.
+  if (errors.date) {
+    return errors.date === ADMIN_BOOKING_PAST_DATE_MESSAGE
+      ? errors.date
+      : "Select a date.";
+  }
   if (errors.theatreId) return "Select a package.";
   if (errors.slotStatus) return errors.slotStatus;
   if (errors.timeRange) return "Select a time range.";

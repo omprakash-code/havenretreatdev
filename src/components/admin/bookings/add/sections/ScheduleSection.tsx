@@ -20,6 +20,12 @@ type ScheduleSectionProps = {
   date: string;
   /** Date an existing booking already holds; it stays selectable once past. */
   retainedDate?: string | null;
+  /**
+   * Live problem with the chosen date (e.g. a past date). Shown as soon as the
+   * date is picked, because the submit button stays disabled until it is fixed
+   * and submit-time errors would never appear.
+   */
+  dateError?: string | null;
   theatreId: string;
   startTime: string | null;
   endTime: string | null;
@@ -55,6 +61,7 @@ export function ScheduleSection({
   locationId,
   date,
   retainedDate = null,
+  dateError = null,
   theatreId,
   startTime,
   endTime,
@@ -78,6 +85,7 @@ export function ScheduleSection({
   const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   const formattedDate = getFormattedDate(date);
+  const visibleDateError = dateError || errors.date;
   const isTheatreBlocked = !locationId || !date || loadingTheatres;
   const isTimeRangeBlocked = !locationId || !date || !theatreId || loadingTheatres || loadingAvailability;
   const selectedDate = useMemo(() => {
@@ -180,7 +188,9 @@ export function ScheduleSection({
               </div>
             </div>
           </FieldTooltip>
-          {errors.date && <p className="mt-1 text-xs text-red-600">{errors.date}</p>}
+          {visibleDateError && (
+            <p className="mt-1 text-xs text-red-600">{visibleDateError}</p>
+          )}
         </div>
 
         <div>

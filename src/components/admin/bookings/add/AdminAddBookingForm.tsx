@@ -46,6 +46,7 @@ import ConfirmActionModal from "@/components/admin/drawer/ConfirmActionModal";
 import { formatVenueDateKey } from "@/lib/formatters";
 import {  isValidPhone, normalizePhone,} from "@/lib/phone";
 import {
+  ADMIN_BOOKING_PAST_DATE_MESSAGE,
   buildEditProductSelections,
   getAdminBookingDateError,
   getSelectionKey,
@@ -306,6 +307,11 @@ export function AdminAddBookingForm({
   // The date the booking already holds. It stays valid after it has passed, so
   // a finished event can still be edited (e.g. to record a balance payment).
   const retainedDate = isEditMode ? editPrefill?.date ?? null : null;
+  const pastDateError = getAdminBookingDateError(
+    date,
+    formatVenueDateKey(new Date()),
+    retainedDate
+  );
   const [editProductsHydrated, setEditProductsHydrated] = useState(false);
   const [initialFullPaid, setInitialFullPaid] = useState(false);
   const [initialAdvancePaid, setInitialAdvancePaid] = useState(0);
@@ -2088,12 +2094,7 @@ export function AdminAddBookingForm({
 
     if (!locationId) nextErrors.locationId = "Location is required.";
     if (!date) nextErrors.date = "Date is required.";
-    const dateError = getAdminBookingDateError(
-      date,
-      formatVenueDateKey(new Date()),
-      retainedDate
-    );
-    if (dateError) nextErrors.date = dateError;
+    if (pastDateError) nextErrors.date = pastDateError;
     if (!theatreId) nextErrors.theatreId = "Package is required.";
     if (!startTime || !endTime) nextErrors.timeRange = "Event time is required.";
     if (!name.trim()) nextErrors.name = "Name is required.";
@@ -2524,6 +2525,7 @@ export function AdminAddBookingForm({
           locationId={locationId}
           date={date}
           retainedDate={retainedDate}
+          dateError={pastDateError}
           theatreId={theatreId}
           startTime={startTime}
           endTime={endTime}
@@ -2771,6 +2773,7 @@ export function AdminAddBookingForm({
           wasInitiallyFullyPaid={isEditMode ? initialFullPaid : false}
           hasPriceImpactingChanges={isEditMode ? hasPaymentPreviewChanges : false}
           guidanceMessage={summaryBlockerMessage}
+          guidanceIsError={summaryBlockerMessage === ADMIN_BOOKING_PAST_DATE_MESSAGE}
           isFormReady={isFormReady}
           submitting={submitting}
           onRemoveSelectedProduct={removeSelectedProduct}

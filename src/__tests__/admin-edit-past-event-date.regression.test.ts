@@ -14,9 +14,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  ADMIN_BOOKING_PAST_DATE_MESSAGE,
   getAdminBookingDateError,
   getAdminBookingMinDate,
 } from "@/components/admin/bookings/add/shared";
+import { getSubmitBlockerMessage } from "@/components/admin/bookings/add/sections/bookingSummary.helpers";
 import { localBookingTimeToUtc, toBookingDate } from "@/lib/booking-range";
 
 const { prismaMock, evaluateAdminCouponsMock, persistAdminBookingCouponsMock } =
@@ -337,6 +339,86 @@ describe("booking form date rule", () => {
 
   it("an empty date is left to the required-field check", () => {
     expect(getAdminBookingDateError("", TODAY, null)).toBeNull();
+  });
+});
+
+// ─── Form feedback for a chosen past date ───────────────────────────────────
+//
+// Reported: changing an edited booking from 23 Aug to 02 Sep (both past) kept
+// "02 Sep 2026" in the field but the form only said "Select a date." — the
+// summary guidance mapped every date error to that text, and the field's own
+// error was never rendered because the submit button stays disabled.
+
+describe("past-date feedback in the booking form", () => {
+  const ORIGINAL = "2026-08-23";
+  const CHANGED_PAST = "2026-09-02";
+
+  // What the form computes each render: the live date error and the summary
+  // guidance built from the readiness errors.
+  function formFeedback(date: string, retainedDate: string | null) {
+    const dateError = getAdminBookingDateError(date, TODAY, retainedDate);
+    const readinessErrors: Record<string, string> = {};
+    if (!date) readinessErrors.date = "Date is required.";
+    if (dateError) readinessErrors.date = dateError;
+    return {
+      dateError,
+      guidance: getSubmitBlockerMessage(readinessErrors),
+    };
+  }
+
+  it("new booking + past date explains the problem", () => {
+    const { dateError, guidance } = formFeedback(PAST_DATE, null);
+    expect(dateError).toBe(ADMIN_BOOKING_PAST_DATE_MESSAGE);
+    expect(guidance).toBe("Date cannot be in the past.");
+  });
+
+  it("edit + original past date retained is accepted", () => {
+    const { dateError, guidance } = formFeedback(ORIGINAL, ORIGINAL);
+    expect(dateError).toBeNull();
+    expect(guidance).toBeNull();
+  });
+
+  it("edit + different past date says the date is in the past, not 'Select a date.'", () => {
+    const { dateError, guidance } = formFeedback(CHANGED_PAST, ORIGINAL);
+    expect(dateError).toBe("Date cannot be in the past.");
+    expect(guidance).toBe("Date cannot be in the past.");
+    expect(guidance).not.toBe("Select a date.");
+  });
+
+  it("edit + today or a future date carries no date error", () => {
+    expect(formFeedback(TODAY, ORIGINAL)).toEqual({ dateError: null, guidance: null });
+    expect(formFeedback(FUTURE_DATE, ORIGINAL)).toEqual({
+      dateError: null,
+      guidance: null,
+    });
+  });
+
+  it("an empty date still asks the admin to select one", () => {
+    const { dateError, guidance } = formFeedback("", ORIGINAL);
+    expect(dateError).toBeNull();
+    expect(guidance).toBe("Select a date.");
+  });
+
+  it("picking an invalid date does not lose the booking's original date", () => {
+    // The retained date comes from the loaded booking, not the field, so a bad
+    // pick followed by picking the original date again is accepted.
+    expect(formFeedback(CHANGED_PAST, ORIGINAL).dateError).toBe(
+      ADMIN_BOOKING_PAST_DATE_MESSAGE
+    );
+    expect(getAdminBookingMinDate(TODAY, ORIGINAL)).toBe(ORIGINAL);
+    expect(formFeedback(ORIGINAL, ORIGINAL).dateError).toBeNull();
+  });
+
+  it("other blockers keep their existing guidance", () => {
+    expect(getSubmitBlockerMessage({ locationId: "Location is required." })).toBe(
+      "Select a location."
+    );
+    expect(getSubmitBlockerMessage({ theatreId: "Package is required." })).toBe(
+      "Select a package."
+    );
+    expect(getSubmitBlockerMessage({ timeRange: "Event time is required." })).toBe(
+      "Select a time range."
+    );
   });
 });
 
