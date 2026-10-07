@@ -18,7 +18,18 @@ function minutesToTime(minutes: number) {
   return `${String(hours).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
 }
 
-const AVAILABILITY_HORIZON_DAYS = 90;
+const DEFAULT_AVAILABILITY_HORIZON_DAYS = 90;
+// Upper bound so a mistyped env value can't produce an unbounded date list/query.
+const MAX_AVAILABILITY_HORIZON_DAYS = 730;
+
+function getAvailabilityHorizonDays() {
+  const configuredDays = Number(process.env.RANGE_AVAILABILITY_DAYS);
+  if (Number.isInteger(configuredDays) && configuredDays > 0) {
+    return Math.min(configuredDays, MAX_AVAILABILITY_HORIZON_DAYS);
+  }
+
+  return DEFAULT_AVAILABILITY_HORIZON_DAYS;
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -59,6 +70,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: true, data: [] });
   }
 
+  const horizonDays = getAvailabilityHorizonDays();
   const now = new Date();
   const nowInVenue = toZonedTime(now, BOOKING_TIME_ZONE);
   const todayInVenue = startOfDay(nowInVenue);
@@ -78,7 +90,7 @@ export async function GET(req: Request) {
       ),
       eventDate: {
         gte: todayInVenue,
-        lte: addDays(todayInVenue, AVAILABILITY_HORIZON_DAYS),
+        lte: addDays(todayInVenue, horizonDays),
       },
     },
     select: {
@@ -106,7 +118,7 @@ export async function GET(req: Request) {
   }
 
   const dates: { date: string }[] = [];
-  for (let i = 0; i < AVAILABILITY_HORIZON_DAYS; i++) {
+  for (let i = 0; i < horizonDays; i++) {
     const day = addDays(todayInVenue, i);
     const dateKey = formatInTimeZone(day, BOOKING_TIME_ZONE, "yyyy-MM-dd");
     if (!fullyBlockedDates.has(dateKey)) {
