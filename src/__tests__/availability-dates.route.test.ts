@@ -102,14 +102,13 @@ describe("GET /api/availability/dates", () => {
       const first = dates[0];
 
       expect(dates).toHaveLength(365);
-      // The route's start day depends on the host timezone offset vs the venue
-      // (pre-existing behaviour), so assert it's today or the day before.
-      expect([todayKey, addDaysToDateKey(todayKey, -1)]).toContain(first);
+      expect(first).toBe(todayKey);
       dates.forEach((date, i) => expect(date).toBe(addDaysToDateKey(first, i)));
       expect(dates).toContain(addDaysToDateKey(todayKey, 200));
-      // Window is [first, first + 364]: first + 365 is outside it.
-      expect(dates).not.toContain(addDaysToDateKey(first, 365));
-      expect(dates).not.toContain(addDaysToDateKey(todayKey, -2));
+      // Window is [today, today + 364]: today + 365 is outside it.
+      expect(dates.at(-1)).toBe(addDaysToDateKey(todayKey, 364));
+      expect(dates).not.toContain(addDaysToDateKey(todayKey, 365));
+      expect(dates).not.toContain(addDaysToDateKey(todayKey, -1));
     });
 
     it("queries blocking bookings across the full 365-day window", async () => {
@@ -163,6 +162,82 @@ describe("GET /api/availability/dates", () => {
     const json = await res.json();
     expect(json.data).toHaveLength(730);
   });
+
+  // ── Venue-local day boundaries (fixed instants, any server timezone) ──────
+
+  describe.each(["UTC", "America/New_York", "Asia/Kolkata"])(
+    "venue-local window on a %s server",
+    (serverTz) => {
+      beforeEach(() => {
+        vi.stubEnv("TZ", serverTz);
+        vi.useFakeTimers({ toFake: ["Date"] });
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      async function datesAt(instant: string, days = "365") {
+        vi.setSystemTime(new Date(instant));
+        vi.stubEnv("RANGE_AVAILABILITY_DAYS", days);
+        const res = await GET(makeRequest({ locationId: LOCATION_ID }));
+        return (await res.json()).data.map((d: { date: string }) => d.date) as string[];
+      }
+
+      it("starts on the venue's today and ends at today + 364 for 365 days", async () => {
+        // 22:30 on 12 Oct in New York (already 13 Oct in UTC and India).
+        const dates = await datesAt("2026-10-13T02:30:00Z");
+
+        expect(dates).toHaveLength(365);
+        expect(dates[0]).toBe("2026-10-12");
+        expect(dates.at(-1)).toBe("2027-10-11");
+      });
+
+      it("rolls over exactly at venue-local midnight", async () => {
+        expect((await datesAt("2026-10-13T03:59:59Z"))[0]).toBe("2026-10-12");
+        expect((await datesAt("2026-10-13T04:00:00Z"))[0]).toBe("2026-10-13");
+      });
+
+      it("crosses December into January with the correct years", async () => {
+        // 18:30 on 31 Dec in New York (already 1 Jan in UTC and India).
+        expect(await datesAt("2026-12-31T23:30:00Z", "3")).toEqual([
+          "2026-12-31",
+          "2027-01-01",
+          "2027-01-02",
+        ]);
+        // 00:00 on 1 Jan in New York (EST, UTC-5).
+        expect((await datesAt("2027-01-01T05:00:00Z", "3"))[0]).toBe("2027-01-01");
+      });
+
+      it("queries bookings from venue today through today + horizon", async () => {
+        await datesAt("2026-10-13T02:30:00Z");
+        const { gte, lte } = prismaMock.booking.findMany.mock.calls[0][0].where.eventDate;
+
+        expect(formatInTimeZone(gte, BOOKING_TIME_ZONE, "yyyy-MM-dd")).toBe("2026-10-12");
+        expect(formatInTimeZone(lte, BOOKING_TIME_ZONE, "yyyy-MM-dd")).toBe("2027-10-12");
+      });
+
+      it("excludes a fully booked day stored as a date-only (UTC midnight) value", async () => {
+        prismaMock.booking.findMany.mockResolvedValue([
+          {
+            // Prisma returns @db.Date columns at UTC midnight.
+            eventDate: new Date("2026-12-31T00:00:00.000Z"),
+            eventStartTime: "09:00",
+            eventEndTime: "22:30",
+          },
+        ]);
+
+        const dates = await datesAt("2026-12-29T15:00:00Z", "5");
+
+        expect(dates).toEqual(["2026-12-29", "2026-12-30", "2027-01-01", "2027-01-02"]);
+      });
+
+      it("keeps the fallback and cap unchanged", async () => {
+        expect(await datesAt("2026-10-13T02:30:00Z", "abc")).toHaveLength(90);
+        expect(await datesAt("2026-10-13T02:30:00Z", "100000")).toHaveLength(730);
+      });
+    }
+  );
 
   // ── Fully blocked dates ───────────────────────────────────────────────────
 

@@ -9,7 +9,7 @@
 //       formatVenueDateTime / formatVenueDate / formatVenueTime / formatVenueDateKey
 //   - Calendar date (a "yyyy-MM-dd" string, or a Date pinned to UTC/venue
 //     midnight such as eventDate, preferredDate, coupon rule dates):
-//       formatCalendarDate / formatCalendarDateShort — NEVER the venue
+//       formatCalendarDate — NEVER the venue
 //       helpers, which can shift a UTC-midnight date to the previous day.
 //   - Wall-clock "HH:MM" string (eventStartTime/eventEndTime):
 //       formatTimeLabel / formatSlotTime — timezone-agnostic by design.
@@ -102,13 +102,6 @@ export function formatCalendarDate(
   pattern = "dd MMM yyyy"
 ) {
   return formatInTimeZone(toDate(input), "UTC", pattern);
-}
-
-/**
- * Short calendar date without year, e.g. "14 Jul".
- */
-export function formatCalendarDateShort(input: Date | string) {
-  return formatCalendarDate(input, "dd MMM");
 }
 
 /**

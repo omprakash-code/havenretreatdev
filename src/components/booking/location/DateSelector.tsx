@@ -31,7 +31,7 @@ type DateSelectorProps = {
 };
 
 function formatBookingDateShort(date: Date) {
-  return formatWallDate(date, { day: "2-digit", month: "short" });
+  return formatWallDate(date, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export default function DateSelector({
@@ -100,8 +100,8 @@ export default function DateSelector({
                   <span className="mt-1 block text-lg font-bold leading-none sm:text-lg">
                     {date.getDate()}
                   </span>
-                  <span className="mt-1 block text-[11px] font-medium opacity-75">
-                    {formatWallDate(date, { month: "short" })}
+                  <span className="mt-1 block text-[11px] font-medium leading-tight opacity-75">
+                    {formatWallDate(date, { month: "short", year: "numeric" })}
                   </span>
                 </button>
               );

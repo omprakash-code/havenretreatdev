@@ -19,7 +19,8 @@ import {
   parseMinimumBookingDurationHours,
 } from "@/lib/app-settings";
 import { calculateDurationHours } from "@/lib/booking-time-range";
-import { formatSlotTime } from "@/lib/formatters";
+import { dateFromDateKey } from "@/lib/date";
+import { formatCalendarDateKey, formatSlotTime } from "@/lib/formatters";
 import {
   PACKAGE_EXTRA_PERSON_PRICE,
 } from "@/lib/package-guest-pricing";
@@ -478,11 +479,13 @@ const loadBooking = async () => {
             ? Number(data.advancePaid)
             : undefined,
         location: resolvedLocation,
+        // eventDate is date-only (UTC midnight); keep its calendar day as a
+        // local-midnight Date like the date pickers produce.
         date: data.rangeSchedule?.eventDate
-          ? new Date(data.rangeSchedule.eventDate)
+          ? dateFromDateKey(formatCalendarDateKey(data.rangeSchedule.eventDate))
           : null,
         selectedDate: data.rangeSchedule?.eventDate
-          ? new Date(data.rangeSchedule.eventDate)
+          ? dateFromDateKey(formatCalendarDateKey(data.rangeSchedule.eventDate))
           : null,
         startTime: data.rangeSchedule?.startTime ?? null,
         endTime: data.rangeSchedule?.endTime ?? null,

@@ -42,7 +42,8 @@ import {
 } from "@/context/BookingContext";
 import StepIndicator from "@/components/booking/steps/StepIndicator";
 import type { BookingSummaryProps } from "./types";
-import { formatCalendarDateShort } from "@/lib/formatters";
+import { toDateKeyString } from "@/lib/date";
+import { formatCalendarDate } from "@/lib/formatters";
 import { isCouponConditionMessage } from "@/lib/coupon-feedback";
 import { resolveCouponIdentityGate } from "@/lib/coupon-identity-gate";
 import { useLockCountdown } from "@/hooks/booking/useLockCountdown";
@@ -773,7 +774,7 @@ export default function BookingSummary({
 
               <SummaryRow
                 label="Date & Time"
-                value={`${booking.date ? formatCalendarDateShort(booking.date) : "—"}, ${schedule.time}`}
+                value={`${booking.date ? formatCalendarDate(toDateKeyString(booking.date)) : "—"}, ${schedule.time}`}
                 labelClassName="text-gray-500 text-sm font-normal"
                 customLabel={
                   <span className="inline-flex items-center gap-1.5">

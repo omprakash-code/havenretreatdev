@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { addDays, startOfDay } from "date-fns";
-import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/db";
+import { addDaysToDateKey } from "@/lib/date";
+import { formatCalendarDateKey, formatVenueDateKey } from "@/lib/formatters";
 import {
   BOOKING_BUFFER_MINUTES,
   BOOKING_BUSINESS_CLOSE_TIME,
   BOOKING_BUSINESS_OPEN_TIME,
-  BOOKING_TIME_ZONE,
   buildRangeConflictFilter,
 } from "@/lib/booking-policy";
-import { timeToMinutes } from "@/lib/booking-range";
+import { timeToMinutes, toBookingDate } from "@/lib/booking-range";
 import { getOwnedBookingIdFromCookies } from "@/services/booking/range-booking-api-session";
 
 function minutesToTime(minutes: number) {
@@ -72,8 +71,8 @@ export async function GET(req: Request) {
 
   const horizonDays = getAvailabilityHorizonDays();
   const now = new Date();
-  const nowInVenue = toZonedTime(now, BOOKING_TIME_ZONE);
-  const todayInVenue = startOfDay(nowInVenue);
+  // Venue calendar day as a date key, independent of the server timezone.
+  const todayKey = formatVenueDateKey(now);
 
   // Find dates that are fully blocked (an approved booking occupies the entire day window)
   // For simplicity, mark a date unavailable only if an approved booking spans the
@@ -89,8 +88,8 @@ export async function GET(req: Request) {
         ownedBookingId ? { id: { not: ownedBookingId } } : {}
       ),
       eventDate: {
-        gte: todayInVenue,
-        lte: addDays(todayInVenue, horizonDays),
+        gte: toBookingDate(todayKey),
+        lte: toBookingDate(addDaysToDateKey(todayKey, horizonDays)),
       },
     },
     select: {
@@ -112,15 +111,14 @@ export async function GET(req: Request) {
       b.eventStartTime === BOOKING_BUSINESS_OPEN_TIME &&
       b.eventEndTime === latestEventEnd
     ) {
-      const dateKey = formatInTimeZone(b.eventDate, BOOKING_TIME_ZONE, "yyyy-MM-dd");
-      fullyBlockedDates.add(dateKey);
+      // eventDate is date-only: read its calendar day, never shift it into venue time.
+      fullyBlockedDates.add(formatCalendarDateKey(b.eventDate));
     }
   }
 
   const dates: { date: string }[] = [];
   for (let i = 0; i < horizonDays; i++) {
-    const day = addDays(todayInVenue, i);
-    const dateKey = formatInTimeZone(day, BOOKING_TIME_ZONE, "yyyy-MM-dd");
+    const dateKey = addDaysToDateKey(todayKey, i);
     if (!fullyBlockedDates.has(dateKey)) {
       dates.push({ date: dateKey });
     }
