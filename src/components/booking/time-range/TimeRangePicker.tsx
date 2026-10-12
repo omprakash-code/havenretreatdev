@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BOOKING_TIME_ZONE } from "@/lib/booking-policy";
-import { Clock, Edit, X } from "@/components/icons";
+import { Calendar, Clock, Edit, X } from "@/components/icons";
 import {
   buildTimeValues,
   calculateDurationHours,
@@ -10,7 +10,7 @@ import {
   parseTimeValue,
 } from "@/lib/booking-time-range";
 import { toDateKeyString } from "@/lib/date";
-import { formatTimeLabel } from "@/lib/formatters";
+import { formatTimeLabel, formatWallDate } from "@/lib/formatters";
 
 type TimeRangePickerProps = {
   startTime: string | null;
@@ -319,7 +319,9 @@ export default function TimeRangePicker({
       candidateMinutes !== null &&
       candidateMinutes + minDurationMinutes > businessCloseMinutes
     ) {
-      return `${label} is unavailable because it cannot meet the minimum duration today`;
+      return `${label} is too late to fit the ${minDurationHours} ${
+        minDurationHours === 1 ? "hour" : "hours"
+      } minimum before closing`;
     }
 
     if (
@@ -418,7 +420,7 @@ export default function TimeRangePicker({
         >
           <div
             ref={modalPanelRef}
-            className="relative flex h-[min(34rem,calc(100svh-7rem))] max-h-[calc(100svh-7rem)] w-full flex-col overflow-hidden bg-white px-4 pb-3 pt-10 shadow-[0_28px_80px_rgba(16,24,40,0.28)] transition-[height,transform,opacity] duration-300 ease-out sm:h-[min(36rem,calc(100dvh-4rem))] sm:max-h-[calc(100dvh-4rem)] sm:px-8 sm:pb-8 sm:pt-14"
+            className="relative flex h-[min(34rem,calc(100svh-7rem))] max-h-[calc(100svh-7rem)] w-full flex-col overflow-hidden bg-white px-4 pb-3 pt-10 shadow-[0_28px_80px_rgba(16,24,40,0.28)] transition-[height,transform,opacity] duration-300 ease-out sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:px-8 sm:pb-8 sm:pt-14"
           >
             <button
               type="button"
@@ -429,57 +431,87 @@ export default function TimeRangePicker({
               <X size={14} />
             </button>
 
-            <div className="mb-2 shrink-0 grid gap-2 transition-all duration-300 ease-out sm:mb-4 sm:gap-3 xl:grid-cols-[minmax(150px,1fr)_minmax(420px,auto)] xl:items-start">
-              <div className="min-w-0 lg:pt-1">
-                <h2 className="text-[1rem] font-semibold tracking-[-0.02em] text-[#101828] sm:text-lg">
+            {/* Fixed-height header: text never changes line count between steps. */}
+            <div className="mb-3 shrink-0 sm:mb-4">
+              <div className="flex min-h-5 items-center pr-10 sm:min-h-6">
+                {selectedDate && (
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-[#245e5b] sm:text-sm">
+                    <Calendar size={14} className="shrink-0" />
+                    {formatWallDate(selectedDate, {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-1 flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                <h2 className="whitespace-nowrap text-[1rem] font-semibold tracking-[-0.02em] text-[#101828] sm:text-lg">
                   {draftDurationHours
-                    ? `${draftDurationHours} ${draftDurationHours === 1 ? "hour" : "hours"}`
+                    ? "Time selected"
                     : isSelectingEndTime
                       ? "Select end time"
                       : "Select start time"}
                 </h2>
-                <p className="mt-0.5 text-xs text-[#667085] sm:mt-1 sm:text-sm">
-                  {draftStartTime && draftEndTime
-                    ? `${formatTimeLabel(draftStartTime)} - ${formatTimeLabel(draftEndTime)}`
-                    : `Min. ${minDurationHours} ${minDurationHours === 1 ? "hr" : "hrs"}`}
+                <p className="text-xs text-[#667085] sm:whitespace-nowrap sm:text-sm">
+                  Minimum {minDurationHours} {minDurationHours === 1 ? "hour" : "hours"} required
                 </p>
               </div>
 
-              <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3 xl:w-[350px]">
+              <div className="mt-3 grid grid-cols-[1fr_1fr_auto] divide-x divide-[#e4e7ec] border border-[#d0d5dd] bg-white">
+                {[
+                  { label: "Start time", value: draftStartTime, active: !draftStartTime },
+                  { label: "End time", value: draftEndTime, active: isSelectingEndTime },
+                ].map((segment) => (
+                  <div
+                    key={segment.label}
+                    className={`flex flex-col gap-0.5 px-3 py-2 transition-colors sm:flex-row sm:items-baseline sm:gap-3 sm:px-4 sm:py-2.5 ${
+                      segment.active ? "bg-[#f3f7f6] shadow-[inset_0_-2px_0_#347f7c]" : ""
+                    }`}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#667085] sm:whitespace-nowrap sm:text-[11px]">
+                      {segment.label}
+                    </span>
+                    <span
+                      className={`whitespace-nowrap text-sm font-medium ${
+                        segment.value ? "text-[#101828]" : "text-[#98a2b3]"
+                      }`}
+                    >
+                      {segment.value ? formatTimeLabel(segment.value) : "Add time"}
+                    </span>
+                  </div>
+                ))}
                 <div
-                  className={`min-h-[48px] border bg-white px-3 py-2 text-left sm:min-h-[58px] sm:px-5 sm:py-3 ${
-                    !draftStartTime || draftEndTime
-                      ? "border-[#347f7c] shadow-[inset_0_0_0_1px_#347f7c]"
-                      : "border-[#d0d5dd]"
+                  className={`flex min-w-[6rem] items-center gap-1.5 whitespace-nowrap px-2.5 text-sm font-medium sm:min-w-[8rem] sm:px-4 ${
+                    draftDurationHours ? "text-[#245e5b]" : "text-[#98a2b3]"
                   }`}
+                  aria-label={
+                    draftDurationHours
+                      ? `Duration ${draftDurationHours} ${draftDurationHours === 1 ? "hour" : "hours"}`
+                      : "Duration not selected"
+                  }
                 >
-                  <span className="block whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-[#475467] sm:text-xs">
-                    Start Time
-                  </span>
-                  <span className="mt-0.5 block text-xs font-medium text-[#101828] sm:mt-1.5 sm:text-sm">
-                    {draftStartTime ? formatTimeLabel(draftStartTime) : "Add time"}
-                  </span>
-                </div>
-
-                <div
-                  className={`min-h-[48px] border bg-white px-3 py-2 text-left sm:min-h-[58px] sm:px-5 sm:py-3 ${
-                    isSelectingEndTime
-                      ? "border-[#347f7c] shadow-[inset_0_0_0_1px_#347f7c]"
-                      : "border-[#d0d5dd]"
-                  }`}
-                >
-                  <span className="block whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.12em] text-[#475467] sm:text-xs">
-                    End Time
-                  </span>
-                  <span className="mt-0.5 block text-xs font-medium text-[#101828] sm:mt-1.5 sm:text-sm">
-                    {draftEndTime ? formatTimeLabel(draftEndTime) : "Add time"}
-                  </span>
+                  <Clock size={15} className="shrink-0" />
+                  {draftDurationHours ? (
+                    <>
+                      <span className="sm:hidden">
+                        {draftDurationHours} {draftDurationHours === 1 ? "hr" : "hrs"}
+                      </span>
+                      <span className="hidden sm:inline">
+                        {draftDurationHours} {draftDurationHours === 1 ? "hour" : "hours"}
+                      </span>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </div>
               </div>
             </div>
 
             <div
-              className="grid min-h-0 flex-1 content-start grid-cols-4 gap-1.5 overflow-y-auto overflow-x-visible overscroll-contain px-0 pb-3 transition-[opacity,transform] duration-200 ease-out sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-7"
+              className="grid min-h-0 flex-auto content-start grid-cols-4 gap-1.5 overflow-y-auto overflow-x-visible overscroll-contain px-0 pb-3 transition-[opacity,transform] duration-200 ease-out sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-7"
               onScroll={hideDurationTooltip}
             >
               {visibleTimes.map((time) => {
@@ -514,6 +546,13 @@ export default function TimeRangePicker({
                 const unavailableRange = findUnavailableRangeForTime(time);
                 const isPastOrBlocked =
                   unavailableRange?.reason === "BLOCKED";
+                const isTooLateToStart =
+                  !isSelectingEndTime &&
+                  !selected &&
+                  !unavailableRange &&
+                  timeMinutes !== null &&
+                  timeMinutes + minDurationMinutes > businessCloseMinutes &&
+                  !(isSelectedDateToday && timeMinutes <= nowMinutes);
                 const chipMessage = getChipMessage({
                   time,
                   selected,
@@ -555,8 +594,8 @@ export default function TimeRangePicker({
                           ? "cursor-not-allowed border-[#ead7d7] bg-[#fff5f5] text-[#b42318] line-through"
                         : isPastOrBlocked
                           ? "cursor-not-allowed border-[#edf0f2] bg-[#f6f7f8] text-[#a8b0bb] line-through"
-                        : isShortEndOption
-                          ? "cursor-not-allowed border-transparent bg-transparent text-[#c0c6cf] line-through"
+                        : isShortEndOption || isTooLateToStart
+                          ? "cursor-not-allowed border-dashed border-[#d0d5dd] bg-white text-[#b0b7c3]"
                         : unavailable
                           ? "cursor-not-allowed border-[#edf0f2] bg-[#f6f7f8] text-[#a8b0bb] line-through"
                           : "border-[#cfd6df] bg-white text-[#101828] hover:border-[#98a2b3] hover:shadow-[0_6px_16px_rgba(16,24,40,0.08)]"
@@ -583,11 +622,6 @@ export default function TimeRangePicker({
               </button>
 
               <div className="flex items-center gap-3">
-                {draftDurationHours && (
-                  <span className="hidden text-sm font-medium text-[#245e5b] sm:inline">
-                    {draftDurationHours} {draftDurationHours === 1 ? "hour" : "hours"}
-                  </span>
-                )}
                 <button
                   type="button"
                   onClick={saveDraft}
@@ -600,29 +634,29 @@ export default function TimeRangePicker({
             </div>
 
             <div className="mt-2 shrink-0 bg-white pt-2 sm:mt-3 sm:pt-3">
-              <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[9px] font-medium text-[#667085] sm:gap-x-4 sm:gap-y-2 sm:text-[11px]">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2.5 border border-[#cfd6df] bg-white" />
+              <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[9px] font-medium text-[#667085] sm:gap-y-2 sm:text-[11px]">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span className="size-2.5 shrink-0 border border-[#cfd6df] bg-white" />
                   Available
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2.5 border border-[#347f7c] bg-[#347f7c]" />
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span className="size-2.5 shrink-0 border border-[#347f7c] bg-[#347f7c]" />
                   Selected
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2.5 border border-[#e4eeeb] bg-[#edf3f1]" />
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span className="size-2.5 shrink-0 border border-[#e4eeeb] bg-[#edf3f1]" />
                   Selected range
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2.5 border border-[#ead7d7] bg-[#fff5f5]" />
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span className="size-2.5 shrink-0 border border-[#ead7d7] bg-[#fff5f5]" />
                   Booked / reserved
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2.5 border border-[#edf0f2] bg-[#f6f7f8]" />
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span className="size-2.5 shrink-0 border border-[#edf0f2] bg-[#f6f7f8]" />
                   Past / unavailable
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2.5 border border-transparent bg-[#f6f7f8]" />
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span className="size-2.5 shrink-0 border border-dashed border-[#98a2b3] bg-white" />
                   Under minimum
                 </span>
               </div>
