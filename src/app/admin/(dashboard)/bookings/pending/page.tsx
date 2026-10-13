@@ -11,6 +11,7 @@ import useAdminBookingActions from "@/components/admin/bookings/useAdminBookingA
 import AdminEmptyState from "@/components/admin/shared/AdminEmptyState";
 import { ClipboardCheck, Search } from "@/components/icons";
 import type { AdminBooking } from "@/types/admin/booking-admin";
+import { announcePendingReviewCount } from "@/lib/admin/pending-review-count";
 
 /**
  * Booking requests waiting for an admin decision. Reuses the standard booking
@@ -42,7 +43,10 @@ export default function PendingReviewBookingsPage() {
       const json = await res.json();
       const rows: AdminBooking[] =
         json?.success && Array.isArray(json.data) ? json.data : [];
-      if (json?.success) setData(rows);
+      if (json?.success) {
+        setData(rows);
+        announcePendingReviewCount(rows.length);
+      }
       return rows;
     } finally {
       setLoading(false);
@@ -175,11 +179,11 @@ export default function PendingReviewBookingsPage() {
   return (
     <>
       <PageHeader
-        title={`Pending Review (${filteredBookings.length})`}
+        title="Pending Review"
         description={
           filteredBookings.length === 0
             ? "No booking requests waiting for review."
-            : "Signed booking requests awaiting approval. No payment has been collected."
+            : "Approve or reject each booking request."
         }
       />
 
