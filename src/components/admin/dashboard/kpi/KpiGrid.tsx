@@ -90,7 +90,13 @@ export default function KpiGrid() {
     valueFormatter: (value: number) => string = (value) => value.toLocaleString()
   ) {
     if (!trend) return fallback;
-    if (trend.previous === 0) return "";
+    // Nothing to compare against: show this period's total, or label the
+    // lifetime figure, instead of leaving the card's footer empty.
+    if (trend.previous === 0) {
+      return trend.current > 0
+        ? `+${valueFormatter(trend.current)} in the last ${periodDays} days`
+        : fallback;
+    }
     if (trend.direction === "neutral") return `No change vs previous ${periodDays}d`;
     if (trend.percentChange === null) {
       return `${trend.direction === "up" ? "+" : "-"}${valueFormatter(Math.abs(trend.absoluteChange))} vs previous ${periodDays}d`;
@@ -174,7 +180,7 @@ export default function KpiGrid() {
         value={String(data.rejectedLifetime)}
         delta={
           data.rejectedLifetime > 0
-            ? "All-time"
+            ? "All time"
             : "No rejected bookings"
         }
         trend="neutral"

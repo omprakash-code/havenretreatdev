@@ -45,7 +45,7 @@ export default function KpiCard({
         </div>
 
         <div
-          className="flex h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 [&_svg]:h-4 [&_svg]:w-4 sm:h-10 sm:w-10 sm:min-w-10 sm:rounded-xl sm:[&_svg]:h-5 sm:[&_svg]:w-5"
+          className="flex h-8 w-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-900 ring-1 ring-neutral-200/70 [&_svg]:h-4 [&_svg]:w-4 sm:h-10 sm:w-10 sm:min-w-10 sm:rounded-xl sm:[&_svg]:h-5 sm:[&_svg]:w-5"
         >
           {icon}
         </div>
